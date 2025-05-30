@@ -162,17 +162,25 @@
 
 /* Status badge styles */
 .status-pending {
-  @apply bg-warning/10 text-warning border border-warning/20;
+  background-color: hsl(var(--warning) / 0.1);
+  color: hsl(var(--warning));
+  border: 1px solid hsl(var(--warning) / 0.2);
 }
 
 .status-approved {
-  @apply bg-success/10 text-success border border-success/20;
+  background-color: hsl(var(--success) / 0.1);
+  color: hsl(var(--success));
+  border: 1px solid hsl(var(--success) / 0.2);
 }
 
 .status-completed {
-  @apply bg-success/10 text-success border border-success/20;
+  background-color: hsl(var(--success) / 0.1);
+  color: hsl(var(--success));
+  border: 1px solid hsl(var(--success) / 0.2);
 }
 
 .status-rejected {
-  @apply bg-destructive/10 text-destructive border border-destructive/20;
+  background-color: hsl(var(--destructive) / 0.1);
+  color: hsl(var(--destructive));
+  border: 1px solid hsl(var(--destructive) / 0.2);
 }

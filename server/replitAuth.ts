@@ -57,12 +57,16 @@ function updateUserSession(
 async function upsertUser(
   claims: any,
 ) {
+  // Get selected role from session storage or default to merchant
+  const selectedRole = claims["selected_role"] || "merchant";
+  
   await storage.upsertUser({
     id: claims["sub"],
     email: claims["email"],
     firstName: claims["first_name"],
     lastName: claims["last_name"],
     profileImageUrl: claims["profile_image_url"],
+    role: selectedRole,
   });
 }
 

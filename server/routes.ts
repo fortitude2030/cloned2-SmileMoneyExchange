@@ -194,7 +194,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // If approved, update wallet balances
       if (status === 'completed' && transaction.toUserId) {
         const wallet = await storage.getOrCreateWallet(transaction.toUserId);
-        const newBalance = (parseFloat(wallet.balance) + parseFloat(transaction.amount)).toString();
+        const newBalance = (parseFloat(wallet.balance || "0") + parseFloat(transaction.amount)).toString();
         await storage.updateWalletBalance(transaction.toUserId, newBalance);
       }
 

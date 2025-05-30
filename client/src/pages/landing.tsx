@@ -10,8 +10,11 @@ export default function Landing() {
     // Store role selection in sessionStorage for after auth
     if (selectedRole) {
       sessionStorage.setItem('smileMoney_selectedRole', selectedRole);
+      // Pass role to backend via URL parameter
+      window.location.href = `/api/login?role=${selectedRole}`;
+    } else {
+      window.location.href = "/api/login";
     }
-    window.location.href = "/api/login";
   };
 
   return (

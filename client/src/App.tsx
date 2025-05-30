@@ -35,7 +35,8 @@ function Router() {
         <>
           <Route path="/" component={() => {
             // Route based on user role
-            switch (user?.role) {
+            const userRole = (user as any)?.role;
+            switch (userRole) {
               case 'merchant':
                 return <MerchantDashboard />;
               case 'cashier':
