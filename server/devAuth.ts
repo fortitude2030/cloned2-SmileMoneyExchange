@@ -1,8 +1,20 @@
 import type { Express, RequestHandler } from "express";
+import session from "express-session";
 import { storage } from "./storage";
 
 // Simple development authentication for testing
 export async function setupDevAuth(app: Express) {
+  // Setup session middleware
+  app.use(session({
+    secret: process.env.SESSION_SECRET || 'dev-secret-key',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      secure: false, // Set to true in production with HTTPS
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    },
+  }));
   // Development login endpoint
   app.post('/api/dev-login', async (req, res) => {
     try {
@@ -12,18 +24,30 @@ export async function setupDevAuth(app: Express) {
         return res.status(400).json({ message: "Invalid role" });
       }
 
-      // Create or get test user for the role
-      const testUserId = `test-${role}-${Date.now()}`;
-      const user = await storage.upsertUser({
-        id: testUserId,
-        email: `${role}@testco.com`,
-        firstName: role.charAt(0).toUpperCase() + role.slice(1),
-        lastName: "User",
-        role: role,
-        profileImageUrl: null,
-      });
+      // Use fixed test user IDs for each role to avoid duplicates
+      const testUserId = `test-${role}-user`;
+      const testEmail = `${role}@testco.com`;
+      
+      // Try to get existing user first
+      let user = await storage.getUser(testUserId);
+      
+      if (!user) {
+        // Create new test user
+        user = await storage.upsertUser({
+          id: testUserId,
+          email: testEmail,
+          firstName: role.charAt(0).toUpperCase() + role.slice(1),
+          lastName: "User",
+          role: role,
+          profileImageUrl: null,
+        });
+      }
 
       // Set session
+      if (!req.session) {
+        return res.status(500).json({ message: "Session not available" });
+      }
+      
       (req.session as any).userId = user.id;
       (req.session as any).authenticated = true;
 
