@@ -1,0 +1,178 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 220 13% 98%; /* #F5F7FA */
+  --foreground: 215 25% 27%; /* #374151 */
+  --muted: 220 13% 95%; /* #F1F5F9 */
+  --muted-foreground: 215 16% 47%; /* #64748B */
+  --popover: 0 0% 100%; /* #FFFFFF */
+  --popover-foreground: 215 25% 27%; /* #374151 */
+  --card: 0 0% 100%; /* #FFFFFF */
+  --card-foreground: 215 25% 27%; /* #374151 */
+  --border: 220 13% 91%; /* #E2E8F0 */
+  --input: 220 13% 91%; /* #E2E8F0 */
+  --primary: 207 90% 54%; /* #1565C0 */
+  --primary-foreground: 210 40% 98%; /* #F8FAFC */
+  --secondary: 142 76% 36%; /* #2E7D32 */
+  --secondary-foreground: 210 40% 98%; /* #F8FAFC */
+  --accent: 36 100% 48%; /* #F57C00 */
+  --accent-foreground: 210 40% 98%; /* #F8FAFC */
+  --destructive: 0 84% 60%; /* #EF4444 */
+  --destructive-foreground: 210 40% 98%; /* #F8FAFC */
+  --success: 142 71% 45%; /* #388E3C */
+  --success-foreground: 210 40% 98%; /* #F8FAFC */
+  --warning: 36 100% 48%; /* #F57C00 */
+  --warning-foreground: 210 40% 98%; /* #F8FAFC */
+  --ring: 207 90% 54%; /* #1565C0 */
+  --radius: 0.75rem;
+}
+
+.dark {
+  --background: 224 71% 4%; /* #0F172A */
+  --foreground: 213 31% 91%; /* #E2E8F0 */
+  --muted: 223 47% 11%; /* #1E293B */
+  --muted-foreground: 215 20% 65%; /* #94A3B8 */
+  --popover: 224 71% 4%; /* #0F172A */
+  --popover-foreground: 213 31% 91%; /* #E2E8F0 */
+  --card: 224 71% 4%; /* #0F172A */
+  --card-foreground: 213 31% 91%; /* #E2E8F0 */
+  --border: 223 47% 11%; /* #1E293B */
+  --input: 223 47% 11%; /* #1E293B */
+  --primary: 207 90% 54%; /* #1565C0 */
+  --primary-foreground: 210 40% 98%; /* #F8FAFC */
+  --secondary: 142 76% 36%; /* #2E7D32 */
+  --secondary-foreground: 210 40% 98%; /* #F8FAFC */
+  --accent: 36 100% 48%; /* #F57C00 */
+  --accent-foreground: 210 40% 98%; /* #F8FAFC */
+  --destructive: 0 63% 31%; /* #7F1D1D */
+  --destructive-foreground: 210 40% 98%; /* #F8FAFC */
+  --success: 142 71% 45%; /* #388E3C */
+  --success-foreground: 210 40% 98%; /* #F8FAFC */
+  --warning: 36 100% 48%; /* #F57C00 */
+  --warning-foreground: 210 40% 98%; /* #F8FAFC */
+  --ring: 212 95% 68%; /* #3B82F6 */
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  }
+
+  /* Mobile-first responsive utilities */
+  .container {
+    @apply w-full mx-auto px-4;
+  }
+
+  /* Custom color utilities */
+  .bg-primary {
+    background-color: hsl(var(--primary));
+  }
+  
+  .bg-secondary {
+    background-color: hsl(var(--secondary));
+  }
+  
+  .bg-accent {
+    background-color: hsl(var(--accent));
+  }
+  
+  .bg-success {
+    background-color: hsl(var(--success));
+  }
+  
+  .bg-warning {
+    background-color: hsl(var(--warning));
+  }
+  
+  .text-primary {
+    color: hsl(var(--primary));
+  }
+  
+  .text-secondary {
+    color: hsl(var(--secondary));
+  }
+  
+  .text-accent {
+    color: hsl(var(--accent));
+  }
+  
+  .text-success {
+    color: hsl(var(--success));
+  }
+  
+  .text-warning {
+    color: hsl(var(--warning));
+  }
+
+  /* Mobile navigation styles */
+  .mobile-nav {
+    @apply fixed bottom-0 left-0 right-0 bg-white dark:bg-black border-t border-gray-200 dark:border-gray-800 px-4 py-2 z-50;
+  }
+
+  /* Gradient styles */
+  .gradient-primary {
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(207 90% 64%));
+  }
+  
+  .gradient-secondary {
+    background: linear-gradient(135deg, hsl(var(--secondary)), hsl(142 76% 46%));
+  }
+  
+  .gradient-accent {
+    background: linear-gradient(135deg, hsl(var(--accent)), hsl(36 100% 58%));
+  }
+
+  /* Animation classes */
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+/* QR Code specific styles */
+.qr-code-container {
+  @apply bg-white dark:bg-black p-4 rounded-xl shadow-lg;
+}
+
+/* Document upload styles */
+.upload-zone {
+  @apply border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl p-6 text-center transition-colors hover:border-primary;
+}
+
+.upload-zone.dragover {
+  @apply border-primary bg-primary/5;
+}
+
+/* Status badge styles */
+.status-pending {
+  @apply bg-warning/10 text-warning border border-warning/20;
+}
+
+.status-approved {
+  @apply bg-success/10 text-success border border-success/20;
+}
+
+.status-completed {
+  @apply bg-success/10 text-success border border-success/20;
+}
+
+.status-rejected {
+  @apply bg-destructive/10 text-destructive border border-destructive/20;
+}
