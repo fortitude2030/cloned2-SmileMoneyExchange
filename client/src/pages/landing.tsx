@@ -6,14 +6,26 @@ import { useState } from "react";
 export default function Landing() {
   const [selectedRole, setSelectedRole] = useState<string>("");
 
-  const handleLogin = () => {
-    // Store role selection in sessionStorage for after auth
-    if (selectedRole) {
-      sessionStorage.setItem('smileMoney_selectedRole', selectedRole);
-      // Pass role to backend via URL parameter
-      window.location.href = `/api/login?role=${selectedRole}`;
-    } else {
-      window.location.href = "/api/login";
+  const handleLogin = async () => {
+    if (!selectedRole) return;
+    
+    try {
+      const response = await fetch('/api/dev-login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ role: selectedRole }),
+        credentials: 'include',
+      });
+      
+      if (response.ok) {
+        window.location.reload();
+      } else {
+        console.error('Login failed');
+      }
+    } catch (error) {
+      console.error('Login error:', error);
     }
   };
 
@@ -52,7 +64,7 @@ export default function Landing() {
               className="w-full bg-primary hover:bg-primary/90 text-white py-3 rounded-xl font-semibold"
               disabled={!selectedRole}
             >
-              Sign In with Replit
+              Sign In to Smile Money
             </Button>
           </div>
 

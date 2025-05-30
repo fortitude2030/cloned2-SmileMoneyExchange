@@ -4,7 +4,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import multer from "multer";
 import path from "path";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupDevAuth, isAuthenticated } from "./devAuth";
 import {
   insertOrganizationSchema,
   insertBranchSchema,
@@ -34,7 +34,7 @@ const upload = multer({
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
-  await setupAuth(app);
+  await setupDevAuth(app);
 
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {

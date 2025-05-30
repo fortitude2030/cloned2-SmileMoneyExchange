@@ -6,8 +6,17 @@ interface MobileHeaderProps {
 }
 
 export default function MobileHeader({ title, subtitle, icon, color }: MobileHeaderProps) {
-  const handleLogout = () => {
-    window.location.href = "/api/logout";
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/dev-logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      window.location.reload();
+    } catch (error) {
+      console.error('Logout error:', error);
+      window.location.reload();
+    }
   };
 
   const getColorClasses = (color: string) => {
