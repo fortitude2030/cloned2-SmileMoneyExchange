@@ -84,7 +84,15 @@ export async function setupAuth(app: Express) {
   ) => {
     const user = {};
     updateUserSession(user, tokens);
-    await upsertUser(tokens.claims());
+    
+    // Pass selected role to upsertUser
+    const claims = tokens.claims();
+    const selectedRole = (verified as any).req?.session?.selectedRole;
+    if (selectedRole) {
+      claims.selected_role = selectedRole;
+    }
+    
+    await upsertUser(claims);
     verified(null, user);
   };
 
@@ -106,6 +114,12 @@ export async function setupAuth(app: Express) {
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
   app.get("/api/login", (req, res, next) => {
+    // Store role selection in session for after auth
+    const selectedRole = req.query.role as string;
+    if (selectedRole) {
+      (req.session as any).selectedRole = selectedRole;
+    }
+    
     passport.authenticate(`replitauth:${req.hostname}`, {
       prompt: "login consent",
       scope: ["openid", "email", "profile", "offline_access"],
