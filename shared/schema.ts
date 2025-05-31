@@ -41,6 +41,8 @@ export const users = pgTable("users", {
 export const organizations = pgTable("organizations", {
   id: serial("id").primaryKey(),
   name: varchar("name").notNull(),
+  type: varchar("type").default("financial_institution"),
+  description: text("description"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -61,6 +63,12 @@ export const wallets = pgTable("wallets", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").notNull(),
   balance: decimal("balance", { precision: 12, scale: 2 }).default("0"),
+  dailyLimit: decimal("daily_limit", { precision: 12, scale: 2 }).default("50000.00").notNull(),
+  monthlyLimit: decimal("monthly_limit", { precision: 12, scale: 2 }).default("500000.00").notNull(),
+  dailySpent: decimal("daily_spent", { precision: 12, scale: 2 }).default("0.00").notNull(),
+  monthlySpent: decimal("monthly_spent", { precision: 12, scale: 2 }).default("0.00").notNull(),
+  lastTransactionDate: timestamp("last_transaction_date"),
+  isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

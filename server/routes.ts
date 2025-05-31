@@ -163,7 +163,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fromUserId: req.body.fromUserId || userId,
       });
       
+      // Check transfer limits for the sender
+      const amount = parseFloat(transactionData.amount);
+      const limitCheck = await storage.checkTransferLimits(transactionData.fromUserId || userId, amount);
+      
+      if (!limitCheck.allowed) {
+        return res.status(400).json({ 
+          message: "Transfer limit exceeded", 
+          reason: limitCheck.reason 
+        });
+      }
+      
       const transaction = await storage.createTransaction(transactionData);
+      
+      // Update spending limits for the sender
+      await storage.updateSpendingLimits(transactionData.fromUserId || userId, amount);
+      
       res.json(transaction);
     } catch (error) {
       console.error("Error creating transaction:", error);
