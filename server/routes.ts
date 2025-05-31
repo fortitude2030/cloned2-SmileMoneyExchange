@@ -91,13 +91,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
-      if (user?.role !== 'finance' || !user.organizationId) {
-        return res.status(403).json({ message: "Only finance officers with organizations can create branches" });
+      if (user?.role !== 'finance') {
+        return res.status(403).json({ message: "Only finance officers can create branches" });
+      }
+
+      // If user doesn't have an organization, create a default one
+      let organizationId = user.organizationId;
+      if (!organizationId) {
+        const defaultOrg = await storage.createOrganization({
+          name: `${user.firstName || 'Finance'} Organization`,
+          type: 'financial_institution',
+          description: 'Default organization for finance operations',
+        });
+        
+        // Update user with organization
+        await storage.upsertUser({
+          ...user,
+          organizationId: defaultOrg.id,
+        });
+        
+        organizationId = defaultOrg.id;
       }
 
       const branchData = insertBranchSchema.parse({
         ...req.body,
-        organizationId: user.organizationId,
+        organizationId,
       });
       const branch = await storage.createBranch(branchData);
       res.json(branch);
