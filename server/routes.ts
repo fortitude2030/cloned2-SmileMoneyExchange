@@ -176,8 +176,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const transaction = await storage.createTransaction(transactionData);
       
-      // Update spending limits for the sender
-      await storage.updateSpendingLimits(transactionData.fromUserId || userId, amount);
+      // Update daily spending for the sender
+      await storage.updateDailySpending(transactionData.fromUserId || userId, amount);
       
       res.json(transaction);
     } catch (error) {

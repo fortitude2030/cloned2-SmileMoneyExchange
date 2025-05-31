@@ -42,7 +42,7 @@ export interface IStorage {
   getOrCreateWallet(userId: string): Promise<Wallet>;
   updateWalletBalance(userId: string, balance: string): Promise<void>;
   checkTransferLimits(userId: string, amount: number): Promise<{ allowed: boolean; reason?: string }>;
-  updateSpendingLimits(userId: string, amount: number): Promise<void>;
+  updateDailySpending(userId: string, amount: number): Promise<void>;
   
   // Transaction operations
   createTransaction(transaction: InsertTransaction): Promise<Transaction>;
@@ -168,31 +168,30 @@ export class DatabaseStorage implements IStorage {
   async checkTransferLimits(userId: string, amount: number): Promise<{ allowed: boolean; reason?: string }> {
     const wallet = await this.getOrCreateWallet(userId);
     const today = new Date();
-    const currentMonth = today.getMonth();
-    const currentYear = today.getFullYear();
     
     // Check if wallet is active
     if (!wallet.isActive) {
       return { allowed: false, reason: "Wallet is inactive" };
     }
 
+    // Check wallet balance
+    const currentBalance = parseFloat(wallet.balance || '0');
+    if (amount > currentBalance) {
+      return { 
+        allowed: false, 
+        reason: `Insufficient wallet balance. Available: ZMW ${currentBalance.toFixed(2)}` 
+      };
+    }
+
     // Reset daily spending if it's a new day
     const lastTransaction = wallet.lastTransactionDate;
     const isNewDay = !lastTransaction || 
       lastTransaction.getDate() !== today.getDate() ||
-      lastTransaction.getMonth() !== currentMonth ||
-      lastTransaction.getFullYear() !== currentYear;
-
-    // Reset monthly spending if it's a new month
-    const isNewMonth = !lastTransaction ||
-      lastTransaction.getMonth() !== currentMonth ||
-      lastTransaction.getFullYear() !== currentYear;
+      lastTransaction.getMonth() !== today.getMonth() ||
+      lastTransaction.getFullYear() !== today.getFullYear();
 
     const currentDailySpent = isNewDay ? 0 : parseFloat(wallet.dailySpent);
-    const currentMonthlySpent = isNewMonth ? 0 : parseFloat(wallet.monthlySpent);
-    
     const dailyLimit = parseFloat(wallet.dailyLimit);
-    const monthlyLimit = parseFloat(wallet.monthlyLimit);
 
     // Check daily limit
     if (currentDailySpent + amount > dailyLimit) {
@@ -202,41 +201,25 @@ export class DatabaseStorage implements IStorage {
       };
     }
 
-    // Check monthly limit
-    if (currentMonthlySpent + amount > monthlyLimit) {
-      return { 
-        allowed: false, 
-        reason: `Monthly limit exceeded. Limit: ZMW ${monthlyLimit.toFixed(2)}, Spent: ZMW ${currentMonthlySpent.toFixed(2)}` 
-      };
-    }
-
     return { allowed: true };
   }
 
-  async updateSpendingLimits(userId: string, amount: number): Promise<void> {
+  async updateDailySpending(userId: string, amount: number): Promise<void> {
     const wallet = await this.getOrCreateWallet(userId);
     const today = new Date();
-    const currentMonth = today.getMonth();
-    const currentYear = today.getFullYear();
     
     const lastTransaction = wallet.lastTransactionDate;
     const isNewDay = !lastTransaction || 
       lastTransaction.getDate() !== today.getDate() ||
-      lastTransaction.getMonth() !== currentMonth ||
-      lastTransaction.getFullYear() !== currentYear;
-
-    const isNewMonth = !lastTransaction ||
-      lastTransaction.getMonth() !== currentMonth ||
-      lastTransaction.getFullYear() !== currentYear;
+      lastTransaction.getMonth() !== today.getMonth() ||
+      lastTransaction.getFullYear() !== today.getFullYear();
 
     const newDailySpent = isNewDay ? amount : parseFloat(wallet.dailySpent) + amount;
-    const newMonthlySpent = isNewMonth ? amount : parseFloat(wallet.monthlySpent) + amount;
 
     await db
       .update(wallets)
       .set({
         dailySpent: newDailySpent.toString(),
-        monthlySpent: newMonthlySpent.toString(),
         lastTransactionDate: today,
         updatedAt: new Date(),
       })
