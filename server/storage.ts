@@ -48,6 +48,7 @@ export interface IStorage {
   getTransactionById(id: number): Promise<Transaction | undefined>;
   updateTransactionStatus(id: number, status: string): Promise<void>;
   getPendingTransactionsByReceiver(userId: string): Promise<Transaction[]>;
+  getAllPendingTransactions(): Promise<Transaction[]>;
   
   // Document operations
   createDocument(document: InsertDocument): Promise<Document>;
@@ -196,6 +197,14 @@ export class DatabaseStorage implements IStorage {
       .update(transactions)
       .set({ status, updatedAt: new Date() })
       .where(eq(transactions.id, id));
+  }
+
+  async getAllPendingTransactions(): Promise<Transaction[]> {
+    return await db
+      .select()
+      .from(transactions)
+      .where(eq(transactions.status, 'pending'))
+      .orderBy(desc(transactions.createdAt));
   }
 
   async getPendingTransactionsByReceiver(userId: string): Promise<Transaction[]> {

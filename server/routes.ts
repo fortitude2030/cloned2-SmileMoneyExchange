@@ -167,7 +167,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/transactions/pending', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const transactions = await storage.getPendingTransactionsByReceiver(userId);
+      const user = await storage.getUser(userId);
+      
+      // Cashiers see all pending transactions, others see only their own
+      let transactions;
+      if (user?.role === 'cashier') {
+        // Get all pending transactions for cashiers
+        transactions = await storage.getAllPendingTransactions();
+      } else {
+        transactions = await storage.getPendingTransactionsByReceiver(userId);
+      }
+      
       res.json(transactions);
     } catch (error) {
       console.error("Error fetching pending transactions:", error);
