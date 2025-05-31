@@ -1,3 +1,6 @@
+import { LogOut, ArrowLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
 interface MobileHeaderProps {
   title: string;
   subtitle: string;
@@ -39,6 +42,15 @@ export default function MobileHeader({ title, subtitle, icon, color }: MobileHea
       <div className="px-4 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleLogout}
+              className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 mr-2 p-2"
+              title="Back to Role Selection"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
             <div className={`w-10 h-10 ${getColorClasses(color)} rounded-xl flex items-center justify-center mr-3`}>
               <i className={`${icon} text-white`}></i>
             </div>
@@ -47,12 +59,15 @@ export default function MobileHeader({ title, subtitle, icon, color }: MobileHea
               <p className="text-sm text-gray-600 dark:text-gray-400">{subtitle}</p>
             </div>
           </div>
-          <button 
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={handleLogout}
-            className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+            className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
+            title="Sign Out"
           >
-            <i className="fas fa-sign-out-alt text-xl"></i>
-          </button>
+            <LogOut className="h-5 w-5" />
+          </Button>
         </div>
       </div>
     </header>
