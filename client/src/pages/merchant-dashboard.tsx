@@ -7,6 +7,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import MobileHeader from "@/components/mobile-header";
 import MobileNav from "@/components/mobile-nav";
 import QRCodeModal from "@/components/qr-code-modal";
+import WalletLimitsDisplay from "@/components/wallet-limits-display";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -147,8 +148,11 @@ export default function MerchantDashboard() {
           </div>
         </div>
 
+        {/* Transfer Limits */}
+        {wallet && <WalletLimitsDisplay wallet={wallet} />}
+
         {/* Quick Actions */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
+        <div className="grid grid-cols-2 gap-4 mb-6 mt-6">
           <Button
             onClick={() => setShowQRModal(true)}
             className="bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow h-auto"
