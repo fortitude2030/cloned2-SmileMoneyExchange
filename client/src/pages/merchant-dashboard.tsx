@@ -88,7 +88,7 @@ export default function MerchantDashboard() {
   };
 
   const formatCurrency = (amount: string | number) => {
-    return `KSH ${parseFloat(amount.toString()).toLocaleString()}`;
+    return `ZMW ${parseFloat(amount.toString()).toLocaleString()}`;
   };
 
   const getStatusBadge = (status: string) => {
@@ -135,7 +135,7 @@ export default function MerchantDashboard() {
             <div>
               <p className="text-green-100 text-sm">E-Wallet Balance</p>
               <h2 className="text-3xl font-bold">
-                {wallet ? formatCurrency(wallet.balance) : "KSH 0.00"}
+                {wallet ? formatCurrency(wallet.balance) : "ZMW 0.00"}
               </h2>
             </div>
             <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">

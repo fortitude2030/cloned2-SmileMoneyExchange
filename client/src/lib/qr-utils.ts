@@ -127,7 +127,7 @@ export async function createShareablePaymentQR(
 ): Promise<{ qrUrl: string; shareText: string }> {
   try {
     const qrUrl = await generatePaymentQR(paymentData);
-    const shareText = `Payment Request${merchantName ? ` from ${merchantName}` : ''}: KSH ${paymentData.amount.toLocaleString()}`;
+    const shareText = `Payment Request${merchantName ? ` from ${merchantName}` : ''}: ZMW ${paymentData.amount.toLocaleString()}`;
     
     return { qrUrl, shareText };
   } catch (error) {

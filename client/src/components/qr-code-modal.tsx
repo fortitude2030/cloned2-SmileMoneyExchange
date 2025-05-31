@@ -30,7 +30,7 @@ export default function QRCodeModal({ isOpen, onClose, amount, onAmountChange }:
   };
 
   const formatCurrency = (amount: string | number) => {
-    return `KSH ${parseFloat(amount.toString()).toLocaleString()}`;
+    return `ZMW ${parseFloat(amount.toString()).toLocaleString()}`;
   };
 
   return (

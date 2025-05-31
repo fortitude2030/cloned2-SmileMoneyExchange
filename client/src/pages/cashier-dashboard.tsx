@@ -111,7 +111,7 @@ export default function CashierDashboard() {
   });
 
   const formatCurrency = (amount: string | number) => {
-    return `KSH ${parseFloat(amount.toString()).toLocaleString()}`;
+    return `ZMW ${parseFloat(amount.toString()).toLocaleString()}`;
   };
 
   if (isLoading) {
