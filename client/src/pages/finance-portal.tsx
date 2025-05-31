@@ -168,7 +168,7 @@ export default function FinancePortal() {
   });
 
   const formatCurrency = (amount: string | number) => {
-    return `KSH ${parseFloat(amount.toString()).toLocaleString()}`;
+    return `ZMW ${parseFloat(amount.toString()).toLocaleString()}`;
   };
 
   const getStatusBadge = (status: string) => {
