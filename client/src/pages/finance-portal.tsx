@@ -167,6 +167,38 @@ export default function FinancePortal() {
     },
   });
 
+  // Create test settlement requests mutation
+  const createTestSettlementRequests = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", "/api/dev/settlement-requests", {});
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Test settlement requests created successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/settlement-requests"] });
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Failed to create test settlement requests",
+        variant: "destructive",
+      });
+    },
+  });
+
   const formatCurrency = (amount: string | number) => {
     return `ZMW ${parseFloat(amount.toString()).toLocaleString()}`;
   };
@@ -174,28 +206,28 @@ export default function FinancePortal() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'completed':
-        return <Badge className="status-completed">Completed</Badge>;
+        return <Badge className="bg-green-600 text-white font-medium">Completed</Badge>;
       case 'pending':
-        return <Badge className="status-pending">Pending Approval</Badge>;
+        return <Badge className="bg-orange-600 text-white font-medium">Pending Approval</Badge>;
       case 'approved':
-        return <Badge className="status-approved">Approved</Badge>;
+        return <Badge className="bg-blue-600 text-white font-medium">Approved</Badge>;
       case 'rejected':
-        return <Badge className="status-rejected">Rejected</Badge>;
+        return <Badge className="bg-red-600 text-white font-medium">Rejected</Badge>;
       default:
-        return <Badge variant="outline">{status}</Badge>;
+        return <Badge className="bg-gray-600 text-white font-medium">{status}</Badge>;
     }
   };
 
   const getPriorityBadge = (priority: string) => {
     switch (priority) {
       case 'high':
-        return <Badge className="bg-destructive/10 text-destructive">High Priority</Badge>;
+        return <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 font-medium border border-red-300">High Priority</Badge>;
       case 'medium':
-        return <Badge className="bg-warning/10 text-warning">Medium Priority</Badge>;
+        return <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 font-medium border border-yellow-300">Medium Priority</Badge>;
       case 'low':
-        return <Badge className="bg-gray-100 text-gray-600">Low Priority</Badge>;
+        return <Badge className="bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200 font-medium border border-gray-300">Low Priority</Badge>;
       default:
-        return <Badge variant="outline">{priority}</Badge>;
+        return <Badge className="bg-gray-100 text-gray-800 font-medium border">{priority}</Badge>;
     }
   };
 
@@ -371,12 +403,21 @@ export default function FinancePortal() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-gray-800 dark:text-gray-200">Settlement Requests</h3>
-              <Dialog open={showSettlementDialog} onOpenChange={setShowSettlementDialog}>
-                <DialogTrigger asChild>
-                  <Button className="bg-accent text-white px-4 py-2 rounded-lg text-sm font-medium">
-                    <i className="fas fa-plus mr-2"></i>New Settlement
-                  </Button>
-                </DialogTrigger>
+              <div className="flex gap-2">
+                <Button 
+                  onClick={() => createTestSettlementRequests.mutate()}
+                  disabled={createTestSettlementRequests.isPending}
+                  variant="outline"
+                  className="text-xs px-3 py-1"
+                >
+                  {createTestSettlementRequests.isPending ? "Creating..." : "Add Test Data"}
+                </Button>
+                <Dialog open={showSettlementDialog} onOpenChange={setShowSettlementDialog}>
+                  <DialogTrigger asChild>
+                    <Button className="bg-accent text-white px-4 py-2 rounded-lg text-sm font-medium">
+                      <i className="fas fa-plus mr-2"></i>New Settlement
+                    </Button>
+                  </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>Create Settlement Request</DialogTitle>
@@ -466,10 +507,12 @@ export default function FinancePortal() {
             ) : (
               <div className="space-y-3">
                 {settlementRequests.map((request: any) => (
-                  <div key={request.id} className={`border rounded-lg p-4 ${
-                    request.status === 'pending' ? 'border-warning bg-warning bg-opacity-5' :
-                    request.status === 'approved' ? 'border-success bg-success bg-opacity-5' :
-                    'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800'
+                  <div key={request.id} className={`border-2 rounded-lg p-4 shadow-md ${
+                    request.status === 'pending' ? 'border-orange-400 bg-orange-50 dark:bg-orange-950 dark:border-orange-600' :
+                    request.status === 'approved' ? 'border-blue-400 bg-blue-50 dark:bg-blue-950 dark:border-blue-600' :
+                    request.status === 'completed' ? 'border-green-400 bg-green-50 dark:bg-green-950 dark:border-green-600' :
+                    request.status === 'rejected' ? 'border-red-400 bg-red-50 dark:bg-red-950 dark:border-red-600' :
+                    'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800'
                   }`}>
                     <div className="flex items-center justify-between mb-2">
                       <div>

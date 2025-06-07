@@ -347,6 +347,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create HTTP server
   const httpServer = createServer(app);
 
+  // Development endpoint to create test settlement requests
+  app.post('/api/dev/settlement-requests', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const testRequests = [
+        {
+          organizationId: 1,
+          userId: userId,
+          amount: "25000",
+          bankName: "Standard Chartered Bank Zambia",
+          accountNumber: "0123456789",
+          priority: "high",
+          status: "pending",
+          description: "Monthly cash settlement - Branch 001"
+        },
+        {
+          organizationId: 1,
+          userId: userId,
+          amount: "15000",
+          bankName: "Barclays Bank Zambia",
+          accountNumber: "9876543210",
+          priority: "medium",
+          status: "pending",
+          description: "Weekly cash settlement - Branch 002"
+        },
+        {
+          organizationId: 1,
+          userId: userId,
+          amount: "50000",
+          bankName: "Zanaco Bank",
+          accountNumber: "5555666677",
+          priority: "high",
+          status: "approved",
+          description: "Emergency settlement request"
+        }
+      ];
+
+      for (const request of testRequests) {
+        await storage.createSettlementRequest(request);
+      }
+
+      res.json({ message: "Test settlement requests created", count: testRequests.length });
+    } catch (error) {
+      console.error("Error creating test settlement requests:", error);
+      res.status(500).json({ message: "Failed to create test settlement requests" });
+    }
+  });
+
   // Setup WebSocket for real-time updates
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
   
