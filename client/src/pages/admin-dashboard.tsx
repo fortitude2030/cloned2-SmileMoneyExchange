@@ -76,13 +76,28 @@ export default function AdminDashboard() {
   const getPriorityBadge = (priority: string) => {
     switch (priority) {
       case 'high':
-        return <Badge className="bg-destructive/10 text-destructive">High Priority</Badge>;
+        return <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 font-medium border border-red-300">High Priority</Badge>;
       case 'medium':
-        return <Badge className="bg-warning/10 text-warning">Medium Priority</Badge>;
+        return <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 font-medium border border-yellow-300">Medium Priority</Badge>;
       case 'low':
-        return <Badge className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">Low Priority</Badge>;
+        return <Badge className="bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200 font-medium border border-gray-300">Low Priority</Badge>;
       default:
-        return <Badge variant="outline">{priority}</Badge>;
+        return <Badge className="bg-gray-100 text-gray-800 font-medium border">{priority}</Badge>;
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return <Badge className="bg-green-600 text-white font-medium">Completed</Badge>;
+      case 'pending':
+        return <Badge className="bg-orange-600 text-white font-medium">Pending</Badge>;
+      case 'approved':
+        return <Badge className="bg-blue-600 text-white font-medium">Approved</Badge>;
+      case 'rejected':
+        return <Badge className="bg-red-600 text-white font-medium">Rejected</Badge>;
+      default:
+        return <Badge className="bg-gray-600 text-white font-medium">{status}</Badge>;
     }
   };
 
@@ -189,10 +204,10 @@ export default function AdminDashboard() {
             ) : (
               <div className="space-y-4">
                 {pendingRequests.map((request: any) => (
-                  <div key={request.id} className={`border-l-4 rounded-lg p-4 ${
-                    request.priority === 'high' ? 'border-destructive bg-destructive bg-opacity-5' :
-                    request.priority === 'medium' ? 'border-warning bg-warning bg-opacity-5' :
-                    'border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800'
+                  <div key={request.id} className={`border-l-4 rounded-lg p-4 shadow-md ${
+                    request.priority === 'high' ? 'border-red-500 bg-red-50 dark:bg-red-950 dark:border-red-400' :
+                    request.priority === 'medium' ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-950 dark:border-yellow-400' :
+                    'border-gray-400 bg-gray-50 dark:bg-gray-800 dark:border-gray-500'
                   }`}>
                     <div className="flex items-center justify-between mb-3">
                       <div>

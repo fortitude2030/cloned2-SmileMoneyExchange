@@ -418,7 +418,7 @@ export default function FinancePortal() {
                       <i className="fas fa-plus mr-2"></i>New Settlement
                     </Button>
                   </DialogTrigger>
-                <DialogContent>
+                  <DialogContent>
                   <DialogHeader>
                     <DialogTitle>Create Settlement Request</DialogTitle>
                   </DialogHeader>
@@ -476,6 +476,7 @@ export default function FinancePortal() {
                   </form>
                 </DialogContent>
               </Dialog>
+              </div>
             </div>
             
             {settlementsLoading ? (
