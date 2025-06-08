@@ -21,6 +21,27 @@ export default function MerchantDashboard() {
   const [paymentAmount, setPaymentAmount] = useState("");
   const [vmfNumber, setVmfNumber] = useState("");
   const [showAllTransactions, setShowAllTransactions] = useState(false);
+  const [requestCooldown, setRequestCooldown] = useState(0);
+  const [isRequestDisabled, setIsRequestDisabled] = useState(false);
+
+  // Timer effect for request cooldown
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (requestCooldown > 0) {
+      interval = setInterval(() => {
+        setRequestCooldown(prev => {
+          const newValue = prev - 1;
+          if (newValue <= 0) {
+            setIsRequestDisabled(false);
+          }
+          return Math.max(0, newValue);
+        });
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [requestCooldown]);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -62,6 +83,10 @@ export default function MerchantDashboard() {
       });
     },
     onSuccess: () => {
+      // Start 60-second cooldown
+      setIsRequestDisabled(true);
+      setRequestCooldown(60);
+      
       toast({
         title: "Success",
         description: "Payment request sent to security cashier",
@@ -248,16 +273,28 @@ export default function MerchantDashboard() {
           
           <Button
             onClick={handleRequestPayment}
-            disabled={createPaymentRequest.isPending}
-            className="bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow h-auto"
+            disabled={createPaymentRequest.isPending || isRequestDisabled}
+            className="bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow h-auto disabled:opacity-50"
             variant="ghost"
           >
             <div className="text-center">
               <div className="w-12 h-12 bg-accent bg-opacity-10 rounded-xl flex items-center justify-center mx-auto mb-2">
                 <i className="fas fa-paper-plane text-accent text-xl"></i>
               </div>
-              <h3 className="font-semibold text-sm">Request to Pay</h3>
-              <p className="text-gray-600 dark:text-gray-400 text-xs">Send Request</p>
+              <h3 className="font-semibold text-sm">
+                {isRequestDisabled && requestCooldown > 0 ? `Wait ${requestCooldown}s` : 'Request to Pay'}
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400 text-xs">
+                {isRequestDisabled && requestCooldown > 0 ? 'Cooldown Active' : 'Send Request'}
+              </p>
+              {isRequestDisabled && requestCooldown > 0 && (
+                <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-1 mt-2">
+                  <div 
+                    className="bg-accent h-1 rounded-full transition-all duration-1000"
+                    style={{ width: `${((60 - requestCooldown) / 60) * 100}%` }}
+                  ></div>
+                </div>
+              )}
             </div>
           </Button>
         </div>
