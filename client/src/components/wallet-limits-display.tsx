@@ -67,7 +67,7 @@ export default function WalletLimitsDisplay({ wallet }: WalletLimitsDisplayProps
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-gray-600 dark:text-gray-400">Spent today</span>
-              <span className="font-medium">-{formatCurrency(dailySpent.toString())}</span>
+              <span className="font-medium">-{formatCurrency(spentToday.toString())}</span>
             </div>
             <div className="flex justify-between text-sm mb-2">
               <span className="text-gray-600 dark:text-gray-400">Progress</span>
