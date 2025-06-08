@@ -330,12 +330,12 @@ export default function CashierDashboard() {
           </div>
         </div>
 
-        {/* Cash Counting Workflow */}
+        {/* Simplified Cash Processing */}
         <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
           <CardContent className="p-4">
             <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
-              <i className="fas fa-money-bill-wave text-secondary mr-2"></i>
-              Cash Counting Process
+              <i className="fas fa-bolt text-success mr-2"></i>
+              Quick Cash Processing
             </h3>
             
             <div className="space-y-4">

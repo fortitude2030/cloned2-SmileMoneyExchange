@@ -198,9 +198,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/transactions', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      // Set expiration time for merchant payment requests (60 seconds from creation)
+      // Set expiration time for merchant payment requests (180 seconds from creation)
       const expiresAt = (req.body.status === 'pending' && req.body.type === 'cash_digitization') 
-        ? new Date(Date.now() + 60 * 1000) 
+        ? new Date(Date.now() + 180 * 1000) 
         : null;
       
       const transactionData = insertTransactionSchema.parse({
