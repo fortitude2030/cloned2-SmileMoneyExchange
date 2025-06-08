@@ -22,10 +22,10 @@ export default function WalletLimitsDisplay({ wallet }: WalletLimitsDisplayProps
   };
 
   const dailyLimit = 1000000; // K1,000,000 fixed limit for merchants
-  const dailySpent = Math.round(parseFloat(wallet.dailySpent || '0'));
-  const dailyPercentage = Math.min((dailySpent / dailyLimit) * 100, 100);
-  const walletBalance = Math.round(parseFloat(wallet.balance || '0'));
-  const dailyRemaining = walletBalance; // Remaining = wallet balance
+  const spentToday = Math.round(parseFloat(wallet.dailySpent || '0')); // Completed transactions only
+  const walletBalance = Math.round(parseFloat(wallet.balance || '0')); // All transactions including pending
+  const dailyRemaining = Math.max(dailyLimit - walletBalance, 0); // Daily limit - wallet balance
+  const dailyPercentage = Math.min((walletBalance / dailyLimit) * 100, 100);
 
   return (
     <div className="space-y-4">
