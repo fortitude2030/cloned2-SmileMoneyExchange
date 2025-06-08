@@ -21,8 +21,10 @@ export default function WalletLimitsDisplay({ wallet }: WalletLimitsDisplayProps
     return Math.min((spentAmount / limitAmount) * 100, 100);
   };
 
-  const dailyPercentage = calculatePercentage(wallet.dailySpent, wallet.dailyLimit);
-  const dailyRemaining = Math.round(parseFloat(wallet.dailyLimit)) - Math.round(parseFloat(wallet.dailySpent || '0'));
+  const dailyLimit = 1000000; // K1,000,000 fixed limit for merchants
+  const dailySpent = Math.round(parseFloat(wallet.dailySpent || '0'));
+  const dailyPercentage = Math.min((dailySpent / dailyLimit) * 100, 100);
+  const dailyRemaining = Math.max(dailyLimit - dailySpent, 0);
   const walletBalance = Math.round(parseFloat(wallet.balance || '0'));
 
   return (
@@ -65,7 +67,7 @@ export default function WalletLimitsDisplay({ wallet }: WalletLimitsDisplayProps
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-gray-600 dark:text-gray-400">Spent today</span>
-              <span className="font-medium">{formatCurrency(wallet.dailySpent)}</span>
+              <span className="font-medium">{formatCurrency(dailySpent.toString())}</span>
             </div>
             <Progress value={dailyPercentage} className="h-2" />
             <div className="flex justify-between text-sm">
@@ -73,7 +75,7 @@ export default function WalletLimitsDisplay({ wallet }: WalletLimitsDisplayProps
               <span className={`font-medium ${
                 dailyRemaining < 0 ? 'text-red-600' : 'text-green-600'
               }`}>
-                {formatCurrency(Math.max(dailyRemaining, 0).toString())}
+                {formatCurrency(dailyRemaining.toString())}
               </span>
             </div>
           </div>
