@@ -61,6 +61,10 @@ export default function CashierDashboard() {
 
   // Update countdowns for pending transactions
   useEffect(() => {
+    if (!Array.isArray(pendingTransactions) || pendingTransactions.length === 0) {
+      return;
+    }
+
     const filteredTransactions = (pendingTransactions as any[]).filter((transaction: any) => {
       // Only show non-expired transactions
       if (transaction.expiresAt) {
@@ -70,7 +74,7 @@ export default function CashierDashboard() {
       return true;
     });
 
-    // Initialize countdowns
+    // Initialize countdowns only once
     const initialCountdowns: { [key: number]: number } = {};
     filteredTransactions.forEach((transaction: any) => {
       if (transaction.expiresAt) {
@@ -80,13 +84,21 @@ export default function CashierDashboard() {
         initialCountdowns[transaction.id] = secondsLeft;
       }
     });
+    
     setCountdowns(initialCountdowns);
+  }, [pendingTransactions]);
 
-    // Update countdowns every second
+  // Separate effect for countdown updates
+  useEffect(() => {
+    if (Object.keys(countdowns).length === 0) {
+      return;
+    }
+
     const interval = setInterval(() => {
       setCountdowns(prev => {
         const updated = { ...prev };
         let hasChanges = false;
+        let shouldRefetch = false;
         
         Object.keys(updated).forEach(id => {
           const numId = parseInt(id);
@@ -94,17 +106,25 @@ export default function CashierDashboard() {
             updated[numId] = updated[numId] - 1;
             hasChanges = true;
           } else if (updated[numId] === 0) {
-            // Transaction expired, refetch data
-            queryClient.invalidateQueries({ queryKey: ["/api/transactions/pending"] });
+            // Mark for refetch but don't do it immediately to avoid infinite loop
+            shouldRefetch = true;
+            delete updated[numId];
           }
         });
+        
+        // Refetch data only once every 5 seconds when transactions expire
+        if (shouldRefetch) {
+          setTimeout(() => {
+            queryClient.invalidateQueries({ queryKey: ["/api/transactions/pending"] });
+          }, 5000);
+        }
         
         return hasChanges ? updated : prev;
       });
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [pendingTransactions, queryClient]);
+  }, [countdowns, queryClient]);
 
   // Approve transaction mutation
   const approveTransaction = useMutation({
