@@ -69,11 +69,6 @@ export default function WalletLimitsDisplay({ wallet }: WalletLimitsDisplayProps
               <span className="text-gray-600 dark:text-gray-400">Spent today</span>
               <span className="font-medium">-{formatCurrency(spentToday.toString())}</span>
             </div>
-            <div className="flex justify-between text-sm mb-2">
-              <span className="text-gray-600 dark:text-gray-400">Progress</span>
-              <span className="font-medium text-xs">{dailyPercentage.toFixed(1)}%</span>
-            </div>
-            <Progress value={dailyPercentage} className="h-2" />
             <div className="flex justify-between text-sm">
               <span className="text-gray-600 dark:text-gray-400">Remaining</span>
               <span className={`font-medium ${
