@@ -181,14 +181,18 @@ export class DatabaseStorage implements IStorage {
     const isNewDay = now.toDateString() !== lastReset.toDateString();
     
     if (isNewDay) {
-      await db
-        .update(wallets)
-        .set({
-          dailySpent: "0",
-          lastResetDate: now,
-          updatedAt: now,
-        })
-        .where(eq(wallets.userId, wallet.userId));
+      // Only reset daily spending for merchants
+      const user = await this.getUser(wallet.userId);
+      if (user?.role === 'merchant') {
+        await db
+          .update(wallets)
+          .set({
+            dailySpent: "0",
+            lastResetDate: now,
+            updatedAt: now,
+          })
+          .where(eq(wallets.userId, wallet.userId));
+      }
     }
   }
 
@@ -201,7 +205,7 @@ export class DatabaseStorage implements IStorage {
 
   async checkTransferLimits(userId: string, amount: number): Promise<{ allowed: boolean; reason?: string }> {
     const wallet = await this.getOrCreateWallet(userId);
-    const today = new Date();
+    const user = await this.getUser(userId);
     
     // Check if wallet is active
     if (!wallet.isActive) {
@@ -209,55 +213,49 @@ export class DatabaseStorage implements IStorage {
     }
 
     // Check wallet balance
-    const currentBalance = parseFloat(wallet.balance || '0');
+    const currentBalance = Math.round(parseFloat(wallet.balance || '0'));
     if (amount > currentBalance) {
       return { 
         allowed: false, 
-        reason: `Insufficient wallet balance. Available: ZMW ${currentBalance.toFixed(2)}` 
+        reason: `Insufficient wallet balance. Available: ZMW ${currentBalance.toLocaleString()}` 
       };
     }
 
-    // Reset daily spending if it's a new day
-    const lastTransaction = wallet.lastTransactionDate;
-    const isNewDay = !lastTransaction || 
-      lastTransaction.getDate() !== today.getDate() ||
-      lastTransaction.getMonth() !== today.getMonth() ||
-      lastTransaction.getFullYear() !== today.getFullYear();
+    // Only check daily limits for merchants
+    if (user?.role === 'merchant') {
+      const currentDailySpent = Math.round(parseFloat(wallet.dailySpent || '0'));
+      const dailyLimit = 1000000; // K1,000,000 limit for merchants
 
-    const currentDailySpent = isNewDay ? 0 : parseFloat(wallet.dailySpent);
-    const dailyLimit = parseFloat(wallet.dailyLimit);
-
-    // Check daily limit
-    if (currentDailySpent + amount > dailyLimit) {
-      return { 
-        allowed: false, 
-        reason: `Daily limit exceeded. Limit: ZMW ${dailyLimit.toFixed(2)}, Spent: ZMW ${currentDailySpent.toFixed(2)}` 
-      };
+      if (currentDailySpent + amount > dailyLimit) {
+        const remaining = Math.max(dailyLimit - currentDailySpent, 0);
+        return { 
+          allowed: false, 
+          reason: `Daily limit exceeded. Remaining: ZMW ${remaining.toLocaleString()}` 
+        };
+      }
     }
 
     return { allowed: true };
   }
 
   async updateDailySpending(userId: string, amount: number): Promise<void> {
-    const wallet = await this.getOrCreateWallet(userId);
-    const today = new Date();
+    const user = await this.getUser(userId);
     
-    const lastTransaction = wallet.lastTransactionDate;
-    const isNewDay = !lastTransaction || 
-      lastTransaction.getDate() !== today.getDate() ||
-      lastTransaction.getMonth() !== today.getMonth() ||
-      lastTransaction.getFullYear() !== today.getFullYear();
+    // Only track daily spending for merchants
+    if (user?.role === 'merchant') {
+      const wallet = await this.getOrCreateWallet(userId);
+      const currentDailySpent = Math.round(parseFloat(wallet.dailySpent || '0'));
+      const newDailySpent = currentDailySpent + Math.round(amount);
 
-    const newDailySpent = isNewDay ? amount : parseFloat(wallet.dailySpent) + amount;
-
-    await db
-      .update(wallets)
-      .set({
-        dailySpent: newDailySpent.toString(),
-        lastTransactionDate: today,
-        updatedAt: new Date(),
-      })
-      .where(eq(wallets.userId, userId));
+      await db
+        .update(wallets)
+        .set({
+          dailySpent: newDailySpent.toString(),
+          lastTransactionDate: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(wallets.userId, userId));
+    }
   }
 
   // Transaction operations
