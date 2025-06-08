@@ -24,8 +24,8 @@ export default function WalletLimitsDisplay({ wallet }: WalletLimitsDisplayProps
   };
 
   const dailyLimit = 1000000; // K1,000,000 fixed limit for merchants
-  const spentToday = Math.round(parseFloat(wallet.dailySpent || '0')); // Completed transactions only
-  const walletBalance = spentToday; // Today's transactions only (same as spent today for now)
+  const spentToday = Math.round(parseFloat(wallet.todayCompleted || wallet.dailySpent || '0')); // Completed transactions only
+  const walletBalance = Math.round(parseFloat(wallet.todayTotal || wallet.dailySpent || '0')); // Today's total transactions including pending
   const dailyRemaining = Math.max(dailyLimit - spentToday, 0); // Daily limit - spent today
   const dailyPercentage = Math.min((spentToday / dailyLimit) * 100, 100);
 
@@ -47,10 +47,10 @@ export default function WalletLimitsDisplay({ wallet }: WalletLimitsDisplayProps
           
           <div className="text-center py-2">
             <div className="text-2xl font-bold text-black dark:text-white">
-              {formatCurrency(wallet.balance)}
+              {formatCurrency(walletBalance.toString())}
             </div>
             <div className="text-xs text-black/70 dark:text-white/70">
-              Available for transactions
+              Today's transactions
             </div>
           </div>
         </CardContent>
