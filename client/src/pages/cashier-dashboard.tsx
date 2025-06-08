@@ -54,10 +54,27 @@ export default function CashierDashboard() {
     retry: false,
   });
 
-  // Fetch pending transactions (exclude expired ones)
-  const { data: pendingTransactions = [], isLoading: transactionsLoading } = useQuery({
+  // Fetch all pending transactions (including expired ones for cashier visibility)
+  const { data: allPendingTransactions = [], isLoading: transactionsLoading } = useQuery({
     queryKey: ["/api/transactions/pending"],
     retry: false,
+  });
+
+  // Separate active and expired transactions
+  const pendingTransactions = (allPendingTransactions as any[]).filter((transaction: any) => {
+    if (transaction.expiresAt) {
+      const expiresAt = new Date(transaction.expiresAt);
+      return expiresAt > new Date();
+    }
+    return true;
+  });
+
+  const expiredTransactions = (allPendingTransactions as any[]).filter((transaction: any) => {
+    if (transaction.expiresAt) {
+      const expiresAt = new Date(transaction.expiresAt);
+      return expiresAt <= new Date();
+    }
+    return false;
   });
 
   // Fetch today's transaction history
@@ -72,18 +89,9 @@ export default function CashierDashboard() {
       return;
     }
 
-    const filteredTransactions = (pendingTransactions as any[]).filter((transaction: any) => {
-      // Only show non-expired transactions
-      if (transaction.expiresAt) {
-        const expiresAt = new Date(transaction.expiresAt);
-        return expiresAt > new Date();
-      }
-      return true;
-    });
-
     // Initialize countdowns only once
     const initialCountdowns: { [key: number]: number } = {};
-    filteredTransactions.forEach((transaction: any) => {
+    pendingTransactions.forEach((transaction: any) => {
       if (transaction.expiresAt) {
         const expiresAt = new Date(transaction.expiresAt);
         const now = new Date();

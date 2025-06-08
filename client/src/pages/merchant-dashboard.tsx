@@ -86,9 +86,9 @@ export default function MerchantDashboard() {
       });
     },
     onSuccess: () => {
-      // Start 60-second cooldown with modal
+      // Start 180-second cooldown with modal
       setIsRequestDisabled(true);
-      setRequestCooldown(60);
+      setRequestCooldown(180);
       setShowRequestCooldown(true);
       
       toast({
