@@ -180,9 +180,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/transactions', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      // Set expiration time for pending transactions (10 minutes from creation)
+      const expiresAt = req.body.status === 'pending' ? new Date(Date.now() + 10 * 60 * 1000) : null;
+      
       const transactionData = insertTransactionSchema.parse({
         ...req.body,
         fromUserId: req.body.fromUserId || userId,
+        expiresAt,
       });
       
       // Check transfer limits for the sender
@@ -195,6 +199,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           reason: limitCheck.reason 
         });
       }
+      
+      // Mark expired transactions before creating new ones
+      await storage.markExpiredTransactions();
       
       const transaction = await storage.createTransaction(transactionData);
       

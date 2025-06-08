@@ -21,7 +21,7 @@ import {
   type InsertSettlementRequest,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, gte, lt, sql } from "drizzle-orm";
+import { eq, desc, and, gte, lt, sql, or, isNull, gt, not, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (mandatory for Replit Auth)
@@ -53,6 +53,7 @@ export interface IStorage {
   updateTransactionStatus(id: number, status: string): Promise<void>;
   getPendingTransactionsByReceiver(userId: string): Promise<Transaction[]>;
   getAllPendingTransactions(): Promise<Transaction[]>;
+  markExpiredTransactions(): Promise<void>;
   
   // Document operations
   createDocument(document: InsertDocument): Promise<Document>;
@@ -269,7 +270,7 @@ export class DatabaseStorage implements IStorage {
     const [result] = await db
       .select({
         completed: sql<string>`COALESCE(SUM(CASE WHEN status = 'completed' THEN CAST(amount AS DECIMAL) ELSE 0 END), 0)`,
-        total: sql<string>`COALESCE(SUM(CASE WHEN status IN ('completed', 'pending') AND (expires_at IS NULL OR expires_at > ${now.toISOString()}) THEN CAST(amount AS DECIMAL) ELSE 0 END), 0)`
+        total: sql<string>`COALESCE(SUM(CASE WHEN status IN ('completed', 'pending') AND (expires_at IS NULL OR expires_at > NOW()) THEN CAST(amount AS DECIMAL) ELSE 0 END), 0)`
       })
       .from(transactions)
       .where(
@@ -277,7 +278,7 @@ export class DatabaseStorage implements IStorage {
           eq(transactions.fromUserId, userId),
           gte(transactions.createdAt, today),
           lt(transactions.createdAt, tomorrow),
-          not(inArray(transactions.status, ['rejected', 'failed']))
+          sql`status NOT IN ('rejected', 'failed')`
         )
       );
 
@@ -285,6 +286,23 @@ export class DatabaseStorage implements IStorage {
       completed: result?.completed || "0",
       total: result?.total || "0"
     };
+  }
+
+  // Mark expired pending transactions as expired
+  async markExpiredTransactions(): Promise<void> {
+    const now = new Date();
+    await db
+      .update(transactions)
+      .set({ 
+        status: 'expired',
+        updatedAt: now
+      })
+      .where(
+        and(
+          eq(transactions.status, 'pending'),
+          sql`expires_at IS NOT NULL AND expires_at <= NOW()`
+        )
+      );
   }
 
   // Transaction operations
@@ -297,22 +315,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTransactionsByUserId(userId: string): Promise<Transaction[]> {
-    const now = new Date();
     return await db
       .select()
       .from(transactions)
       .where(
         and(
-          or(
-            eq(transactions.fromUserId, userId),
-            eq(transactions.toUserId, userId)
-          ),
-          // Exclude expired pending transactions from view
-          or(
-            not(eq(transactions.status, 'pending')),
-            isNull(transactions.expiresAt),
-            gt(transactions.expiresAt, now)
-          )
+          sql`(from_user_id = ${userId} OR to_user_id = ${userId})`,
+          sql`(status != 'pending' OR expires_at IS NULL OR expires_at > NOW())`
         )
       )
       .orderBy(desc(transactions.createdAt));
