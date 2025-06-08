@@ -45,6 +45,8 @@ export interface IStorage {
   updateDailySpending(userId: string, amount: number): Promise<void>;
   checkAndResetDailySpending(wallet: Wallet): Promise<void>;
   getTodayTransactionTotals(userId: string): Promise<{ completed: string; total: string }>;
+  setCashierDailyAllocation(userId: string, amount: string): Promise<void>;
+  checkCashierBalance(userId: string, requestAmount: number): Promise<{ sufficient: boolean; balance: string }>;
   
   // Transaction operations
   createTransaction(transaction: InsertTransaction): Promise<Transaction>;
@@ -285,6 +287,29 @@ export class DatabaseStorage implements IStorage {
     return {
       completed: result?.completed || "0",
       total: result?.total || "0"
+    };
+  }
+
+  async setCashierDailyAllocation(userId: string, amount: string): Promise<void> {
+    await db
+      .update(wallets)
+      .set({ 
+        dailyAllocation: amount,
+        balance: amount, // Set balance to daily allocation
+        dailySpent: "0", // Reset daily spent
+        lastResetDate: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(wallets.userId, userId));
+  }
+
+  async checkCashierBalance(userId: string, requestAmount: number): Promise<{ sufficient: boolean; balance: string }> {
+    const wallet = await this.getOrCreateWallet(userId);
+    const currentBalance = parseFloat(wallet.balance);
+    
+    return {
+      sufficient: currentBalance >= requestAmount,
+      balance: wallet.balance
     };
   }
 
