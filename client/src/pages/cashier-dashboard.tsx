@@ -7,7 +7,6 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import MobileHeader from "@/components/mobile-header";
 import MobileNav from "@/components/mobile-nav";
 import DocumentUploadModal from "@/components/document-upload-modal";
-import TransactionResultModal from "@/components/transaction-result-modal";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,13 +18,6 @@ export default function CashierDashboard() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [showResultModal, setShowResultModal] = useState(false);
-  const [transactionResult, setTransactionResult] = useState({
-    isSuccess: false,
-    amount: "",
-    vmfNumber: "",
-    reason: ""
-  });
   const [rejectionReason, setRejectionReason] = useState<string>("");
   const [activeSession, setActiveSession] = useState({
     merchant: "Tech Store Plus",
@@ -85,8 +77,8 @@ export default function CashierDashboard() {
     return false;
   });
 
-  // Fetch all transaction history for cashier
-  const { data: allTransactions = [], isLoading: historyLoading } = useQuery({
+  // Fetch today's transaction history
+  const { data: todayTransactions = [], isLoading: historyLoading } = useQuery({
     queryKey: ["/api/transactions"],
     retry: false,
   });
@@ -185,16 +177,11 @@ export default function CashierDashboard() {
         status: "completed"
       });
     },
-    onSuccess: (_, variables) => {
-      // Show success animation modal
-      setTransactionResult({
-        isSuccess: true,
-        amount: variables.transaction.amount,
-        vmfNumber: variables.transaction.vmfNumber || "",
-        reason: ""
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Transaction processed successfully",
       });
-      setShowResultModal(true);
-      
       setEnteredAmount("");
       setEnteredVMF("");
       setSelectedTransaction(null);
@@ -230,16 +217,11 @@ export default function CashierDashboard() {
         rejectionReason: reason
       });
     },
-    onSuccess: (_, variables) => {
-      // Show failure animation modal
-      setTransactionResult({
-        isSuccess: false,
-        amount: "",
-        vmfNumber: "",
-        reason: variables.reason
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Transfer rejected",
       });
-      setShowResultModal(true);
-      
       setRejectionReason("");
       queryClient.invalidateQueries({ queryKey: ["/api/transactions/pending"] });
       queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
@@ -348,104 +330,89 @@ export default function CashierDashboard() {
           </div>
         </div>
 
-        {/* Simplified Cash Verification */}
+        {/* Cash Counting Workflow */}
         <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
           <CardContent className="p-4">
             <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
               <i className="fas fa-money-bill-wave text-secondary mr-2"></i>
-              Quick Cash Verification
+              Cash Counting Process
             </h3>
             
             <div className="space-y-4">
-              {/* Simplified Single Step Process */}
+              {/* Step 1: Count Cash - Enhanced contrast */}
               <div className="flex items-start space-x-3">
-                <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                  <i className="fas fa-check text-white text-sm"></i>
+                <div className="w-8 h-8 bg-success rounded-full flex items-center justify-center flex-shrink-0 mt-1 border-2 border-white shadow-lg">
+                  <span className="text-white text-sm font-bold">1</span>
                 </div>
                 <div className="flex-1">
-                  <h4 className="font-medium text-gray-800 dark:text-gray-200 text-sm">Count & Verify Cash</h4>
-                  <p className="text-gray-600 dark:text-gray-400 text-xs mt-1">Count physical cash and confirm amount matches VMF number</p>
+                  <h4 className="font-medium text-gray-800 dark:text-gray-200 text-sm">Physical Cash Counted</h4>
+                  <p className="text-gray-600 dark:text-gray-400 text-xs mt-1">
+                    {formatCurrency(activeSession.amount)} verified with merchant
+                  </p>
+                </div>
+              </div>
+
+              {/* Step 2: Amount & VMF Verification */}
+              <div className="flex items-start space-x-3">
+                <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                  <span className="text-white text-sm font-bold">2</span>
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-medium text-gray-800 dark:text-gray-200 text-sm">Verify Amount & VMF</h4>
+                  <p className="text-gray-600 dark:text-gray-400 text-xs mt-1">Enter cash amount and VMF number for verification</p>
                   
                   {selectedTransaction && (
-                    <div className="mt-3 space-y-3">
-                      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 p-3 rounded-lg">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="font-medium text-blue-800 dark:text-blue-200">Transaction Details</span>
-                          {countdowns[selectedTransaction.id] > 0 && (
-                            <span className="text-blue-600 dark:text-blue-400 text-xs">
-                              <i className="fas fa-clock mr-1"></i>
-                              {Math.floor(countdowns[selectedTransaction.id] / 60)}:{(countdowns[selectedTransaction.id] % 60).toString().padStart(2, '0')}
-                            </span>
-                          )}
+                    <div className="mt-3 space-y-2">
+                      <div className="bg-info bg-opacity-10 border border-info text-info p-2 rounded text-xs">
+                        <div className="flex items-center justify-between">
+                          <span>Requested: {formatCurrency(selectedTransaction.amount)}</span>
+                          <span>VMF: {selectedTransaction.vmfNumber || "N/A"}</span>
                         </div>
-                        <div className="text-sm">
-                          <div className="text-center">
-                            <span className="text-blue-700 dark:text-blue-300">Transaction ID:</span>
-                            <p className="font-bold text-blue-900 dark:text-blue-100">#{selectedTransaction.id}</p>
-                            <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                              Use your physical VMF copy for amount and VMF verification
-                            </p>
+                        {countdowns[selectedTransaction.id] > 0 && (
+                          <div className="mt-1 flex items-center">
+                            <i className="fas fa-clock mr-1"></i>
+                            <span>Time remaining: {Math.floor(countdowns[selectedTransaction.id] / 60)}:{(countdowns[selectedTransaction.id] % 60).toString().padStart(2, '0')}</span>
                           </div>
-                        </div>
+                        )}
                       </div>
                       
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <Label htmlFor="amount" className="text-xs font-medium">Cash Counted (ZMW)</Label>
+                          <Label htmlFor="amount" className="text-xs">Cash Amount (ZMW)</Label>
                           <Input
                             id="amount"
                             type="number"
-                            placeholder="Amount counted"
+                            placeholder="Enter amount"
                             value={enteredAmount}
                             onChange={(e) => setEnteredAmount(e.target.value)}
-                            className="h-10 text-sm mt-1"
+                            className="h-8 text-sm"
                           />
                         </div>
                         <div>
-                          <Label htmlFor="vmf" className="text-xs font-medium">VMF Confirmation</Label>
+                          <Label htmlFor="vmf" className="text-xs">VMF Number</Label>
                           <Input
                             id="vmf"
                             type="text"
-                            placeholder="VMF number"
+                            placeholder="Enter VMF"
                             value={enteredVMF}
                             onChange={(e) => setEnteredVMF(e.target.value)}
-                            className="h-10 text-sm mt-1"
+                            className="h-8 text-sm"
                           />
                         </div>
                       </div>
                       
-                      <div className="flex gap-2">
-                        <Button 
-                          onClick={() => verifyTransaction.mutate({
-                            transactionId: selectedTransaction.id,
-                            enteredAmount,
-                            enteredVMF,
-                            transaction: selectedTransaction
-                          })}
-                          disabled={verifyTransaction.isPending || !enteredAmount || !enteredVMF}
-                          className="flex-1 bg-success hover:bg-success/90 text-white h-10"
-                        >
-                          {verifyTransaction.isPending ? (
-                            <><i className="fas fa-spinner fa-spin mr-2"></i>Processing</>
-                          ) : (
-                            <><i className="fas fa-check mr-2"></i>Approve</>
-                          )}
-                        </Button>
-                        <Button 
-                          onClick={() => {
-                            setRejectionReason("Manual verification failed");
-                            rejectTransaction.mutate({
-                              transactionId: selectedTransaction.id,
-                              reason: "Manual verification failed"
-                            });
-                          }}
-                          disabled={rejectTransaction.isPending}
-                          variant="destructive"
-                          className="h-10 px-4"
-                        >
-                          <i className="fas fa-times mr-1"></i>Reject
-                        </Button>
-                      </div>
+                      <Button 
+                        onClick={() => verifyTransaction.mutate({
+                          transactionId: selectedTransaction.id,
+                          enteredAmount,
+                          enteredVMF,
+                          transaction: selectedTransaction
+                        })}
+                        disabled={verifyTransaction.isPending || !enteredAmount || !enteredVMF}
+                        className="w-full bg-success hover:bg-success/90 text-white py-2 rounded-lg text-sm font-medium"
+                      >
+                        <i className="fas fa-check mr-2"></i>Verify & Process
+                      </Button>
                     </div>
                   )}
                 </div>
@@ -602,109 +569,12 @@ export default function CashierDashboard() {
           </CardContent>
         </Card>
 
-        {/* Expired Transactions */}
-        {expiredTransactions.length > 0 && (
-          <Card className="shadow-sm border border-red-200 dark:border-red-700 mb-6">
-            <CardContent className="p-4">
-              <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
-                <i className="fas fa-clock text-red-500 mr-2"></i>
-                Expired Requests ({expiredTransactions.length})
-              </h3>
-              
-              <div className="space-y-3 max-h-48 overflow-y-auto">
-                {expiredTransactions.map((transaction: any) => (
-                  <div key={transaction.id} className="border border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-700 rounded-lg p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <h4 className="font-medium text-red-800 dark:text-red-200 text-sm">Expired Request</h4>
-                        <p className="text-red-600 dark:text-red-400 text-xs">
-                          {transaction.description || 'Cash Digitization'}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-lg text-red-800 dark:text-red-200">
-                          {formatCurrency(transaction.amount)}
-                        </p>
-                        <Badge className="bg-red-500 text-white text-xs">
-                          Expired
-                        </Badge>
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div>
-                        <span className="text-red-700 dark:text-red-300">VMF:</span>
-                        <p className="text-red-800 dark:text-red-200 font-medium">
-                          {transaction.vmfNumber || "N/A"}
-                        </p>
-                      </div>
-                      <div>
-                        <span className="text-red-700 dark:text-red-300">Expired:</span>
-                        <p className="text-red-800 dark:text-red-200 font-medium">
-                          {transaction.expiresAt ? new Date(transaction.expiresAt).toLocaleTimeString() : "Unknown"}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="mt-2 p-2 bg-red-100 dark:bg-red-800/30 rounded border border-red-200 dark:border-red-600">
-                      <div className="flex items-center text-red-700 dark:text-red-300">
-                        <i className="fas fa-info-circle mr-2 text-xs"></i>
-                        <span className="text-xs">This request timed out and requires merchant to resend</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* QR Code Scanner */}
-        <Card className="shadow-sm border border-green-200 dark:border-green-700 mb-6">
-          <CardContent className="p-4">
-            <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
-              <i className="fas fa-qrcode text-green-600 mr-2"></i>
-              QR Code Verification
-            </h3>
-            
-            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-4">
-              <div className="text-center">
-                <div className="w-16 h-16 bg-green-100 dark:bg-green-800 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <i className="fas fa-qrcode text-green-600 text-2xl"></i>
-                </div>
-                <h4 className="font-medium text-green-800 dark:text-green-200 mb-2">Scan Merchant QR Code</h4>
-                <p className="text-green-700 dark:text-green-300 text-sm mb-4">
-                  Scan the merchant's QR code to verify transaction details using your physical VMF copy
-                </p>
-                
-                <Button 
-                  onClick={() => {
-                    // Simulate QR code scanning - in real implementation would use camera
-                    toast({
-                      title: "QR Scanner",
-                      description: "QR code scanning functionality would activate camera here",
-                    });
-                  }}
-                  className="bg-green-600 hover:bg-green-700 text-white"
-                >
-                  <i className="fas fa-camera mr-2"></i>
-                  Scan QR Code
-                </Button>
-                
-                <p className="text-xs text-green-600 dark:text-green-400 mt-3">
-                  After scanning, verify amount and VMF using the same process as regular requests
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* All Transaction History */}
+        {/* Today's Transaction History */}
         <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
           <CardContent className="p-4">
             <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
               <i className="fas fa-history text-info mr-2"></i>
-              All Transaction History
+              Today's Transaction History
             </h3>
             
             {historyLoading ? (
@@ -721,8 +591,14 @@ export default function CashierDashboard() {
               </div>
             ) : (
               <div className="space-y-3 max-h-64 overflow-y-auto">
-                {(allTransactions as any[])
-                  .slice(0, 50) // Show recent transactions including all statuses
+                {(todayTransactions as any[])
+                  .filter((transaction: any) => {
+                    // Filter for today's transactions (including expired ones)
+                    const today = new Date();
+                    const transactionDate = new Date(transaction.createdAt);
+                    return transactionDate.toDateString() === today.toDateString();
+                  })
+                  .slice(0, 15) // Show more transactions including expired ones
                   .map((transaction: any) => {
                     const isCompleted = transaction.status === 'completed';
                     const isRejected = transaction.status === 'rejected';
@@ -792,12 +668,16 @@ export default function CashierDashboard() {
                     );
                   })}
                 
-                {(allTransactions as any[]).length === 0 && (
+                {(todayTransactions as any[]).filter((transaction: any) => {
+                  const today = new Date();
+                  const transactionDate = new Date(transaction.createdAt);
+                  return transactionDate.toDateString() === today.toDateString();
+                }).length === 0 && (
                   <div className="text-center py-8">
                     <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
                       <i className="fas fa-history text-gray-400 text-xl"></i>
                     </div>
-                    <p className="text-gray-600 dark:text-gray-400">No transactions found</p>
+                    <p className="text-gray-600 dark:text-gray-400">No transactions today</p>
                     <p className="text-gray-500 dark:text-gray-500 text-sm">Transaction history will appear here</p>
                   </div>
                 )}
@@ -820,16 +700,6 @@ export default function CashierDashboard() {
       <DocumentUploadModal
         isOpen={showUploadModal}
         onClose={() => setShowUploadModal(false)}
-      />
-
-      {/* Transaction Result Modal */}
-      <TransactionResultModal
-        isOpen={showResultModal}
-        onClose={() => setShowResultModal(false)}
-        isSuccess={transactionResult.isSuccess}
-        amount={transactionResult.amount}
-        vmfNumber={transactionResult.vmfNumber}
-        reason={transactionResult.reason}
       />
     </div>
   );

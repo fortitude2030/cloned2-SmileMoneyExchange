@@ -7,7 +7,7 @@ interface RequestCooldownModalProps {
 }
 
 export default function RequestCooldownModal({ isOpen, countdown, onClose }: RequestCooldownModalProps) {
-  const progress = countdown > 0 ? ((180 - countdown) / 180) * 100 : 100;
+  const progress = countdown > 0 ? ((60 - countdown) / 60) * 100 : 100;
   const circumference = 2 * Math.PI * 45;
   const strokeDashoffset = circumference - (progress / 100) * circumference;
 
