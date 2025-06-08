@@ -10,16 +10,21 @@ import DocumentUploadModal from "@/components/document-upload-modal";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function CashierDashboard() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState<string>("");
   const [activeSession, setActiveSession] = useState({
     merchant: "Tech Store Plus",
     location: "Westlands Branch, Nairobi",
     amount: "25000"
   });
+
+  // Calculate countdown for each pending transaction
+  const [countdowns, setCountdowns] = useState<{ [key: number]: number }>({});
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -36,11 +41,70 @@ export default function CashierDashboard() {
     }
   }, [isAuthenticated, isLoading, toast]);
 
-  // Fetch pending transactions
+  // Fetch wallet data for cashier balance
+  const { data: wallet, isLoading: walletLoading } = useQuery({
+    queryKey: ["/api/wallet"],
+    retry: false,
+  });
+
+  // Fetch pending transactions (exclude expired ones)
   const { data: pendingTransactions = [], isLoading: transactionsLoading } = useQuery({
     queryKey: ["/api/transactions/pending"],
     retry: false,
   });
+
+  // Fetch today's transaction history
+  const { data: todayTransactions = [], isLoading: historyLoading } = useQuery({
+    queryKey: ["/api/transactions"],
+    retry: false,
+  });
+
+  // Update countdowns for pending transactions
+  useEffect(() => {
+    const filteredTransactions = (pendingTransactions as any[]).filter((transaction: any) => {
+      // Only show non-expired transactions
+      if (transaction.expiresAt) {
+        const expiresAt = new Date(transaction.expiresAt);
+        return expiresAt > new Date();
+      }
+      return true;
+    });
+
+    // Initialize countdowns
+    const initialCountdowns: { [key: number]: number } = {};
+    filteredTransactions.forEach((transaction: any) => {
+      if (transaction.expiresAt) {
+        const expiresAt = new Date(transaction.expiresAt);
+        const now = new Date();
+        const secondsLeft = Math.max(0, Math.floor((expiresAt.getTime() - now.getTime()) / 1000));
+        initialCountdowns[transaction.id] = secondsLeft;
+      }
+    });
+    setCountdowns(initialCountdowns);
+
+    // Update countdowns every second
+    const interval = setInterval(() => {
+      setCountdowns(prev => {
+        const updated = { ...prev };
+        let hasChanges = false;
+        
+        Object.keys(updated).forEach(id => {
+          const numId = parseInt(id);
+          if (updated[numId] > 0) {
+            updated[numId] = updated[numId] - 1;
+            hasChanges = true;
+          } else if (updated[numId] === 0) {
+            // Transaction expired, refetch data
+            queryClient.invalidateQueries({ queryKey: ["/api/transactions/pending"] });
+          }
+        });
+        
+        return hasChanges ? updated : prev;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [pendingTransactions, queryClient]);
 
   // Approve transaction mutation
   const approveTransaction = useMutation({

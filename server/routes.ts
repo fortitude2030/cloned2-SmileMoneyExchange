@@ -176,6 +176,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Set cashier daily allocation (Admin only)
+  app.post('/api/wallet/set-allocation', isAuthenticated, async (req: any, res) => {
+    try {
+      const { userId, amount } = req.body;
+      const adminUser = await storage.getUser(req.user.claims.sub);
+      
+      if (adminUser?.role !== 'admin') {
+        return res.status(403).json({ message: "Unauthorized - Admin access required" });
+      }
+
+      await storage.setCashierDailyAllocation(userId, amount);
+      res.json({ message: "Daily allocation set successfully" });
+    } catch (error) {
+      console.error("Error setting daily allocation:", error);
+      res.status(500).json({ message: "Failed to set daily allocation" });
+    }
+  });
+
   // Transaction routes
   app.post('/api/transactions', isAuthenticated, async (req: any, res) => {
     try {
@@ -191,8 +209,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         expiresAt,
       });
       
-      // Check transfer limits for the sender
       const amount = parseFloat(transactionData.amount);
+      
+      // For cash digitization requests, check if cashier has sufficient balance
+      if (transactionData.type === 'cash_digitization' && transactionData.toUserId) {
+        const receivingUser = await storage.getUser(transactionData.toUserId);
+        if (receivingUser?.role === 'cashier') {
+          const balanceCheck = await storage.checkCashierBalance(transactionData.toUserId, amount);
+          
+          if (!balanceCheck.sufficient) {
+            // Automatically reject with insufficient balance reason
+            const rejectedTransaction = await storage.createTransaction({
+              ...transactionData,
+              status: 'rejected',
+              rejectionReason: 'Insufficient Balance'
+            });
+            
+            return res.json(rejectedTransaction);
+          }
+        }
+      }
+      
+      // Check transfer limits for the sender
       const limitCheck = await storage.checkTransferLimits(transactionData.fromUserId || userId, amount);
       
       if (!limitCheck.allowed) {
@@ -252,7 +290,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/transactions/:id/status', isAuthenticated, async (req: any, res) => {
     try {
       const transactionId = parseInt(req.params.id);
-      const { status } = req.body;
+      const { status, rejectionReason } = req.body;
       
       if (!['pending', 'approved', 'completed', 'rejected'].includes(status)) {
         return res.status(400).json({ message: "Invalid status" });
@@ -263,13 +301,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Transaction not found" });
       }
 
-      await storage.updateTransactionStatus(transactionId, status);
+      // Update transaction with rejection reason if provided
+      if (status === 'rejected' && rejectionReason) {
+        await storage.updateTransactionStatusWithReason(transactionId, status, rejectionReason);
+      } else {
+        await storage.updateTransactionStatus(transactionId, status);
+      }
       
-      // If approved, update wallet balances
+      // If completed, update cashier wallet balance (debit from cashier)
       if (status === 'completed' && transaction.toUserId) {
-        const wallet = await storage.getOrCreateWallet(transaction.toUserId);
-        const newBalance = (parseFloat(wallet.balance || "0") + parseFloat(transaction.amount)).toString();
-        await storage.updateWalletBalance(transaction.toUserId, newBalance);
+        const cashierUser = await storage.getUser(transaction.toUserId);
+        if (cashierUser?.role === 'cashier') {
+          // Debit from cashier's balance
+          const cashierWallet = await storage.getOrCreateWallet(transaction.toUserId);
+          const newBalance = (parseFloat(cashierWallet.balance || "0") - parseFloat(transaction.amount)).toString();
+          await storage.updateWalletBalance(transaction.toUserId, newBalance);
+        }
       }
 
       res.json({ message: "Transaction status updated" });
