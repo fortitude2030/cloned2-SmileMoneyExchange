@@ -98,8 +98,8 @@ export default function MerchantDashboard() {
       return;
     }
 
-    const amount = parseFloat(paymentAmount);
-    const dailySpent = parseFloat(wallet?.dailySpent || "0");
+    const amount = Math.round(parseFloat(paymentAmount));
+    const dailySpent = Math.round(parseFloat(wallet?.dailySpent || "0"));
     const dailyLimit = 1000000; // K1,000,000 limit
     const remainingLimit = dailyLimit - dailySpent;
 
@@ -218,8 +218,8 @@ export default function MerchantDashboard() {
                 return;
               }
               
-              const amount = parseFloat(paymentAmount);
-              const dailySpent = parseFloat(wallet?.dailySpent || "0");
+              const amount = Math.round(parseFloat(paymentAmount));
+              const dailySpent = Math.round(parseFloat(wallet?.dailySpent || "0"));
               const dailyLimit = 1000000;
               const remainingLimit = dailyLimit - dailySpent;
 

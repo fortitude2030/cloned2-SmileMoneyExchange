@@ -38,7 +38,7 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
   };
 
   const formatCurrency = (amount: string | number) => {
-    return `ZMW ${parseFloat(amount.toString()).toLocaleString()}`;
+    return `ZMW ${Math.round(parseFloat(amount.toString())).toLocaleString()}`;
   };
 
   return (

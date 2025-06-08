@@ -200,7 +200,7 @@ export default function FinancePortal() {
   });
 
   const formatCurrency = (amount: string | number) => {
-    return `ZMW ${parseFloat(amount.toString()).toLocaleString()}`;
+    return `ZMW ${Math.round(parseFloat(amount.toString())).toLocaleString()}`;
   };
 
   const getStatusBadge = (status: string) => {
@@ -232,7 +232,7 @@ export default function FinancePortal() {
   };
 
   const calculateTotalBalance = () => {
-    return branches.reduce((total, branch: any) => total + parseFloat(branch.balance || "0"), 0);
+    return branches.reduce((total: number, branch: any) => total + Math.round(parseFloat(branch.balance || "0")), 0);
   };
 
   if (isLoading) {

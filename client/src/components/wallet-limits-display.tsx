@@ -16,14 +16,14 @@ export default function WalletLimitsDisplay({ wallet }: WalletLimitsDisplayProps
   };
 
   const calculatePercentage = (spent: string, limit: string) => {
-    const spentAmount = parseFloat(spent || '0');
-    const limitAmount = parseFloat(limit || '1');
+    const spentAmount = Math.round(parseFloat(spent || '0'));
+    const limitAmount = Math.round(parseFloat(limit || '1'));
     return Math.min((spentAmount / limitAmount) * 100, 100);
   };
 
   const dailyPercentage = calculatePercentage(wallet.dailySpent, wallet.dailyLimit);
-  const dailyRemaining = parseFloat(wallet.dailyLimit) - parseFloat(wallet.dailySpent || '0');
-  const walletBalance = parseFloat(wallet.balance || '0');
+  const dailyRemaining = Math.round(parseFloat(wallet.dailyLimit)) - Math.round(parseFloat(wallet.dailySpent || '0'));
+  const walletBalance = Math.round(parseFloat(wallet.balance || '0'));
 
   return (
     <div className="space-y-4">

@@ -70,7 +70,7 @@ export default function AdminDashboard() {
   });
 
   const formatCurrency = (amount: string | number) => {
-    return `ZMW ${parseFloat(amount.toString()).toLocaleString()}`;
+    return `ZMW ${Math.round(parseFloat(amount.toString())).toLocaleString()}`;
   };
 
   const getPriorityBadge = (priority: string) => {
