@@ -7,6 +7,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import MobileHeader from "@/components/mobile-header";
 import MobileNav from "@/components/mobile-nav";
 import QRCodeModal from "@/components/qr-code-modal";
+import RequestCooldownModal from "@/components/request-cooldown-modal";
 import WalletLimitsDisplay from "@/components/wallet-limits-display";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ export default function MerchantDashboard() {
   const [showAllTransactions, setShowAllTransactions] = useState(false);
   const [requestCooldown, setRequestCooldown] = useState(0);
   const [isRequestDisabled, setIsRequestDisabled] = useState(false);
+  const [showRequestCooldown, setShowRequestCooldown] = useState(false);
 
   // Timer effect for request cooldown
   useEffect(() => {
@@ -33,6 +35,7 @@ export default function MerchantDashboard() {
           const newValue = prev - 1;
           if (newValue <= 0) {
             setIsRequestDisabled(false);
+            setShowRequestCooldown(false);
           }
           return Math.max(0, newValue);
         });
@@ -83,9 +86,10 @@ export default function MerchantDashboard() {
       });
     },
     onSuccess: () => {
-      // Start 60-second cooldown
+      // Start 60-second cooldown with modal
       setIsRequestDisabled(true);
       setRequestCooldown(60);
+      setShowRequestCooldown(true);
       
       toast({
         title: "Success",
@@ -281,20 +285,8 @@ export default function MerchantDashboard() {
               <div className="w-12 h-12 bg-accent bg-opacity-10 rounded-xl flex items-center justify-center mx-auto mb-2">
                 <i className="fas fa-paper-plane text-accent text-xl"></i>
               </div>
-              <h3 className="font-semibold text-sm">
-                {isRequestDisabled && requestCooldown > 0 ? `Wait ${requestCooldown}s` : 'Request to Pay'}
-              </h3>
-              <p className="text-gray-600 dark:text-gray-400 text-xs">
-                {isRequestDisabled && requestCooldown > 0 ? 'Cooldown Active' : 'Send Request'}
-              </p>
-              {isRequestDisabled && requestCooldown > 0 && (
-                <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-1 mt-2">
-                  <div 
-                    className="bg-accent h-1 rounded-full transition-all duration-1000"
-                    style={{ width: `${((60 - requestCooldown) / 60) * 100}%` }}
-                  ></div>
-                </div>
-              )}
+              <h3 className="font-semibold text-sm">Request to Pay</h3>
+              <p className="text-gray-600 dark:text-gray-400 text-xs">Send Request</p>
             </div>
           </Button>
         </div>
@@ -408,6 +400,12 @@ export default function MerchantDashboard() {
         onClose={() => setShowQRModal(false)}
         amount={paymentAmount}
         vmfNumber={vmfNumber}
+      />
+
+      <RequestCooldownModal
+        isOpen={showRequestCooldown}
+        countdown={requestCooldown}
+        onClose={() => setShowRequestCooldown(false)}
       />
     </div>
   );
