@@ -9,6 +9,8 @@ export interface PaymentQRData {
   timestamp: number;
   merchantId?: string;
   description?: string;
+  vmfNumber?: string;
+  uniqueId?: string;
 }
 
 /**
