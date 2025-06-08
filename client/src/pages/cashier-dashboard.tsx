@@ -97,7 +97,8 @@ export default function CashierDashboard() {
 
   // Separate effect for countdown updates
   useEffect(() => {
-    if (Object.keys(countdowns).length === 0) {
+    const hasCountdowns = Object.keys(countdowns).length > 0;
+    if (!hasCountdowns) {
       return;
     }
 
@@ -131,7 +132,7 @@ export default function CashierDashboard() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [countdowns, queryClient]);
+  }, []); // Remove problematic dependencies
 
   // Verify and process transaction mutation
   const verifyTransaction = useMutation({
