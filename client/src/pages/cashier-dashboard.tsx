@@ -77,8 +77,8 @@ export default function CashierDashboard() {
     return false;
   });
 
-  // Fetch today's transaction history
-  const { data: todayTransactions = [], isLoading: historyLoading } = useQuery({
+  // Fetch all transaction history for cashier
+  const { data: allTransactions = [], isLoading: historyLoading } = useQuery({
     queryKey: ["/api/transactions"],
     retry: false,
   });
@@ -360,14 +360,13 @@ export default function CashierDashboard() {
                             </span>
                           )}
                         </div>
-                        <div className="grid grid-cols-2 gap-3 text-sm">
-                          <div>
-                            <span className="text-blue-700 dark:text-blue-300">Amount:</span>
-                            <p className="font-bold text-blue-900 dark:text-blue-100">{formatCurrency(selectedTransaction.amount)}</p>
-                          </div>
-                          <div>
-                            <span className="text-blue-700 dark:text-blue-300">VMF:</span>
-                            <p className="font-bold text-blue-900 dark:text-blue-100">{selectedTransaction.vmfNumber || "N/A"}</p>
+                        <div className="text-sm">
+                          <div className="text-center">
+                            <span className="text-blue-700 dark:text-blue-300">Transaction ID:</span>
+                            <p className="font-bold text-blue-900 dark:text-blue-100">#{selectedTransaction.id}</p>
+                            <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                              Use your physical VMF copy for amount and VMF verification
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -642,12 +641,52 @@ export default function CashierDashboard() {
           </Card>
         )}
 
-        {/* Today's Transaction History */}
+        {/* QR Code Scanner */}
+        <Card className="shadow-sm border border-green-200 dark:border-green-700 mb-6">
+          <CardContent className="p-4">
+            <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
+              <i className="fas fa-qrcode text-green-600 mr-2"></i>
+              QR Code Verification
+            </h3>
+            
+            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-4">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-green-100 dark:bg-green-800 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <i className="fas fa-qrcode text-green-600 text-2xl"></i>
+                </div>
+                <h4 className="font-medium text-green-800 dark:text-green-200 mb-2">Scan Merchant QR Code</h4>
+                <p className="text-green-700 dark:text-green-300 text-sm mb-4">
+                  Scan the merchant's QR code to verify transaction details using your physical VMF copy
+                </p>
+                
+                <Button 
+                  onClick={() => {
+                    // Simulate QR code scanning - in real implementation would use camera
+                    toast({
+                      title: "QR Scanner",
+                      description: "QR code scanning functionality would activate camera here",
+                    });
+                  }}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  <i className="fas fa-camera mr-2"></i>
+                  Scan QR Code
+                </Button>
+                
+                <p className="text-xs text-green-600 dark:text-green-400 mt-3">
+                  After scanning, verify amount and VMF using the same process as regular requests
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* All Transaction History */}
         <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
           <CardContent className="p-4">
             <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
               <i className="fas fa-history text-info mr-2"></i>
-              Today's Transaction History
+              All Transaction History
             </h3>
             
             {historyLoading ? (
@@ -664,14 +703,8 @@ export default function CashierDashboard() {
               </div>
             ) : (
               <div className="space-y-3 max-h-64 overflow-y-auto">
-                {(todayTransactions as any[])
-                  .filter((transaction: any) => {
-                    // Filter for today's transactions (including expired ones)
-                    const today = new Date();
-                    const transactionDate = new Date(transaction.createdAt);
-                    return transactionDate.toDateString() === today.toDateString();
-                  })
-                  .slice(0, 15) // Show more transactions including expired ones
+                {(allTransactions as any[])
+                  .slice(0, 50) // Show recent transactions including all statuses
                   .map((transaction: any) => {
                     const isCompleted = transaction.status === 'completed';
                     const isRejected = transaction.status === 'rejected';
@@ -741,16 +774,12 @@ export default function CashierDashboard() {
                     );
                   })}
                 
-                {(todayTransactions as any[]).filter((transaction: any) => {
-                  const today = new Date();
-                  const transactionDate = new Date(transaction.createdAt);
-                  return transactionDate.toDateString() === today.toDateString();
-                }).length === 0 && (
+                {(allTransactions as any[]).length === 0 && (
                   <div className="text-center py-8">
                     <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
                       <i className="fas fa-history text-gray-400 text-xl"></i>
                     </div>
-                    <p className="text-gray-600 dark:text-gray-400">No transactions today</p>
+                    <p className="text-gray-600 dark:text-gray-400">No transactions found</p>
                     <p className="text-gray-500 dark:text-gray-500 text-sm">Transaction history will appear here</p>
                   </div>
                 )}
