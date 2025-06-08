@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 interface RequestCooldownModalProps {
   isOpen: boolean;
@@ -14,9 +14,6 @@ export default function RequestCooldownModal({ isOpen, countdown, onClose }: Req
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md mx-auto bg-white dark:bg-gray-800 p-8">
-        <DialogHeader>
-          <DialogTitle className="text-center">Request Status</DialogTitle>
-        </DialogHeader>
         <div className="text-center space-y-6">
           {/* Circular Progress Timer */}
           <div className="relative w-32 h-32 mx-auto">
