@@ -147,7 +147,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const wallet = await storage.getOrCreateWallet(userId);
-      res.json(wallet);
+      
+      // Get today's transaction totals
+      const todayTotals = await storage.getTodayTransactionTotals(userId);
+      
+      res.json({
+        ...wallet,
+        todayCompleted: todayTotals.completed,
+        todayTotal: todayTotals.total
+      });
     } catch (error) {
       console.error("Error fetching wallet:", error);
       res.status(500).json({ message: "Failed to fetch wallet" });

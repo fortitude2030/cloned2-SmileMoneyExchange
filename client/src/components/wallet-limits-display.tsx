@@ -7,6 +7,8 @@ interface WalletLimitsDisplayProps {
     dailyLimit: string;
     dailySpent: string;
     isActive: boolean;
+    todayCompleted?: string;
+    todayTotal?: string;
   };
 }
 
@@ -23,9 +25,9 @@ export default function WalletLimitsDisplay({ wallet }: WalletLimitsDisplayProps
 
   const dailyLimit = 1000000; // K1,000,000 fixed limit for merchants
   const spentToday = Math.round(parseFloat(wallet.dailySpent || '0')); // Completed transactions only
-  const walletBalance = Math.round(parseFloat(wallet.balance || '0')); // All transactions including pending
-  const dailyRemaining = Math.max(dailyLimit - walletBalance, 0); // Daily limit - wallet balance
-  const dailyPercentage = Math.min((walletBalance / dailyLimit) * 100, 100);
+  const walletBalance = spentToday; // Today's transactions only (same as spent today for now)
+  const dailyRemaining = Math.max(dailyLimit - spentToday, 0); // Daily limit - spent today
+  const dailyPercentage = Math.min((spentToday / dailyLimit) * 100, 100);
 
   return (
     <div className="space-y-4">

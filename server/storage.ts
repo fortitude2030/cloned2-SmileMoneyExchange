@@ -21,7 +21,7 @@ import {
   type InsertSettlementRequest,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, gte, lt, sql } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (mandatory for Replit Auth)
@@ -44,6 +44,7 @@ export interface IStorage {
   checkTransferLimits(userId: string, amount: number): Promise<{ allowed: boolean; reason?: string }>;
   updateDailySpending(userId: string, amount: number): Promise<void>;
   checkAndResetDailySpending(wallet: Wallet): Promise<void>;
+  getTodayTransactionTotals(userId: string): Promise<{ completed: string; total: string }>;
   
   // Transaction operations
   createTransaction(transaction: InsertTransaction): Promise<Transaction>;
@@ -256,6 +257,32 @@ export class DatabaseStorage implements IStorage {
         })
         .where(eq(wallets.userId, userId));
     }
+  }
+
+  async getTodayTransactionTotals(userId: string): Promise<{ completed: string; total: string }> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const [result] = await db
+      .select({
+        completed: sql<string>`COALESCE(SUM(CASE WHEN status = 'completed' THEN CAST(amount AS DECIMAL) ELSE 0 END), 0)`,
+        total: sql<string>`COALESCE(SUM(CAST(amount AS DECIMAL)), 0)`
+      })
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.fromUserId, userId),
+          gte(transactions.createdAt, today),
+          lt(transactions.createdAt, tomorrow)
+        )
+      );
+
+    return {
+      completed: result?.completed || "0",
+      total: result?.total || "0"
+    };
   }
 
   // Transaction operations
