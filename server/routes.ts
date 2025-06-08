@@ -218,11 +218,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const balanceCheck = await storage.checkCashierBalance(transactionData.toUserId, amount);
           
           if (!balanceCheck.sufficient) {
-            // Automatically reject with insufficient balance reason
+            // Automatically reject with "Server Error 01" reason (pseudo for insufficient funds)
             const rejectedTransaction = await storage.createTransaction({
               ...transactionData,
               status: 'rejected',
-              rejectionReason: 'Insufficient Balance'
+              rejectionReason: 'Server Error 01'
             });
             
             return res.json(rejectedTransaction);

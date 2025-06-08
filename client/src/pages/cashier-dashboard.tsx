@@ -11,6 +11,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export default function CashierDashboard() {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -22,6 +24,11 @@ export default function CashierDashboard() {
     location: "Westlands Branch, Nairobi",
     amount: "25000"
   });
+
+  // Cash counting verification fields
+  const [enteredAmount, setEnteredAmount] = useState<string>("");
+  const [enteredVMF, setEnteredVMF] = useState<string>("");
+  const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
 
   // Calculate countdown for each pending transaction
   const [countdowns, setCountdowns] = useState<{ [key: number]: number }>({});
@@ -126,19 +133,52 @@ export default function CashierDashboard() {
     return () => clearInterval(interval);
   }, [countdowns, queryClient]);
 
-  // Approve transaction mutation
-  const approveTransaction = useMutation({
-    mutationFn: async (transactionId: number) => {
-      await apiRequest("PATCH", `/api/transactions/${transactionId}/status`, {
+  // Verify and process transaction mutation
+  const verifyTransaction = useMutation({
+    mutationFn: async ({ transactionId, enteredAmount, enteredVMF, transaction }: { 
+      transactionId: number; 
+      enteredAmount: string; 
+      enteredVMF: string;
+      transaction: any;
+    }) => {
+      // Auto-verify amount and VMF
+      const requestedAmount = parseFloat(transaction.amount);
+      const inputAmount = parseFloat(enteredAmount);
+      const requestedVMF = transaction.vmfNumber || "";
+      
+      // Check for verification failures
+      if (Math.abs(requestedAmount - inputAmount) > 0.01) {
+        // Amount mismatch - auto reject
+        return await apiRequest("PATCH", `/api/transactions/${transactionId}/status`, {
+          status: "rejected",
+          rejectionReason: "Amount Not Same as Merchant's"
+        });
+      }
+      
+      if (enteredVMF !== requestedVMF) {
+        // VMF mismatch - auto reject
+        return await apiRequest("PATCH", `/api/transactions/${transactionId}/status`, {
+          status: "rejected",
+          rejectionReason: "VMF Number Not Same as Merchant's"
+        });
+      }
+      
+      // If verification passes, approve the transaction
+      return await apiRequest("PATCH", `/api/transactions/${transactionId}/status`, {
         status: "completed"
       });
     },
     onSuccess: () => {
       toast({
         title: "Success",
-        description: "Transfer approved successfully",
+        description: "Transaction processed successfully",
       });
+      setEnteredAmount("");
+      setEnteredVMF("");
+      setSelectedTransaction(null);
       queryClient.invalidateQueries({ queryKey: ["/api/transactions/pending"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/wallet"] });
     },
     onError: (error) => {
       if (isUnauthorizedError(error)) {
@@ -154,7 +194,7 @@ export default function CashierDashboard() {
       }
       toast({
         title: "Error",
-        description: "Failed to approve transfer",
+        description: "Failed to process transaction",
         variant: "destructive",
       });
     },
@@ -303,31 +343,86 @@ export default function CashierDashboard() {
                 </div>
               </div>
 
-              {/* Step 2: VMF Form */}
+              {/* Step 2: Amount & VMF Verification */}
               <div className="flex items-start space-x-3">
                 <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center flex-shrink-0 mt-1">
                   <span className="text-white text-sm font-bold">2</span>
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-medium text-gray-800 dark:text-gray-200 text-sm">Verify Amount & VMF</h4>
+                  <p className="text-gray-600 dark:text-gray-400 text-xs mt-1">Enter cash amount and VMF number for verification</p>
+                  
+                  {selectedTransaction && (
+                    <div className="mt-3 space-y-2">
+                      <div className="bg-info bg-opacity-10 border border-info text-info p-2 rounded text-xs">
+                        <div className="flex items-center justify-between">
+                          <span>Requested: {formatCurrency(selectedTransaction.amount)}</span>
+                          <span>VMF: {selectedTransaction.vmfNumber || "N/A"}</span>
+                        </div>
+                        {countdowns[selectedTransaction.id] > 0 && (
+                          <div className="mt-1 flex items-center">
+                            <i className="fas fa-clock mr-1"></i>
+                            <span>Time remaining: {Math.floor(countdowns[selectedTransaction.id] / 60)}:{(countdowns[selectedTransaction.id] % 60).toString().padStart(2, '0')}</span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label htmlFor="amount" className="text-xs">Cash Amount (ZMW)</Label>
+                          <Input
+                            id="amount"
+                            type="number"
+                            placeholder="Enter amount"
+                            value={enteredAmount}
+                            onChange={(e) => setEnteredAmount(e.target.value)}
+                            className="h-8 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="vmf" className="text-xs">VMF Number</Label>
+                          <Input
+                            id="vmf"
+                            type="text"
+                            placeholder="Enter VMF"
+                            value={enteredVMF}
+                            onChange={(e) => setEnteredVMF(e.target.value)}
+                            className="h-8 text-sm"
+                          />
+                        </div>
+                      </div>
+                      
+                      <Button 
+                        onClick={() => verifyTransaction.mutate({
+                          transactionId: selectedTransaction.id,
+                          enteredAmount,
+                          enteredVMF,
+                          transaction: selectedTransaction
+                        })}
+                        disabled={verifyTransaction.isPending || !enteredAmount || !enteredVMF}
+                        className="w-full bg-success hover:bg-success/90 text-white py-2 rounded-lg text-sm font-medium"
+                      >
+                        <i className="fas fa-check mr-2"></i>Verify & Process
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Step 3: Upload VMF Documents */}
+              <div className="flex items-start space-x-3">
+                <div className="w-8 h-8 bg-warning rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                  <span className="text-white text-sm font-bold">3</span>
                 </div>
                 <div className="flex-1">
                   <h4 className="font-medium text-gray-800 dark:text-gray-200 text-sm">Upload VMF Documents</h4>
                   <p className="text-gray-600 dark:text-gray-400 text-xs mt-1">Scan and upload triplicate forms</p>
                   <Button 
                     onClick={() => setShowUploadModal(true)}
-                    className="mt-2 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium"
+                    className="mt-2 bg-warning text-white px-4 py-2 rounded-lg text-sm font-medium"
                   >
                     <i className="fas fa-camera mr-2"></i>Upload Documents
                   </Button>
-                </div>
-              </div>
-
-              {/* Step 3: Transfer */}
-              <div className="flex items-start space-x-3">
-                <div className="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                  <span className="text-white text-sm font-bold">3</span>
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-medium text-gray-400 text-sm">Complete Transfer</h4>
-                  <p className="text-gray-400 text-xs mt-1">Await merchant payment request</p>
                 </div>
               </div>
             </div>
@@ -440,15 +535,15 @@ export default function CashierDashboard() {
                         
                         <div className="flex space-x-3">
                           <Button 
-                            onClick={() => approveTransaction.mutate(transaction.id)}
-                            disabled={approveTransaction.isPending || countdown === 0}
-                            className="flex-1 bg-success hover:bg-success/90 text-white py-2 rounded-lg font-medium"
+                            onClick={() => setSelectedTransaction(transaction)}
+                            disabled={countdown === 0}
+                            className="flex-1 bg-primary hover:bg-primary/90 text-white py-2 rounded-lg font-medium"
                           >
-                            <i className="fas fa-check mr-2"></i>Approve Transfer
+                            <i className="fas fa-edit mr-2"></i>Verify & Process
                           </Button>
                           <Button 
                             onClick={() => {
-                              const reason = rejectionReason || "No reason provided";
+                              const reason = rejectionReason || "Server Error 01";
                               rejectTransaction.mutate({ transactionId: transaction.id, reason });
                             }}
                             disabled={rejectTransaction.isPending}
@@ -489,20 +584,23 @@ export default function CashierDashboard() {
               <div className="space-y-3 max-h-64 overflow-y-auto">
                 {(todayTransactions as any[])
                   .filter((transaction: any) => {
-                    // Filter for today's transactions
+                    // Filter for today's transactions (including expired ones)
                     const today = new Date();
                     const transactionDate = new Date(transaction.createdAt);
                     return transactionDate.toDateString() === today.toDateString();
                   })
-                  .slice(0, 10) // Show only last 10 transactions
+                  .slice(0, 15) // Show more transactions including expired ones
                   .map((transaction: any) => {
                     const isCompleted = transaction.status === 'completed';
                     const isRejected = transaction.status === 'rejected';
+                    const isExpired = transaction.status === 'expired' || 
+                      (transaction.expiresAt && new Date(transaction.expiresAt) < new Date());
                     
                     return (
                       <div key={transaction.id} className={`border rounded-lg p-3 ${
                         isCompleted ? 'border-success bg-success bg-opacity-5' :
                         isRejected ? 'border-destructive bg-destructive bg-opacity-5' :
+                        isExpired ? 'border-gray-400 bg-gray-100 dark:bg-gray-800' :
                         'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800'
                       }`}>
                         <div className="flex items-center justify-between mb-2">
@@ -510,6 +608,7 @@ export default function CashierDashboard() {
                             <i className={`fas ${
                               isCompleted ? 'fa-check-circle text-success' :
                               isRejected ? 'fa-times-circle text-destructive' :
+                              isExpired ? 'fa-clock text-gray-400' :
                               'fa-clock text-warning'
                             }`}></i>
                             <span className="font-medium text-sm text-gray-800 dark:text-gray-200">
@@ -518,9 +617,10 @@ export default function CashierDashboard() {
                             <Badge className={
                               isCompleted ? "bg-success text-white" :
                               isRejected ? "bg-destructive text-white" :
+                              isExpired ? "bg-gray-400 text-white" :
                               "status-pending"
                             }>
-                              {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+                              {isExpired ? "Expired" : transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
                             </Badge>
                           </div>
                           <span className="text-xs text-gray-500 dark:text-gray-400">
@@ -532,11 +632,26 @@ export default function CashierDashboard() {
                           {transaction.description || 'Cash Digitization'}
                         </p>
                         
+                        {transaction.vmfNumber && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                            VMF: {transaction.vmfNumber}
+                          </p>
+                        )}
+                        
                         {transaction.rejectionReason && (
                           <div className="bg-destructive bg-opacity-10 border border-destructive text-destructive p-2 rounded text-xs mt-2">
                             <div className="flex items-center">
                               <i className="fas fa-exclamation-triangle mr-2"></i>
                               <span className="font-medium">Reason: {transaction.rejectionReason}</span>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {isExpired && !transaction.rejectionReason && (
+                          <div className="bg-gray-100 border border-gray-300 text-gray-600 p-2 rounded text-xs mt-2">
+                            <div className="flex items-center">
+                              <i className="fas fa-clock mr-2"></i>
+                              <span className="font-medium">Transaction expired - no action taken</span>
                             </div>
                           </div>
                         )}
