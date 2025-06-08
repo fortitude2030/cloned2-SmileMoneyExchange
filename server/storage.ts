@@ -268,7 +268,7 @@ export class DatabaseStorage implements IStorage {
     const [result] = await db
       .select({
         completed: sql<string>`COALESCE(SUM(CASE WHEN status = 'completed' THEN CAST(amount AS DECIMAL) ELSE 0 END), 0)`,
-        total: sql<string>`COALESCE(SUM(CAST(amount AS DECIMAL)), 0)`
+        total: sql<string>`COALESCE(SUM(CASE WHEN status IN ('completed', 'pending') THEN CAST(amount AS DECIMAL) ELSE 0 END), 0)`
       })
       .from(transactions)
       .where(
