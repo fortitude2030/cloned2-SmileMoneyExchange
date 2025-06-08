@@ -94,7 +94,11 @@ export default function QRScanner({ isOpen, onClose, onScanSuccess, pendingTrans
 
   const stopScanning = () => {
     if (codeReaderRef.current) {
-      codeReaderRef.current.reset();
+      try {
+        codeReaderRef.current.reset();
+      } catch (e) {
+        console.log("Scanner already stopped");
+      }
       codeReaderRef.current = null;
     }
     setIsScanning(false);
