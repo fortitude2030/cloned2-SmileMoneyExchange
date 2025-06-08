@@ -97,6 +97,21 @@ export default function MerchantDashboard() {
       });
       return;
     }
+
+    const amount = parseFloat(paymentAmount);
+    const dailySpent = parseFloat(wallet?.dailySpent || "0");
+    const dailyLimit = 1000000; // K1,000,000 limit
+    const remainingLimit = dailyLimit - dailySpent;
+
+    if (amount > remainingLimit) {
+      toast({
+        title: "Daily Limit Exceeded",
+        description: `Transaction amount (ZMW ${amount.toLocaleString()}) exceeds your available daily limit. Available: ZMW ${remainingLimit.toLocaleString()}`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     createPaymentRequest.mutate({ amount: paymentAmount, vmfNumber });
   };
 
@@ -229,10 +244,10 @@ export default function MerchantDashboard() {
               <h3 className="font-semibold text-gray-800 dark:text-gray-200">Recent Transactions</h3>
               <Button 
                 variant="ghost" 
-                className="text-primary text-sm font-medium"
+                className="text-blue-600 hover:text-blue-700 text-sm font-medium"
                 onClick={() => setShowAllTransactions(!showAllTransactions)}
               >
-                {showAllTransactions ? 'Show Recent' : 'View All'}
+                {showAllTransactions ? 'Show Last 5' : 'Show Last 30'}
               </Button>
             </div>
             
@@ -270,15 +285,15 @@ export default function MerchantDashboard() {
                     <div key={transaction.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                       <div className="flex items-center">
                         <div className={`w-10 h-10 rounded-lg flex items-center justify-center mr-3 ${
-                          transaction.status === 'completed' ? 'bg-green-100 dark:bg-green-900' :
-                          transaction.status === 'pending' ? 'bg-orange-100 dark:bg-orange-900' :
-                          transaction.status === 'rejected' ? 'bg-red-100 dark:bg-red-900' :
+                          transaction.status === 'completed' ? 'bg-green-200 dark:bg-green-800' :
+                          transaction.status === 'pending' ? 'bg-orange-200 dark:bg-orange-800' :
+                          transaction.status === 'rejected' ? 'bg-red-200 dark:bg-red-800' :
                           'bg-gray-200 dark:bg-gray-700'
                         }`}>
                           <i className={`fas ${
-                            transaction.status === 'completed' ? 'fa-arrow-down text-green-600' :
-                            transaction.status === 'pending' ? 'fa-clock text-orange-600' :
-                            transaction.status === 'rejected' ? 'fa-times text-red-600' :
+                            transaction.status === 'completed' ? 'fa-arrow-down text-green-700' :
+                            transaction.status === 'pending' ? 'fa-clock text-orange-700' :
+                            transaction.status === 'rejected' ? 'fa-times text-red-700' :
                             'fa-times text-gray-400'
                           }`}></i>
                         </div>

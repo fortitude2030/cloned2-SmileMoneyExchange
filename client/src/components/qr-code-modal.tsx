@@ -9,7 +9,7 @@ interface QRCodeModalProps {
   isOpen: boolean;
   onClose: () => void;
   amount: string;
-  onAmountChange: (amount: string) => void;
+  vmfNumber: string;
 }
 
 export default function QRCodeModal({ isOpen, onClose, amount, onAmountChange }: QRCodeModalProps) {
