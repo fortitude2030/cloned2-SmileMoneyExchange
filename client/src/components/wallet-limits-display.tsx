@@ -24,30 +24,30 @@ export default function WalletLimitsDisplay({ wallet }: WalletLimitsDisplayProps
   const dailyLimit = 1000000; // K1,000,000 fixed limit for merchants
   const dailySpent = Math.round(parseFloat(wallet.dailySpent || '0'));
   const dailyPercentage = Math.min((dailySpent / dailyLimit) * 100, 100);
-  const dailyRemaining = Math.max(dailyLimit - dailySpent, 0);
   const walletBalance = Math.round(parseFloat(wallet.balance || '0'));
+  const dailyRemaining = walletBalance; // Remaining = wallet balance
 
   return (
     <div className="space-y-4">
       {/* Wallet Balance */}
-      <Card className="shadow-sm border border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20">
+      <Card className="shadow-sm border border-green-400 dark:border-green-500 bg-green-400 dark:bg-green-600">
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-2">
-            <h4 className="font-medium text-green-800 dark:text-green-200">Wallet Balance</h4>
+            <h4 className="font-medium text-black dark:text-white">Wallet Balance</h4>
             <span className={`text-sm px-2 py-1 rounded-full ${
               wallet.isActive 
-                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
-                : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                ? 'bg-black/20 text-black dark:bg-white/20 dark:text-white' 
+                : 'bg-red-500 text-white dark:bg-red-600 dark:text-white'
             }`}>
               {wallet.isActive ? 'Active' : 'Inactive'}
             </span>
           </div>
           
           <div className="text-center py-2">
-            <div className="text-2xl font-bold text-green-800 dark:text-green-200">
+            <div className="text-2xl font-bold text-black dark:text-white">
               {formatCurrency(wallet.balance)}
             </div>
-            <div className="text-xs text-green-600 dark:text-green-400">
+            <div className="text-xs text-black/70 dark:text-white/70">
               Available for transactions
             </div>
           </div>
@@ -67,7 +67,11 @@ export default function WalletLimitsDisplay({ wallet }: WalletLimitsDisplayProps
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-gray-600 dark:text-gray-400">Spent today</span>
-              <span className="font-medium">{formatCurrency(dailySpent.toString())}</span>
+              <span className="font-medium">-{formatCurrency(dailySpent.toString())}</span>
+            </div>
+            <div className="flex justify-between text-sm mb-2">
+              <span className="text-gray-600 dark:text-gray-400">Progress</span>
+              <span className="font-medium text-xs">{dailyPercentage.toFixed(1)}%</span>
             </div>
             <Progress value={dailyPercentage} className="h-2" />
             <div className="flex justify-between text-sm">

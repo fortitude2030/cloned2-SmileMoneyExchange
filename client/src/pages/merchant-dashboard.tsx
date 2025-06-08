@@ -316,9 +316,9 @@ export default function MerchantDashboard() {
                           'bg-gray-200 dark:bg-gray-700'
                         }`}>
                           <i className={`fas ${
-                            transaction.status === 'completed' ? 'fa-arrow-down text-green-700' :
-                            transaction.status === 'pending' ? 'fa-clock text-orange-700' :
-                            transaction.status === 'rejected' ? 'fa-times text-red-700' :
+                            transaction.status === 'completed' ? 'fa-arrow-down text-green-500' :
+                            transaction.status === 'pending' ? 'fa-clock text-orange-500' :
+                            transaction.status === 'rejected' ? 'fa-times text-red-500' :
                             'fa-times text-gray-400'
                           }`}></i>
                         </div>
