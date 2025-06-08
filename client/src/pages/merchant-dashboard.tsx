@@ -208,7 +208,32 @@ export default function MerchantDashboard() {
         {/* Quick Actions */}
         <div className="grid grid-cols-2 gap-4 mb-6 mt-6">
           <Button
-            onClick={() => setShowQRModal(true)}
+            onClick={() => {
+              if (!paymentAmount || !vmfNumber.trim()) {
+                toast({
+                  title: "Missing Information",
+                  description: "Please enter both amount and VMF number before generating QR code",
+                  variant: "destructive",
+                });
+                return;
+              }
+              
+              const amount = parseFloat(paymentAmount);
+              const dailySpent = parseFloat(wallet?.dailySpent || "0");
+              const dailyLimit = 1000000;
+              const remainingLimit = dailyLimit - dailySpent;
+
+              if (amount > remainingLimit) {
+                toast({
+                  title: "Daily Limit Exceeded",
+                  description: `Amount (ZMW ${amount.toLocaleString()}) exceeds available daily limit. Available: ZMW ${remainingLimit.toLocaleString()}`,
+                  variant: "destructive",
+                });
+                return;
+              }
+
+              setShowQRModal(true);
+            }}
             className="bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow h-auto"
             variant="ghost"
           >
@@ -345,7 +370,7 @@ export default function MerchantDashboard() {
         isOpen={showQRModal}
         onClose={() => setShowQRModal(false)}
         amount={paymentAmount}
-        onAmountChange={setPaymentAmount}
+        vmfNumber={vmfNumber}
       />
     </div>
   );
