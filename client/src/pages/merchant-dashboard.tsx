@@ -8,6 +8,7 @@ import MobileHeader from "@/components/mobile-header";
 import MobileNav from "@/components/mobile-nav";
 import QRCodeModal from "@/components/qr-code-modal";
 import RequestCooldownModal from "@/components/request-cooldown-modal";
+import TransactionResultModal from "@/components/transaction-result-modal";
 import WalletLimitsDisplay from "@/components/wallet-limits-display";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

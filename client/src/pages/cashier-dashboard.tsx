@@ -7,6 +7,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import MobileHeader from "@/components/mobile-header";
 import MobileNav from "@/components/mobile-nav";
 import DocumentUploadModal from "@/components/document-upload-modal";
+import TransactionResultModal from "@/components/transaction-result-modal";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +19,13 @@ export default function CashierDashboard() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showResultModal, setShowResultModal] = useState(false);
+  const [transactionResult, setTransactionResult] = useState({
+    isSuccess: false,
+    amount: "",
+    vmfNumber: "",
+    reason: ""
+  });
   const [rejectionReason, setRejectionReason] = useState<string>("");
   const [activeSession, setActiveSession] = useState({
     merchant: "Tech Store Plus",
@@ -177,11 +185,16 @@ export default function CashierDashboard() {
         status: "completed"
       });
     },
-    onSuccess: () => {
-      toast({
-        title: "Success",
-        description: "Transaction processed successfully",
+    onSuccess: (_, variables) => {
+      // Show success animation modal
+      setTransactionResult({
+        isSuccess: true,
+        amount: variables.transaction.amount,
+        vmfNumber: variables.transaction.vmfNumber || "",
+        reason: ""
       });
+      setShowResultModal(true);
+      
       setEnteredAmount("");
       setEnteredVMF("");
       setSelectedTransaction(null);
@@ -217,11 +230,16 @@ export default function CashierDashboard() {
         rejectionReason: reason
       });
     },
-    onSuccess: () => {
-      toast({
-        title: "Success",
-        description: "Transfer rejected",
+    onSuccess: (_, variables) => {
+      // Show failure animation modal
+      setTransactionResult({
+        isSuccess: false,
+        amount: "",
+        vmfNumber: "",
+        reason: variables.reason
       });
+      setShowResultModal(true);
+      
       setRejectionReason("");
       queryClient.invalidateQueries({ queryKey: ["/api/transactions/pending"] });
       queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
@@ -802,6 +820,16 @@ export default function CashierDashboard() {
       <DocumentUploadModal
         isOpen={showUploadModal}
         onClose={() => setShowUploadModal(false)}
+      />
+
+      {/* Transaction Result Modal */}
+      <TransactionResultModal
+        isOpen={showResultModal}
+        onClose={() => setShowResultModal(false)}
+        isSuccess={transactionResult.isSuccess}
+        amount={transactionResult.amount}
+        vmfNumber={transactionResult.vmfNumber}
+        reason={transactionResult.reason}
       />
     </div>
   );
