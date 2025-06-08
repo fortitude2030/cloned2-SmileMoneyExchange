@@ -65,6 +65,7 @@ export const wallets = pgTable("wallets", {
   balance: decimal("balance", { precision: 12, scale: 2 }).default("0"),
   dailyLimit: decimal("daily_limit", { precision: 12, scale: 2 }).default("1000000.00").notNull(),
   dailySpent: decimal("daily_spent", { precision: 12, scale: 2 }).default("0.00").notNull(),
+  lastResetDate: timestamp("last_reset_date").defaultNow().notNull(),
   lastTransactionDate: timestamp("last_transaction_date"),
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow(),

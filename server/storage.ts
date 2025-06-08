@@ -43,6 +43,7 @@ export interface IStorage {
   updateWalletBalance(userId: string, balance: string): Promise<void>;
   checkTransferLimits(userId: string, amount: number): Promise<{ allowed: boolean; reason?: string }>;
   updateDailySpending(userId: string, amount: number): Promise<void>;
+  checkAndResetDailySpending(wallet: Wallet): Promise<void>;
   
   // Transaction operations
   createTransaction(transaction: InsertTransaction): Promise<Transaction>;
@@ -148,14 +149,47 @@ export class DatabaseStorage implements IStorage {
       .where(eq(wallets.userId, userId));
 
     if (existingWallet) {
-      return existingWallet;
+      // Check if daily spending needs to be reset
+      await this.checkAndResetDailySpending(existingWallet);
+      // Re-fetch the wallet after potential reset
+      const [updatedWallet] = await db
+        .select()
+        .from(wallets)
+        .where(eq(wallets.userId, userId));
+      return updatedWallet || existingWallet;
     }
 
     const [wallet] = await db
       .insert(wallets)
-      .values({ userId })
+      .values({ 
+        userId,
+        balance: "0",
+        dailyLimit: "1000000",
+        dailySpent: "0",
+        lastResetDate: new Date(),
+        isActive: true
+      })
       .returning();
     return wallet;
+  }
+
+  async checkAndResetDailySpending(wallet: Wallet): Promise<void> {
+    const now = new Date();
+    const lastReset = new Date(wallet.lastResetDate);
+    
+    // Check if it's a new day (after midnight)
+    const isNewDay = now.toDateString() !== lastReset.toDateString();
+    
+    if (isNewDay) {
+      await db
+        .update(wallets)
+        .set({
+          dailySpent: "0",
+          lastResetDate: now,
+          updatedAt: now,
+        })
+        .where(eq(wallets.userId, wallet.userId));
+    }
   }
 
   async updateWalletBalance(userId: string, balance: string): Promise<void> {

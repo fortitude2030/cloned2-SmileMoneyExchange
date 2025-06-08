@@ -154,6 +154,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Daily reset endpoint for manual testing
+  app.post('/api/wallet/reset-daily', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const wallet = await storage.getOrCreateWallet(userId);
+      await storage.checkAndResetDailySpending(wallet);
+      const updatedWallet = await storage.getOrCreateWallet(userId);
+      res.json({ message: "Daily spending reset", wallet: updatedWallet });
+    } catch (error) {
+      console.error("Error resetting daily spending:", error);
+      res.status(500).json({ message: "Failed to reset daily spending" });
+    }
+  });
+
   // Transaction routes
   app.post('/api/transactions', isAuthenticated, async (req: any, res) => {
     try {

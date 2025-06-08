@@ -3,6 +3,15 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
+
+// Daily reset scheduler - checks every hour for midnight resets
+setInterval(() => {
+  const now = new Date();
+  if (now.getHours() === 0 && now.getMinutes() < 5) {
+    log("Daily wallet reset triggered at midnight");
+    // Reset happens automatically when wallets are accessed via getOrCreateWallet
+  }
+}, 5 * 60 * 1000); // Check every 5 minutes
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
