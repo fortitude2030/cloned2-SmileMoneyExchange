@@ -79,7 +79,9 @@ export const transactions = pgTable("transactions", {
   type: varchar("type").notNull(), // cash_digitization, settlement, transfer
   status: varchar("status").notNull(), // pending, approved, completed, rejected
   description: text("description"),
+  vmfNumber: varchar("vmf_number"), // Voucher Movement Form number
   vmfDocumentIds: text("vmf_document_ids").array(),
+  rejectionReason: varchar("rejection_reason"), // reason for rejection
   qrCode: text("qr_code"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

@@ -20,6 +20,7 @@ export default function MerchantDashboard() {
   const [showQRModal, setShowQRModal] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("25000");
   const [vmfNumber, setVmfNumber] = useState("");
+  const [showAllTransactions, setShowAllTransactions] = useState(false);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -103,19 +104,34 @@ export default function MerchantDashboard() {
     return `ZMW ${Math.round(parseFloat(amount.toString())).toLocaleString()}`;
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, rejectionReason?: string) => {
     switch (status) {
       case 'completed':
-        return <Badge className="status-completed">Completed</Badge>;
+        return <Badge className="bg-green-600 text-white font-medium">Completed</Badge>;
       case 'pending':
-        return <Badge className="status-pending">Pending</Badge>;
+        return <Badge className="bg-orange-600 text-white font-medium">Pending</Badge>;
       case 'approved':
-        return <Badge className="status-approved">Approved</Badge>;
+        return <Badge className="bg-blue-600 text-white font-medium">Approved</Badge>;
       case 'rejected':
-        return <Badge className="status-rejected">Rejected</Badge>;
+        return (
+          <div className="text-right">
+            <Badge className="bg-red-600 text-white font-medium mb-1">Rejected</Badge>
+            {rejectionReason && (
+              <p className="text-xs text-red-600 dark:text-red-400">{rejectionReason}</p>
+            )}
+          </div>
+        );
       default:
-        return <Badge variant="outline">{status}</Badge>;
+        return <Badge className="bg-gray-600 text-white font-medium">{status}</Badge>;
     }
+  };
+
+  const formatDateTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return {
+      date: date.toLocaleDateString(),
+      time: date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
   };
 
   if (isLoading || walletLoading) {
@@ -143,6 +159,36 @@ export default function MerchantDashboard() {
       <div className="p-4">
         {/* Transfer Limits - Shows Wallet Balance */}
         {wallet && <WalletLimitsDisplay wallet={wallet} />}
+
+        {/* Payment Request Form */}
+        <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
+          <CardContent className="p-4">
+            <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4">Request Payment</h3>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="amount">Amount (ZMW)</Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  value={paymentAmount}
+                  onChange={(e) => setPaymentAmount(e.target.value)}
+                  placeholder="Enter amount"
+                />
+              </div>
+              <div>
+                <Label htmlFor="vmf">VMF Number *</Label>
+                <Input
+                  id="vmf"
+                  type="text"
+                  value={vmfNumber}
+                  onChange={(e) => setVmfNumber(e.target.value)}
+                  placeholder="Enter Voucher Movement Form number"
+                  required
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Quick Actions */}
         <div className="grid grid-cols-2 gap-4 mb-6 mt-6">
@@ -181,8 +227,12 @@ export default function MerchantDashboard() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-gray-800 dark:text-gray-200">Recent Transactions</h3>
-              <Button variant="ghost" className="text-primary text-sm font-medium">
-                View All
+              <Button 
+                variant="ghost" 
+                className="text-primary text-sm font-medium"
+                onClick={() => setShowAllTransactions(!showAllTransactions)}
+              >
+                {showAllTransactions ? 'Show Recent' : 'View All'}
               </Button>
             </div>
             
@@ -214,41 +264,52 @@ export default function MerchantDashboard() {
               </div>
             ) : (
               <div className="space-y-3">
-                {transactions.map((transaction: any) => (
-                  <div key={transaction.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <div className="flex items-center">
-                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center mr-3 ${
-                        transaction.status === 'completed' ? 'bg-success bg-opacity-10' :
-                        transaction.status === 'pending' ? 'bg-warning bg-opacity-10' :
-                        'bg-gray-200 dark:bg-gray-700'
-                      }`}>
-                        <i className={`fas ${
-                          transaction.status === 'completed' ? 'fa-arrow-down text-success' :
-                          transaction.status === 'pending' ? 'fa-clock text-warning' :
-                          'fa-times text-gray-400'
-                        }`}></i>
+                {(showAllTransactions ? transactions.slice(0, 30) : transactions.slice(0, 5)).map((transaction: any) => {
+                  const dateTime = formatDateTime(transaction.createdAt);
+                  return (
+                    <div key={transaction.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div className="flex items-center">
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center mr-3 ${
+                          transaction.status === 'completed' ? 'bg-green-100 dark:bg-green-900' :
+                          transaction.status === 'pending' ? 'bg-orange-100 dark:bg-orange-900' :
+                          transaction.status === 'rejected' ? 'bg-red-100 dark:bg-red-900' :
+                          'bg-gray-200 dark:bg-gray-700'
+                        }`}>
+                          <i className={`fas ${
+                            transaction.status === 'completed' ? 'fa-arrow-down text-green-600' :
+                            transaction.status === 'pending' ? 'fa-clock text-orange-600' :
+                            transaction.status === 'rejected' ? 'fa-times text-red-600' :
+                            'fa-times text-gray-400'
+                          }`}></i>
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-800 dark:text-gray-200 text-sm">
+                            {transaction.description || 'Cash Digitization'}
+                          </p>
+                          <p className="text-gray-600 dark:text-gray-400 text-xs">
+                            {dateTime.date} at {dateTime.time}
+                          </p>
+                          {transaction.vmfNumber && (
+                            <p className="text-gray-500 dark:text-gray-400 text-xs">
+                              VMF: {transaction.vmfNumber}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium text-gray-800 dark:text-gray-200 text-sm">
-                          {transaction.description || 'Cash Digitization'}
+                      <div className="text-right">
+                        <p className={`font-semibold text-sm ${
+                          transaction.status === 'completed' ? 'text-green-600' :
+                          transaction.status === 'pending' ? 'text-orange-600' :
+                          transaction.status === 'rejected' ? 'text-red-600' :
+                          'text-gray-600 dark:text-gray-400'
+                        }`}>
+                          +{formatCurrency(transaction.amount)}
                         </p>
-                        <p className="text-gray-600 dark:text-gray-400 text-xs">
-                          {new Date(transaction.createdAt).toLocaleDateString()}
-                        </p>
+                        {getStatusBadge(transaction.status, transaction.rejectionReason)}
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className={`font-semibold text-sm ${
-                        transaction.status === 'completed' ? 'text-success' :
-                        transaction.status === 'pending' ? 'text-warning' :
-                        'text-gray-600 dark:text-gray-400'
-                      }`}>
-                        +{formatCurrency(transaction.amount)}
-                      </p>
-                      {getStatusBadge(transaction.status)}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>
