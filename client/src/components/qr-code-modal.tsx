@@ -14,13 +14,13 @@ interface QRCodeModalProps {
 export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCodeModalProps) {
   const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
   const [uniqueId] = useState(() => `QR${Date.now()}${Math.random().toString(36).substr(2, 9)}`);
-  const [timeLeft, setTimeLeft] = useState(30);
+  const [timeLeft, setTimeLeft] = useState(60);
   const [isExpired, setIsExpired] = useState(false);
 
   // Auto-generate QR code when modal opens
   useEffect(() => {
     if (isOpen && amount && vmfNumber) {
-      setTimeLeft(30);
+      setTimeLeft(60);
       setIsExpired(false);
       handleGenerateQR();
     }
@@ -63,7 +63,7 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
     return `ZMW ${Math.round(parseFloat(amount.toString())).toLocaleString()}`;
   };
 
-  const progressPercentage = ((30 - timeLeft) / 30) * 100;
+  const progressPercentage = ((60 - timeLeft) / 60) * 100;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -94,7 +94,7 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
                   ? 'text-red-800 dark:text-red-200' 
                   : 'text-blue-800 dark:text-blue-200'
               }`}>
-                {isExpired ? '00:00' : `00:${timeLeft.toString().padStart(2, '0')}`}
+                {isExpired ? '00:00' : `${Math.floor(timeLeft / 60).toString().padStart(2, '0')}:${(timeLeft % 60).toString().padStart(2, '0')}`}
               </span>
             </div>
             <Progress 
@@ -165,7 +165,7 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
             {isExpired && (
               <Button 
                 onClick={() => {
-                  setTimeLeft(30);
+                  setTimeLeft(60);
                   setIsExpired(false);
                   handleGenerateQR();
                 }} 
