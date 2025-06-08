@@ -11,12 +11,15 @@ import WalletLimitsDisplay from "@/components/wallet-limits-display";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export default function MerchantDashboard() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
   const [showQRModal, setShowQRModal] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("25000");
+  const [vmfNumber, setVmfNumber] = useState("");
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -47,13 +50,14 @@ export default function MerchantDashboard() {
 
   // Create payment request mutation
   const createPaymentRequest = useMutation({
-    mutationFn: async (amount: string) => {
+    mutationFn: async ({ amount, vmfNumber }: { amount: string; vmfNumber: string }) => {
       await apiRequest("POST", "/api/transactions", {
         toUserId: user?.id,
         amount,
+        vmfNumber,
         type: "cash_digitization",
         status: "pending",
-        description: "Cash digitization request",
+        description: `Cash digitization request - VMF: ${vmfNumber}`,
       });
     },
     onSuccess: () => {
@@ -84,11 +88,19 @@ export default function MerchantDashboard() {
   });
 
   const handleRequestPayment = () => {
-    createPaymentRequest.mutate(paymentAmount);
+    if (!vmfNumber.trim()) {
+      toast({
+        title: "VMF Required",
+        description: "Please enter a valid VMF number",
+        variant: "destructive",
+      });
+      return;
+    }
+    createPaymentRequest.mutate({ amount: paymentAmount, vmfNumber });
   };
 
   const formatCurrency = (amount: string | number) => {
-    return `ZMW ${parseFloat(amount.toString()).toLocaleString()}`;
+    return `ZMW ${Math.round(parseFloat(amount.toString())).toLocaleString()}`;
   };
 
   const getStatusBadge = (status: string) => {
@@ -129,26 +141,7 @@ export default function MerchantDashboard() {
       />
 
       <div className="p-4">
-        {/* Wallet Balance Card */}
-        <div className="gradient-secondary rounded-2xl p-6 text-white mb-6 animate-fade-in">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <p className="text-green-100 text-sm">E-Wallet Balance</p>
-              <h2 className="text-3xl font-bold">
-                {wallet ? formatCurrency(wallet.balance) : "ZMW 0.00"}
-              </h2>
-            </div>
-            <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
-              <i className="fas fa-wallet text-white text-xl"></i>
-            </div>
-          </div>
-          <div className="flex items-center text-green-100 text-sm">
-            <i className="fas fa-arrow-up mr-2"></i>
-            <span>Digital cash platform</span>
-          </div>
-        </div>
-
-        {/* Transfer Limits */}
+        {/* Transfer Limits - Shows Wallet Balance */}
         {wallet && <WalletLimitsDisplay wallet={wallet} />}
 
         {/* Quick Actions */}

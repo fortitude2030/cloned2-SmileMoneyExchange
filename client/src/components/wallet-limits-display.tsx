@@ -12,7 +12,7 @@ interface WalletLimitsDisplayProps {
 
 export default function WalletLimitsDisplay({ wallet }: WalletLimitsDisplayProps) {
   const formatCurrency = (amount: string) => {
-    return `ZMW ${parseFloat(amount || '0').toFixed(2)}`;
+    return `ZMW ${Math.round(parseFloat(amount || '0')).toLocaleString()}`;
   };
 
   const calculatePercentage = (spent: string, limit: string) => {
