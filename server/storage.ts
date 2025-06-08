@@ -306,11 +306,11 @@ export class DatabaseStorage implements IStorage {
 
   async checkCashierBalance(userId: string, requestAmount: number): Promise<{ sufficient: boolean; balance: string }> {
     const wallet = await this.getOrCreateWallet(userId);
-    const currentBalance = parseFloat(wallet.balance);
+    const currentBalance = parseFloat(wallet.balance || "0");
     
     return {
       sufficient: currentBalance >= requestAmount,
-      balance: wallet.balance
+      balance: wallet.balance || "0"
     };
   }
 
