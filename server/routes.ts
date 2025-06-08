@@ -308,14 +308,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.updateTransactionStatus(transactionId, status);
       }
       
-      // If completed, update cashier wallet balance (debit from cashier)
-      if (status === 'completed' && transaction.toUserId) {
-        const cashierUser = await storage.getUser(transaction.toUserId);
-        if (cashierUser?.role === 'cashier') {
-          // Debit from cashier's balance
-          const cashierWallet = await storage.getOrCreateWallet(transaction.toUserId);
-          const newBalance = (parseFloat(cashierWallet.balance || "0") - parseFloat(transaction.amount)).toString();
-          await storage.updateWalletBalance(transaction.toUserId, newBalance);
+      // If completed, update wallet balances
+      if (status === 'completed') {
+        const amount = parseFloat(transaction.amount);
+        
+        // For cash digitization: debit from cashier, credit to merchant
+        if (transaction.type === 'cash_digitization') {
+          if (transaction.toUserId) {
+            const cashierUser = await storage.getUser(transaction.toUserId);
+            if (cashierUser?.role === 'cashier') {
+              // Debit from cashier's daily allocation
+              await storage.updateWalletBalance(transaction.toUserId, `-${amount}`);
+            }
+          }
+          
+          if (transaction.fromUserId) {
+            // Credit to merchant
+            await storage.updateWalletBalance(transaction.fromUserId, `+${amount}`);
+          }
+        } else {
+          // Regular transfers: debit from sender, credit to receiver
+          if (transaction.fromUserId) {
+            await storage.updateWalletBalance(transaction.fromUserId, `-${amount}`);
+            await storage.updateDailySpending(transaction.fromUserId, amount);
+          }
+          
+          if (transaction.toUserId) {
+            await storage.updateWalletBalance(transaction.toUserId, `+${amount}`);
+          }
         }
       }
 
