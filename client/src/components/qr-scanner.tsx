@@ -64,24 +64,26 @@ export default function QRScanner({ isOpen, onClose, onScanSuccess, pendingTrans
       }
 
       // Use back camera if available, otherwise use first available
-      const selectedDevice = videoInputDevices.find(device => 
+      const selectedDevice = videoInputDevices.find((device: any) => 
         device.label.toLowerCase().includes('back') || 
         device.label.toLowerCase().includes('rear')
       ) || videoInputDevices[0];
 
       // Start decoding
-      codeReaderRef.current.decodeFromVideoDevice(
-        selectedDevice.deviceId,
-        videoRef.current!,
-        (result, error) => {
-          if (result) {
-            handleScanResult(result.getText());
+      if (codeReaderRef.current && videoRef.current) {
+        codeReaderRef.current.decodeFromVideoDevice(
+          selectedDevice.deviceId,
+          videoRef.current,
+          (result: any, error: any) => {
+            if (result) {
+              handleScanResult(result.getText());
+            }
+            if (error && !(error instanceof NotFoundException)) {
+              console.error("QR Scanner error:", error);
+            }
           }
-          if (error && !(error instanceof NotFoundException)) {
-            console.error("QR Scanner error:", error);
-          }
-        }
-      );
+        );
+      }
 
     } catch (err: any) {
       console.error("Failed to start camera:", err);
@@ -92,7 +94,7 @@ export default function QRScanner({ isOpen, onClose, onScanSuccess, pendingTrans
 
   const stopScanning = () => {
     if (codeReaderRef.current) {
-      codeReaderRef.current.stopContinuousDecode();
+      codeReaderRef.current.reset();
       codeReaderRef.current = null;
     }
     setIsScanning(false);

@@ -19,6 +19,7 @@ export default function CashierDashboard() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showQRScanner, setShowQRScanner] = useState(false);
   const [rejectionReason, setRejectionReason] = useState<string>("");
   const [activeSession, setActiveSession] = useState({
     merchant: "Tech Store Plus",
@@ -251,6 +252,40 @@ export default function CashierDashboard() {
     return `ZMW ${Math.round(parseFloat(amount.toString())).toLocaleString()}`;
   };
 
+  const handleQRScanSuccess = (scannedData: any) => {
+    // Match scanned QR data to pending transactions
+    const matchingTransaction = (pendingTransactions as any[]).find((transaction: any) => {
+      // Check if VMF number matches
+      if (scannedData.vmfNumber && transaction.vmfNumber === scannedData.vmfNumber) {
+        return true;
+      }
+      // Check if amount and timestamp are close matches
+      if (scannedData.amount && Math.abs(parseFloat(transaction.amount) - scannedData.amount) < 0.01) {
+        const timeDiff = Math.abs(new Date(transaction.createdAt).getTime() - scannedData.timestamp);
+        return timeDiff < 300000; // 5 minutes tolerance
+      }
+      return false;
+    });
+
+    if (matchingTransaction) {
+      setSelectedTransaction(matchingTransaction);
+      setEnteredAmount(matchingTransaction.amount);
+      setEnteredVMF(matchingTransaction.vmfNumber || scannedData.vmfNumber || "");
+      setShowQRScanner(false);
+      toast({
+        title: "QR Code Matched",
+        description: `Found matching transaction for ${formatCurrency(matchingTransaction.amount)}`,
+      });
+    } else {
+      setShowQRScanner(false);
+      toast({
+        title: "No Match Found",
+        description: "Could not match QR code to any pending transaction",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -442,10 +477,18 @@ export default function CashierDashboard() {
         {/* Pending Payment Requests */}
         <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
           <CardContent className="p-4">
-            <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
-              <i className="fas fa-bell text-warning mr-2"></i>
-              Pending Requests
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-gray-800 dark:text-gray-200 flex items-center">
+                <i className="fas fa-bell text-warning mr-2"></i>
+                Pending Requests
+              </h3>
+              <Button 
+                onClick={() => setShowQRScanner(true)}
+                className="bg-accent hover:bg-accent/90 text-white px-3 py-2 rounded-lg text-sm font-medium"
+              >
+                <i className="fas fa-qrcode mr-2"></i>Scan QR
+              </Button>
+            </div>
             
             {transactionsLoading ? (
               <div className="space-y-3">
@@ -701,6 +744,13 @@ export default function CashierDashboard() {
       <DocumentUploadModal
         isOpen={showUploadModal}
         onClose={() => setShowUploadModal(false)}
+      />
+      
+      <QRScanner
+        isOpen={showQRScanner}
+        onClose={() => setShowQRScanner(false)}
+        onScanSuccess={handleQRScanSuccess}
+        pendingTransactions={pendingTransactions as any[]}
       />
     </div>
   );
