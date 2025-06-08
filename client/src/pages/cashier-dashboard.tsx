@@ -330,89 +330,105 @@ export default function CashierDashboard() {
           </div>
         </div>
 
-        {/* Cash Counting Workflow */}
+        {/* Simplified Cash Verification */}
         <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
           <CardContent className="p-4">
             <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
               <i className="fas fa-money-bill-wave text-secondary mr-2"></i>
-              Cash Counting Process
+              Quick Cash Verification
             </h3>
             
             <div className="space-y-4">
-              {/* Step 1: Count Cash - Enhanced contrast */}
-              <div className="flex items-start space-x-3">
-                <div className="w-8 h-8 bg-success rounded-full flex items-center justify-center flex-shrink-0 mt-1 border-2 border-white shadow-lg">
-                  <span className="text-white text-sm font-bold">1</span>
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-medium text-gray-800 dark:text-gray-200 text-sm">Physical Cash Counted</h4>
-                  <p className="text-gray-600 dark:text-gray-400 text-xs mt-1">
-                    {formatCurrency(activeSession.amount)} verified with merchant
-                  </p>
-                </div>
-              </div>
-
-              {/* Step 2: Amount & VMF Verification */}
+              {/* Simplified Single Step Process */}
               <div className="flex items-start space-x-3">
                 <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                  <span className="text-white text-sm font-bold">2</span>
+                  <i className="fas fa-check text-white text-sm"></i>
                 </div>
                 <div className="flex-1">
-                  <h4 className="font-medium text-gray-800 dark:text-gray-200 text-sm">Verify Amount & VMF</h4>
-                  <p className="text-gray-600 dark:text-gray-400 text-xs mt-1">Enter cash amount and VMF number for verification</p>
+                  <h4 className="font-medium text-gray-800 dark:text-gray-200 text-sm">Count & Verify Cash</h4>
+                  <p className="text-gray-600 dark:text-gray-400 text-xs mt-1">Count physical cash and confirm amount matches VMF number</p>
                   
                   {selectedTransaction && (
-                    <div className="mt-3 space-y-2">
-                      <div className="bg-info bg-opacity-10 border border-info text-info p-2 rounded text-xs">
-                        <div className="flex items-center justify-between">
-                          <span>Requested: {formatCurrency(selectedTransaction.amount)}</span>
-                          <span>VMF: {selectedTransaction.vmfNumber || "N/A"}</span>
+                    <div className="mt-3 space-y-3">
+                      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 p-3 rounded-lg">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-medium text-blue-800 dark:text-blue-200">Transaction Details</span>
+                          {countdowns[selectedTransaction.id] > 0 && (
+                            <span className="text-blue-600 dark:text-blue-400 text-xs">
+                              <i className="fas fa-clock mr-1"></i>
+                              {Math.floor(countdowns[selectedTransaction.id] / 60)}:{(countdowns[selectedTransaction.id] % 60).toString().padStart(2, '0')}
+                            </span>
+                          )}
                         </div>
-                        {countdowns[selectedTransaction.id] > 0 && (
-                          <div className="mt-1 flex items-center">
-                            <i className="fas fa-clock mr-1"></i>
-                            <span>Time remaining: {Math.floor(countdowns[selectedTransaction.id] / 60)}:{(countdowns[selectedTransaction.id] % 60).toString().padStart(2, '0')}</span>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <span className="text-blue-700 dark:text-blue-300">Amount:</span>
+                            <p className="font-bold text-blue-900 dark:text-blue-100">{formatCurrency(selectedTransaction.amount)}</p>
                           </div>
-                        )}
+                          <div>
+                            <span className="text-blue-700 dark:text-blue-300">VMF:</span>
+                            <p className="font-bold text-blue-900 dark:text-blue-100">{selectedTransaction.vmfNumber || "N/A"}</p>
+                          </div>
+                        </div>
                       </div>
                       
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <Label htmlFor="amount" className="text-xs">Cash Amount (ZMW)</Label>
+                          <Label htmlFor="amount" className="text-xs font-medium">Cash Counted (ZMW)</Label>
                           <Input
                             id="amount"
                             type="number"
-                            placeholder="Enter amount"
+                            placeholder="Amount counted"
                             value={enteredAmount}
                             onChange={(e) => setEnteredAmount(e.target.value)}
-                            className="h-8 text-sm"
+                            className="h-10 text-sm mt-1"
                           />
                         </div>
                         <div>
-                          <Label htmlFor="vmf" className="text-xs">VMF Number</Label>
+                          <Label htmlFor="vmf" className="text-xs font-medium">VMF Confirmation</Label>
                           <Input
                             id="vmf"
                             type="text"
-                            placeholder="Enter VMF"
+                            placeholder="VMF number"
                             value={enteredVMF}
                             onChange={(e) => setEnteredVMF(e.target.value)}
-                            className="h-8 text-sm"
+                            className="h-10 text-sm mt-1"
                           />
                         </div>
                       </div>
                       
-                      <Button 
-                        onClick={() => verifyTransaction.mutate({
-                          transactionId: selectedTransaction.id,
-                          enteredAmount,
-                          enteredVMF,
-                          transaction: selectedTransaction
-                        })}
-                        disabled={verifyTransaction.isPending || !enteredAmount || !enteredVMF}
-                        className="w-full bg-success hover:bg-success/90 text-white py-2 rounded-lg text-sm font-medium"
-                      >
-                        <i className="fas fa-check mr-2"></i>Verify & Process
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button 
+                          onClick={() => verifyTransaction.mutate({
+                            transactionId: selectedTransaction.id,
+                            enteredAmount,
+                            enteredVMF,
+                            transaction: selectedTransaction
+                          })}
+                          disabled={verifyTransaction.isPending || !enteredAmount || !enteredVMF}
+                          className="flex-1 bg-success hover:bg-success/90 text-white h-10"
+                        >
+                          {verifyTransaction.isPending ? (
+                            <><i className="fas fa-spinner fa-spin mr-2"></i>Processing</>
+                          ) : (
+                            <><i className="fas fa-check mr-2"></i>Approve</>
+                          )}
+                        </Button>
+                        <Button 
+                          onClick={() => {
+                            setRejectionReason("Manual verification failed");
+                            rejectTransaction.mutate({
+                              transactionId: selectedTransaction.id,
+                              reason: "Manual verification failed"
+                            });
+                          }}
+                          disabled={rejectTransaction.isPending}
+                          variant="destructive"
+                          className="h-10 px-4"
+                        >
+                          <i className="fas fa-times mr-1"></i>Reject
+                        </Button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -568,6 +584,63 @@ export default function CashierDashboard() {
             )}
           </CardContent>
         </Card>
+
+        {/* Expired Transactions */}
+        {expiredTransactions.length > 0 && (
+          <Card className="shadow-sm border border-red-200 dark:border-red-700 mb-6">
+            <CardContent className="p-4">
+              <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
+                <i className="fas fa-clock text-red-500 mr-2"></i>
+                Expired Requests ({expiredTransactions.length})
+              </h3>
+              
+              <div className="space-y-3 max-h-48 overflow-y-auto">
+                {expiredTransactions.map((transaction: any) => (
+                  <div key={transaction.id} className="border border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-700 rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <h4 className="font-medium text-red-800 dark:text-red-200 text-sm">Expired Request</h4>
+                        <p className="text-red-600 dark:text-red-400 text-xs">
+                          {transaction.description || 'Cash Digitization'}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-lg text-red-800 dark:text-red-200">
+                          {formatCurrency(transaction.amount)}
+                        </p>
+                        <Badge className="bg-red-500 text-white text-xs">
+                          Expired
+                        </Badge>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <span className="text-red-700 dark:text-red-300">VMF:</span>
+                        <p className="text-red-800 dark:text-red-200 font-medium">
+                          {transaction.vmfNumber || "N/A"}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-red-700 dark:text-red-300">Expired:</span>
+                        <p className="text-red-800 dark:text-red-200 font-medium">
+                          {transaction.expiresAt ? new Date(transaction.expiresAt).toLocaleTimeString() : "Unknown"}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-2 p-2 bg-red-100 dark:bg-red-800/30 rounded border border-red-200 dark:border-red-600">
+                      <div className="flex items-center text-red-700 dark:text-red-300">
+                        <i className="fas fa-info-circle mr-2 text-xs"></i>
+                        <span className="text-xs">This request timed out and requires merchant to resend</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Today's Transaction History */}
         <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
