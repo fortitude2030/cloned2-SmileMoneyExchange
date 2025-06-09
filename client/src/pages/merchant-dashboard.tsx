@@ -60,7 +60,7 @@ export default function MerchantDashboard() {
   });
 
   // Fetch transactions with frequent polling for real-time updates
-  const { data: transactions = [], isLoading: transactionsLoading } = useQuery<Array<{
+  const { data: transactions = [], isLoading: transactionsLoading, refetch } = useQuery<Array<{
     id: number;
     transactionId: string;
     amount: string;
@@ -73,9 +73,23 @@ export default function MerchantDashboard() {
     queryKey: ["/api/transactions"],
     retry: false,
     enabled: isAuthenticated,
-    refetchInterval: 2000, // Poll every 2 seconds for real-time updates
+    refetchInterval: 1000, // Poll every 1 second for real-time updates
     refetchIntervalInBackground: true, // Continue polling when tab is in background
+    refetchOnWindowFocus: true, // Refetch when window gains focus
+    refetchOnMount: true, // Refetch when component mounts
+    gcTime: 0, // Don't cache data (replaces cacheTime in v5)
+    staleTime: 0, // Always consider data stale
   });
+
+  // Force refresh every few seconds to ensure UI updates
+  useEffect(() => {
+    if (isAuthenticated) {
+      const interval = setInterval(() => {
+        refetch();
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [isAuthenticated, refetch]);
 
   // Create payment request mutation
   const createPaymentRequest = useMutation({
@@ -336,7 +350,7 @@ export default function MerchantDashboard() {
                   </div>
                 ))}
               </div>
-            ) : transactions.length === 0 ? (
+            ) : !Array.isArray(transactions) || transactions.length === 0 ? (
               <div className="text-center py-8">
                 <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
                   <i className="fas fa-history text-gray-400 text-xl"></i>
@@ -346,7 +360,7 @@ export default function MerchantDashboard() {
               </div>
             ) : (
               <div className="space-y-3">
-                {(showAllTransactions ? transactions.slice(0, 30) : transactions.slice(0, 5)).map((transaction: any) => {
+                {(showAllTransactions ? (Array.isArray(transactions) ? transactions.slice(0, 30) : []) : (Array.isArray(transactions) ? transactions.slice(0, 5) : [])).map((transaction: any) => {
                   const dateTime = formatDateTime(transaction.createdAt);
                   return (
                     <div key={transaction.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
