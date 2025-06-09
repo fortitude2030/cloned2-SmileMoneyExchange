@@ -303,8 +303,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied" });
       }
       
-      const transactions = await storage.getQRVerificationTransactions();
-      res.json(transactions);
+      // Get pending QR transactions only
+      const allPending = await storage.getAllPendingTransactions();
+      const qrTransactions = allPending.filter((t: any) => t.type === 'qr_code_payment');
+      res.json(qrTransactions);
     } catch (error) {
       console.error("Error fetching QR verification transactions:", error);
       res.status(500).json({ message: "Failed to fetch QR verification transactions" });
