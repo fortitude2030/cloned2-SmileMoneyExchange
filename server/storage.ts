@@ -55,6 +55,7 @@ export interface IStorage {
   updateTransactionProcessor(id: number, processorId: string): Promise<void>;
   getPendingTransactionsByReceiver(userId: string): Promise<Transaction[]>;
   getAllPendingTransactions(): Promise<Transaction[]>;
+  getQRVerificationTransactions(): Promise<Transaction[]>;
   markExpiredTransactions(): Promise<void>;
   
   // Document operations
@@ -430,6 +431,14 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(transactions)
       .where(eq(transactions.status, 'pending'))
+      .orderBy(desc(transactions.createdAt));
+  }
+
+  async getQRVerificationTransactions(): Promise<Transaction[]> {
+    return await db
+      .select()
+      .from(transactions)
+      .where(eq(transactions.status, 'qr_verification'))
       .orderBy(desc(transactions.createdAt));
   }
 

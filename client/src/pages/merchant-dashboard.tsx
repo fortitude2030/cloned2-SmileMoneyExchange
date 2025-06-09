@@ -99,7 +99,7 @@ export default function MerchantDashboard() {
         amount,
         vmfNumber,
         type,
-        status: "pending",
+        status: type === "qr_code_payment" ? "qr_verification" : "pending",
         description: type === "qr_code_payment" 
           ? `QR code payment request - VMF: ${vmfNumber}`
           : `Cash digitization request - VMF: ${vmfNumber}`,

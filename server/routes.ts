@@ -293,6 +293,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/transactions/qr-verification', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      // Only cashiers can access QR verification transactions
+      if (user?.role !== 'cashier') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const transactions = await storage.getQRVerificationTransactions();
+      res.json(transactions);
+    } catch (error) {
+      console.error("Error fetching QR verification transactions:", error);
+      res.status(500).json({ message: "Failed to fetch QR verification transactions" });
+    }
+  });
+
   app.patch('/api/transactions/:id/status', isAuthenticated, async (req: any, res) => {
     try {
       const transactionId = parseInt(req.params.id);

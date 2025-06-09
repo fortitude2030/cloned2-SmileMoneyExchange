@@ -98,6 +98,12 @@ export default function CashierDashboard() {
   const [processedTransactionIds, setProcessedTransactionIds] = useState<Set<string>>(new Set());
   const [showAllTransactions, setShowAllTransactions] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
+  
+  // QR verification states
+  const [qrVerificationStep, setQrVerificationStep] = useState(1);
+  const [qrTransaction, setQrTransaction] = useState<any>(null);
+  const [qrAmount, setQrAmount] = useState("");
+  const [qrVmfNumber, setQrVmfNumber] = useState("");
 
   // Timer effect for request cooldown - only runs when cooldown > 0
   useEffect(() => {
@@ -145,6 +151,24 @@ export default function CashierDashboard() {
     description?: string;
   }>>({
     queryKey: ["/api/transactions/pending"],
+    retry: false,
+    enabled: isAuthenticated,
+    refetchInterval: 1000, // Poll every second for real-time updates
+    refetchIntervalInBackground: true,
+  });
+
+  // Fetch QR verification transactions
+  const { data: qrVerificationTransactions = [], isLoading: qrVerificationLoading } = useQuery<Array<{
+    id: number;
+    transactionId: string;
+    amount: string;
+    status: string;
+    vmfNumber?: string;
+    createdAt: string;
+    description?: string;
+    type: string;
+  }>>({
+    queryKey: ["/api/transactions/qr-verification"],
     retry: false,
     enabled: isAuthenticated,
     refetchInterval: 1000, // Poll every second for real-time updates
@@ -513,6 +537,208 @@ export default function CashierDashboard() {
                 </div>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* QR Code Verification - Only show when there are QR verification transactions */}
+        {qrVerificationTransactions.length > 0 && (
+          <Card className="shadow-sm border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20">
+            <CardContent className="p-4">
+              <h3 className="font-semibold text-blue-800 dark:text-blue-200 mb-4 flex items-center">
+                <i className="fas fa-qrcode text-blue-600 mr-2"></i>
+                QR Code Verification
+              </h3>
+              
+              {qrVerificationLoading ? (
+                <div className="animate-pulse">
+                  <div className="w-48 h-4 bg-blue-300 dark:bg-blue-700 rounded mb-2"></div>
+                  <div className="w-32 h-3 bg-blue-300 dark:bg-blue-700 rounded"></div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {qrVerificationTransactions.map((transaction: any) => (
+                    <div key={transaction.id} className="border border-blue-300 dark:border-blue-600 bg-white dark:bg-gray-800 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <h4 className="font-medium text-gray-800 dark:text-gray-200">
+                            QR Payment Request
+                          </h4>
+                          <p className="text-gray-600 dark:text-gray-400 text-sm">
+                            {transaction.description}
+                          </p>
+                          <p className="text-gray-500 dark:text-gray-400 text-xs">
+                            ID: {transaction.transactionId}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-xl text-blue-800 dark:text-blue-200">
+                            {formatCurrency(transaction.amount)}
+                          </p>
+                          <Badge className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
+                            QR Verification
+                          </Badge>
+                        </div>
+                      </div>
+
+                      {/* 3-Step QR Verification Process */}
+                      <div className="space-y-3 mb-4">
+                        {/* Step 1: Verify Amount */}
+                        <div className="flex items-center space-x-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                            qrVerificationStep >= 1 ? 'bg-blue-600 text-white' : 'bg-gray-300 dark:bg-gray-700 text-gray-600'
+                          }`}>
+                            1
+                          </div>
+                          <div className="flex-1">
+                            <h4 className={`font-medium text-sm ${
+                              qrVerificationStep >= 1 ? 'text-gray-800 dark:text-gray-200' : 'text-gray-400'
+                            }`}>Verify Amount</h4>
+                            {qrVerificationStep === 1 && qrTransaction?.id === transaction.id && (
+                              <div className="mt-2 space-y-2">
+                                <input
+                                  type="number"
+                                  placeholder="Enter amount to verify"
+                                  value={qrAmount}
+                                  onChange={(e) => setQrAmount(e.target.value)}
+                                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm"
+                                />
+                                <Button 
+                                  onClick={() => {
+                                    if (qrAmount === transaction.amount) {
+                                      setQrVerificationStep(2);
+                                    } else {
+                                      toast({
+                                        title: "Amount Mismatch",
+                                        description: "Please enter the correct amount",
+                                        variant: "destructive",
+                                      });
+                                    }
+                                  }}
+                                  disabled={!qrAmount}
+                                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm"
+                                >
+                                  Verify Amount
+                                </Button>
+                              </div>
+                            )}
+                            {qrVerificationStep > 1 && qrTransaction?.id === transaction.id && (
+                              <p className="text-green-600 dark:text-green-400 text-xs mt-1">
+                                Amount verified: {formatCurrency(qrAmount)}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Step 2: Verify VMF */}
+                        <div className="flex items-center space-x-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                            qrVerificationStep >= 2 ? 'bg-blue-600 text-white' : 'bg-gray-300 dark:bg-gray-700 text-gray-600'
+                          }`}>
+                            2
+                          </div>
+                          <div className="flex-1">
+                            <h4 className={`font-medium text-sm ${
+                              qrVerificationStep >= 2 ? 'text-gray-800 dark:text-gray-200' : 'text-gray-400'
+                            }`}>Verify VMF Number</h4>
+                            {qrVerificationStep === 2 && qrTransaction?.id === transaction.id && (
+                              <div className="mt-2 space-y-2">
+                                <input
+                                  type="text"
+                                  placeholder="Enter VMF number"
+                                  value={qrVmfNumber}
+                                  onChange={(e) => setQrVmfNumber(e.target.value)}
+                                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm"
+                                />
+                                <Button 
+                                  onClick={() => {
+                                    if (qrVmfNumber.toUpperCase() === transaction.vmfNumber?.toUpperCase()) {
+                                      setQrVerificationStep(3);
+                                    } else {
+                                      toast({
+                                        title: "VMF Mismatch",
+                                        description: "Please enter the correct VMF number",
+                                        variant: "destructive",
+                                      });
+                                    }
+                                  }}
+                                  disabled={!qrVmfNumber}
+                                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm"
+                                >
+                                  Verify VMF
+                                </Button>
+                              </div>
+                            )}
+                            {qrVerificationStep > 2 && qrTransaction?.id === transaction.id && (
+                              <p className="text-green-600 dark:text-green-400 text-xs mt-1">
+                                VMF verified: {qrVmfNumber}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Step 3: Take Photo & Launch QR Scanner */}
+                        <div className="flex items-center space-x-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                            qrVerificationStep >= 3 ? 'bg-blue-600 text-white' : 'bg-gray-300 dark:bg-gray-700 text-gray-600'
+                          }`}>
+                            3
+                          </div>
+                          <div className="flex-1">
+                            <h4 className={`font-medium text-sm ${
+                              qrVerificationStep >= 3 ? 'text-gray-800 dark:text-gray-200' : 'text-gray-400'
+                            }`}>Take Photo & Scan QR</h4>
+                            {qrVerificationStep === 3 && qrTransaction?.id === transaction.id && (
+                              <Button 
+                                onClick={() => {
+                                  setShowUploadModal(true);
+                                  // After photo upload, launch QR scanner
+                                  setTimeout(() => {
+                                    setShowQRScanner(true);
+                                    setCurrentTransaction(transaction);
+                                  }, 500);
+                                }}
+                                className="mt-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm"
+                              >
+                                <i className="fas fa-camera mr-2"></i>Take Photo & Scan QR
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Start Verification Button */}
+                      {(!qrTransaction || qrTransaction.id !== transaction.id) && (
+                        <div className="flex space-x-3">
+                          <Button 
+                            onClick={() => {
+                              setQrTransaction(transaction);
+                              setQrVerificationStep(1);
+                              setQrAmount("");
+                              setQrVmfNumber("");
+                            }}
+                            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-medium"
+                          >
+                            <i className="fas fa-play mr-2"></i>
+                            Start Verification
+                          </Button>
+                          <Button 
+                            onClick={() => rejectTransaction.mutate({
+                              transactionId: transaction.id,
+                              reason: "manual rejection"
+                            })}
+                            disabled={rejectTransaction.isPending}
+                            className="flex-1 bg-destructive hover:bg-destructive/90 text-white py-2 rounded-lg font-medium"
+                          >
+                            <i className="fas fa-times mr-2"></i>
+                            {rejectTransaction.isPending ? "Rejecting..." : "Reject"}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
