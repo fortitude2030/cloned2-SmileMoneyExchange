@@ -294,12 +294,8 @@ export default function MerchantDashboard() {
                 return;
               }
 
-              // Create a pending QR code transaction
-              createPaymentRequest.mutate({ 
-                amount: paymentAmount, 
-                vmfNumber,
-                type: "qr_code_payment"
-              } as any);
+              // Show QR modal directly with the entered data
+              setShowQRModal(true);
             }}
             disabled={createPaymentRequest.isPending}
             className="bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow h-auto"
@@ -426,7 +422,17 @@ export default function MerchantDashboard() {
 
       <QRCodeModal
         isOpen={showQRModal}
-        onClose={() => setShowQRModal(false)}
+        onClose={() => {
+          setShowQRModal(false);
+          // Create transaction request when QR modal closes
+          if (paymentAmount && vmfNumber) {
+            createPaymentRequest.mutate({ 
+              amount: paymentAmount, 
+              vmfNumber,
+              type: "qr_code_payment"
+            } as any);
+          }
+        }}
         amount={paymentAmount}
         vmfNumber={vmfNumber}
       />

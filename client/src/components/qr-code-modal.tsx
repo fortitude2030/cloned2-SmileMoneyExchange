@@ -47,6 +47,8 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
     try {
       const paymentData = {
         type: "cash_digitization",
+        amount: parseFloat(amount),
+        vmfNumber: vmfNumber,
         timestamp: Date.now(),
         uniqueId: uniqueId,
       };
