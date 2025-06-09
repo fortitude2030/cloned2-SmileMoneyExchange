@@ -265,24 +265,17 @@ export default function CashierDashboard() {
       <div className="p-4">
         {/* Request Cooldown Timer */}
         {requestCooldown > 0 && (
-          <Card className="mb-4 border-orange-200 bg-orange-50 dark:bg-orange-900/20 dark:border-orange-700">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <div className="w-10 h-10 bg-orange-100 dark:bg-orange-800 rounded-xl flex items-center justify-center mr-3">
-                    <i className="fas fa-clock text-orange-600 dark:text-orange-400"></i>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-orange-800 dark:text-orange-200">Request Cooldown</h3>
-                    <p className="text-orange-600 dark:text-orange-300 text-sm">Please wait before next action</p>
-                  </div>
-                </div>
-                <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                  {Math.floor(requestCooldown / 60)}:{(requestCooldown % 60).toString().padStart(2, '0')}
-                </div>
+          <div className="flex justify-center mb-4">
+            <div className={`
+              w-24 h-24 rounded-full flex items-center justify-center transition-colors duration-500
+              ${requestCooldown > 60 ? 'bg-green-500' : 
+                requestCooldown > 30 ? 'bg-amber-500' : 'bg-red-500'}
+            `}>
+              <div className="text-2xl font-bold text-white">
+                {Math.floor(requestCooldown / 60)}:{(requestCooldown % 60).toString().padStart(2, '0')}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         )}
 
         {/* Active Session Card */}
