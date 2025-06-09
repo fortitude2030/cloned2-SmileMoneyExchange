@@ -150,13 +150,7 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
     }
   };
 
-  const handleGallerySelect = (documentId: string) => {
-    if (fileRef.current) {
-      fileRef.current.accept = "image/*,application/pdf";
-      fileRef.current.removeAttribute("capture");
-      fileRef.current.click();
-    }
-  };
+
 
   const handleCompleteUpload = () => {
     const allUploaded = documents.every(doc => doc.uploaded);
@@ -217,24 +211,16 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
                   <div className="text-center">
                     <i className="fas fa-file-pdf text-3xl text-gray-400 mb-2"></i>
                     <p className="text-gray-600 dark:text-gray-400 text-sm font-medium">{document.name}</p>
-                    <p className="text-gray-500 dark:text-gray-500 text-xs mb-3">Tap to scan or select document</p>
+                    <p className="text-gray-500 dark:text-gray-500 text-xs mb-3">Take a real-time photo of the document</p>
                     
-                    <div className="flex space-x-2 justify-center">
+                    <div className="flex justify-center">
                       <Button
                         onClick={() => handleCameraCapture(document.id)}
                         size="sm"
                         className="bg-primary hover:bg-primary/90 text-white"
                       >
                         <i className="fas fa-camera mr-1"></i>
-                        Camera
-                      </Button>
-                      <Button
-                        onClick={() => handleGallerySelect(document.id)}
-                        size="sm"
-                        variant="outline"
-                      >
-                        <i className="fas fa-folder mr-1"></i>
-                        Gallery
+                        Take Photo
                       </Button>
                     </div>
                   </div>
