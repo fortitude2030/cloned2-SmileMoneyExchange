@@ -411,10 +411,6 @@ export default function CashierDashboard() {
         {/* Cash Counting Workflow */}
         <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
           <CardContent className="p-4">
-            <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
-              <i className="fas fa-money-bill-wave text-secondary mr-2"></i>
-              Cash Counting Process
-            </h3>
             
             <div className="space-y-4">
               {/* Step 1: Enter Amount */}
@@ -430,9 +426,11 @@ export default function CashierDashboard() {
                 </div>
                 <div className="flex-1">
                   <h4 className="font-medium text-gray-800 dark:text-gray-200 text-sm">Enter Cash Amount</h4>
-                  <p className="text-gray-600 dark:text-gray-400 text-xs mt-1">
-                    {cashAmount ? `ZMW ${parseFloat(cashAmount).toLocaleString()}` : 'Enter the physical cash amount counted'}
-                  </p>
+                  {cashAmount && (
+                    <p className="text-gray-600 dark:text-gray-400 text-xs mt-1">
+                      ZMW {parseFloat(cashAmount).toLocaleString()}
+                    </p>
+                  )}
                   {cashCountingStep === 1 && (
                     <Button 
                       onClick={() => setShowAmountModal(true)}
@@ -459,11 +457,11 @@ export default function CashierDashboard() {
                   <h4 className={`font-medium text-sm ${
                     cashCountingStep >= 2 ? 'text-gray-800 dark:text-gray-200' : 'text-gray-400'
                   }`}>Enter VMF Number</h4>
-                  <p className={`text-xs mt-1 ${
-                    cashCountingStep >= 2 ? 'text-gray-600 dark:text-gray-400' : 'text-gray-400'
-                  }`}>
-                    {vmfNumber ? `VMF: ${vmfNumber}` : 'Input the VMF form number'}
-                  </p>
+                  {vmfNumber && (
+                    <p className="text-gray-600 dark:text-gray-400 text-xs mt-1">
+                      VMF: {vmfNumber}
+                    </p>
+                  )}
                   {cashCountingStep === 2 && (
                     <Button 
                       onClick={() => setShowVMFModal(true)}
@@ -490,11 +488,11 @@ export default function CashierDashboard() {
                   <h4 className={`font-medium text-sm ${
                     cashCountingStep >= 3 ? 'text-gray-800 dark:text-gray-200' : 'text-gray-400'
                   }`}>Take VMF Photo</h4>
-                  <p className={`text-xs mt-1 ${
-                    cashCountingStep >= 3 ? 'text-gray-600 dark:text-gray-400' : 'text-gray-400'
-                  }`}>
-                    {cashCountingStep > 3 ? 'VMF photo captured successfully' : 'Use phone camera to capture VMF form'}
-                  </p>
+                  {cashCountingStep > 3 && (
+                    <p className="text-gray-600 dark:text-gray-400 text-xs mt-1">
+                      VMF photo captured successfully
+                    </p>
+                  )}
                   {cashCountingStep === 3 && (
                     <Button 
                       onClick={() => setShowUploadModal(true)}
@@ -509,8 +507,9 @@ export default function CashierDashboard() {
           </CardContent>
         </Card>
 
-        {/* Pending Payment Requests */}
-        <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
+        {/* Pending Payment Requests - Only show when there are pending transactions */}
+        {activeTransaction && (
+          <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
           <CardContent className="p-4">
             <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
               <i className="fas fa-bell text-warning mr-2"></i>
@@ -594,7 +593,9 @@ export default function CashierDashboard() {
               </div>
             )}
           </CardContent>
-        </Card>
+          </Card>
+        )}
+
         {/* Recent Transactions */}
         <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
           <CardContent className="p-4">
