@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import type { Transaction, Wallet } from "@shared/schema";
 
 export default function MerchantDashboard() {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -66,13 +67,13 @@ export default function MerchantDashboard() {
   }, [isAuthenticated, isLoading, toast]);
 
   // Fetch wallet data
-  const { data: wallet, isLoading: walletLoading } = useQuery({
+  const { data: wallet, isLoading: walletLoading } = useQuery<Wallet>({
     queryKey: ["/api/wallet"],
     retry: false,
   });
 
   // Fetch transactions
-  const { data: transactions = [], isLoading: transactionsLoading } = useQuery({
+  const { data: transactions = [], isLoading: transactionsLoading } = useQuery<Transaction[]>({
     queryKey: ["/api/transactions"],
     retry: false,
   });
@@ -132,7 +133,7 @@ export default function MerchantDashboard() {
     }
 
     const amount = Math.round(parseFloat(paymentAmount));
-    const dailySpent = Math.round(parseFloat(wallet?.dailySpent || "0"));
+    const dailySpent = Math.round(parseFloat(wallet?.dailySpent?.toString() || "0"));
     const dailyLimit = 1000000; // K1,000,000 limit
     const remainingLimit = dailyLimit - dailySpent;
 
@@ -218,7 +219,18 @@ export default function MerchantDashboard() {
 
       <div className="p-4">
         {/* Transfer Limits - Shows Wallet Balance */}
-        {wallet && <WalletLimitsDisplay wallet={wallet} />}
+        {wallet && (
+          <WalletLimitsDisplay 
+            wallet={{
+              balance: wallet.balance || "0",
+              dailyLimit: wallet.dailyLimit?.toString() || "1000000",
+              dailySpent: wallet.dailySpent?.toString() || "0",
+              isActive: wallet.isActive,
+              todayCompleted: wallet.dailySpent?.toString() || "0",
+              todayTotal: wallet.balance || "0"
+            }} 
+          />
+        )}
 
         {/* Payment Request Form */}
         <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
