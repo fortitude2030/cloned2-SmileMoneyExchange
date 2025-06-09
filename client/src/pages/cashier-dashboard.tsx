@@ -582,10 +582,15 @@ export default function CashierDashboard() {
                         Amount entered: {formatCurrency(qrAmount)}
                       </p>
                     )}
-                    {qrProcessingStep === 1 && (
+                    {qrProcessingStep <= 1 && (
                       <Button 
-                        onClick={() => setShowAmountModal(true)}
-                        className="mt-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+                        onClick={qrProcessingStep === 1 ? () => setShowAmountModal(true) : undefined}
+                        disabled={qrProcessingStep < 1}
+                        className={`mt-2 px-4 py-2 rounded-lg text-sm font-medium ${
+                          qrProcessingStep === 1 
+                            ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+                            : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                        }`}
                       >
                         Enter Amount
                       </Button>
@@ -606,10 +611,15 @@ export default function CashierDashboard() {
                         VMF entered: {qrVmfNumber}
                       </p>
                     )}
-                    {qrProcessingStep === 2 && (
+                    {qrProcessingStep <= 2 && (
                       <Button 
-                        onClick={() => setShowVMFModal(true)}
-                        className="mt-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+                        onClick={qrProcessingStep === 2 ? () => setShowVMFModal(true) : undefined}
+                        disabled={qrProcessingStep < 2}
+                        className={`mt-2 px-4 py-2 rounded-lg text-sm font-medium ${
+                          qrProcessingStep === 2 
+                            ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+                            : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                        }`}
                       >
                         Enter VMF
                       </Button>
@@ -630,10 +640,15 @@ export default function CashierDashboard() {
                         Photo captured - Ready for QR scan
                       </p>
                     )}
-                    {qrProcessingStep === 3 && (
+                    {qrProcessingStep <= 3 && (
                       <Button 
-                        onClick={() => setShowUploadModal(true)}
-                        className="mt-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+                        onClick={qrProcessingStep === 3 ? () => setShowUploadModal(true) : undefined}
+                        disabled={qrProcessingStep < 3}
+                        className={`mt-2 px-4 py-2 rounded-lg text-sm font-medium ${
+                          qrProcessingStep === 3 
+                            ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+                            : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                        }`}
                       >
                         Take Photo
                       </Button>
