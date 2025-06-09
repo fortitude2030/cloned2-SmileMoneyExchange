@@ -66,7 +66,8 @@ export default function MerchantDashboard() {
     id: number;
     balance: string;
     dailyLimit: string;
-    dailySpent: string;
+    dailyCollected: string;
+    dailyTransferred: string;
     isActive: boolean;
     todayCompleted?: string;
     todayTotal?: string;
@@ -146,9 +147,9 @@ export default function MerchantDashboard() {
     }
 
     const amount = Math.round(parseFloat(paymentAmount));
-    const dailySpent = Math.round(parseFloat(wallet?.dailySpent || "0"));
-    const dailyLimit = 1000000; // K1,000,000 limit
-    const remainingLimit = dailyLimit - dailySpent;
+    const dailyCollected = Math.round(parseFloat(wallet?.dailyCollected || "0"));
+    const dailyLimit = 1000000; // K1,000,000 collection limit
+    const remainingLimit = dailyLimit - dailyCollected;
 
     if (amount > remainingLimit) {
       toast({
@@ -223,7 +224,7 @@ export default function MerchantDashboard() {
         {wallet && <WalletLimitsDisplay wallet={{
           balance: wallet.balance,
           dailyLimit: wallet.dailyLimit,
-          dailyCollected: wallet.dailyCollected || wallet.dailySpent || '0',
+          dailyCollected: wallet.dailyCollected || '0',
           dailyTransferred: wallet.dailyTransferred || '0',
           isActive: wallet.isActive,
           todayCompleted: wallet.todayCompleted,

@@ -43,7 +43,7 @@ export interface IStorage {
   getOrCreateWallet(userId: string): Promise<Wallet>;
   updateWalletBalance(userId: string, balance: string): Promise<void>;
   checkTransferLimits(userId: string, amount: number): Promise<{ allowed: boolean; reason?: string }>;
-  updateDailyTransactionAmounts(userId: string, amount: number, role: string): Promise<void>;
+  updateDailyTransactionAmounts(userId: string, amount: number, role: string, transactionType?: string): Promise<void>;
   checkAndResetDailySpending(wallet: Wallet): Promise<void>;
   getTodayTransactionTotals(userId: string): Promise<{ completed: string; total: string }>;
   
@@ -266,8 +266,9 @@ export class DatabaseStorage implements IStorage {
     return { allowed: true };
   }
 
-  async updateDailyTransactionAmounts(userId: string, amount: number, role: string): Promise<void> {
-    // For merchants - track daily collections (money received)
+  async updateDailyTransactionAmounts(userId: string, amount: number, role: string, transactionType?: string): Promise<void> {
+    // For merchants - track ALL types of digital money received
+    // This includes: QR code payments, RTP (Request to Pay), direct transfers, settlements, etc.
     if (role === 'merchant') {
       const wallet = await this.getOrCreateWallet(userId);
       const currentDailyCollected = Math.round(parseFloat(wallet.dailyCollected || '0'));

@@ -232,10 +232,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const toUser = await storage.getUser(transactionData.toUserId);
         
         if (fromUser) {
-          await storage.updateDailyTransactionAmounts(fromUser.id, amount, fromUser.role);
+          await storage.updateDailyTransactionAmounts(fromUser.id, amount, fromUser.role, transactionData.type);
         }
         if (toUser) {
-          await storage.updateDailyTransactionAmounts(toUser.id, amount, toUser.role);
+          await storage.updateDailyTransactionAmounts(toUser.id, amount, toUser.role, transactionData.type);
         }
       }
       
