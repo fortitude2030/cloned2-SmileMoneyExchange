@@ -95,7 +95,7 @@ export default function MerchantDashboard() {
   const createPaymentRequest = useMutation({
     mutationFn: async ({ amount, vmfNumber }: { amount: string; vmfNumber: string }) => {
       await apiRequest("POST", "/api/transactions", {
-        toUserId: user?.id || "",
+        toUserId: (user as any)?.id || "",
         amount,
         vmfNumber,
         type: "cash_digitization",

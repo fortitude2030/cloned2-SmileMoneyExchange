@@ -255,7 +255,7 @@ export default function CashierDashboard() {
               </div>
             ) : (
               <div className="space-y-3">
-                {pendingTransactions.map((transaction: any) => (
+                {(pendingTransactions as any[]).map((transaction: any) => (
                   <div key={transaction.id} className="border border-warning bg-warning bg-opacity-5 rounded-lg p-4">
                     <div className="flex items-center justify-between mb-3">
                       <div>
