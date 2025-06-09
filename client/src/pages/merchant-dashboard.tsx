@@ -14,6 +14,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import type { Wallet, Transaction } from "@/../../shared/schema";
+
+type WalletResponse = Wallet & {
+  dailySpent: string;
+  todayCompleted?: string;
+  todayTotal?: string;
+};
 
 export default function MerchantDashboard() {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -64,13 +71,13 @@ export default function MerchantDashboard() {
   }, [isAuthenticated, isLoading, toast]);
 
   // Fetch wallet data
-  const { data: wallet, isLoading: walletLoading } = useQuery({
+  const { data: wallet, isLoading: walletLoading } = useQuery<WalletResponse>({
     queryKey: ["/api/wallet"],
     retry: false,
   });
 
   // Fetch transactions
-  const { data: transactions = [], isLoading: transactionsLoading } = useQuery({
+  const { data: transactions = [], isLoading: transactionsLoading } = useQuery<Transaction[]>({
     queryKey: ["/api/transactions"],
     retry: false,
   });
