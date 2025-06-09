@@ -64,7 +64,8 @@ export const wallets = pgTable("wallets", {
   userId: varchar("user_id").notNull(),
   balance: decimal("balance", { precision: 12, scale: 2 }).default("0"),
   dailyLimit: decimal("daily_limit", { precision: 12, scale: 2 }).default("1000000.00").notNull(),
-  dailySpent: decimal("daily_spent", { precision: 12, scale: 2 }).default("0.00").notNull(),
+  dailyCollected: decimal("daily_collected", { precision: 12, scale: 2 }).default("0.00").notNull(), // For merchants - money collected today
+  dailyTransferred: decimal("daily_transferred", { precision: 12, scale: 2 }).default("0.00").notNull(), // For cashiers - money transferred today
   lastResetDate: timestamp("last_reset_date").defaultNow().notNull(),
   lastTransactionDate: timestamp("last_transaction_date"),
   isActive: boolean("is_active").default(true).notNull(),

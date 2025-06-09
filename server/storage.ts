@@ -168,7 +168,8 @@ export class DatabaseStorage implements IStorage {
         userId,
         balance: "0",
         dailyLimit: "1000000",
-        dailySpent: "0",
+        dailyCollected: "0",
+        dailyTransferred: "0",
         lastResetDate: new Date(),
         isActive: true
       })
@@ -215,25 +216,38 @@ export class DatabaseStorage implements IStorage {
       return { allowed: false, reason: "Wallet is inactive" };
     }
 
-    // Check wallet balance
-    const currentBalance = Math.round(parseFloat(wallet.balance || '0'));
-    if (amount > currentBalance) {
-      return { 
-        allowed: false, 
-        reason: `Insufficient wallet balance. Available: ZMW ${currentBalance.toLocaleString()}` 
-      };
-    }
-
-    // Only check daily limits for merchants
-    if (user?.role === 'merchant') {
-      const currentDailySpent = Math.round(parseFloat(wallet.dailySpent || '0'));
-      const dailyLimit = 1000000; // K1,000,000 limit for merchants
-
-      if (currentDailySpent + amount > dailyLimit) {
-        const remaining = Math.max(dailyLimit - currentDailySpent, 0);
+    // For cashiers - check their balance and daily transfer limits
+    if (user?.role === 'cashier') {
+      const currentBalance = Math.round(parseFloat(wallet.balance || '0'));
+      if (amount > currentBalance) {
         return { 
           allowed: false, 
-          reason: `Daily limit exceeded. Remaining: ZMW ${remaining.toLocaleString()}` 
+          reason: `Insufficient cashier balance. Available: ZMW ${currentBalance.toLocaleString()}` 
+        };
+      }
+
+      const currentDailyTransferred = Math.round(parseFloat(wallet.dailyTransferred || '0'));
+      const dailyTransferLimit = 2000000; // ZMW 2,000,000 daily transfer limit for cashiers
+
+      if (currentDailyTransferred + amount > dailyTransferLimit) {
+        const remaining = Math.max(dailyTransferLimit - currentDailyTransferred, 0);
+        return { 
+          allowed: false, 
+          reason: `Daily transfer limit exceeded. Remaining: ZMW ${remaining.toLocaleString()}` 
+        };
+      }
+    }
+
+    // For merchants - check their daily collection limit
+    if (user?.role === 'merchant') {
+      const currentDailyCollected = Math.round(parseFloat(wallet.dailyCollected || '0'));
+      const dailyCollectionLimit = 1000000; // ZMW 1,000,000 daily collection limit for merchants
+
+      if (currentDailyCollected + amount > dailyCollectionLimit) {
+        const remaining = Math.max(dailyCollectionLimit - currentDailyCollected, 0);
+        return { 
+          allowed: false, 
+          reason: `Daily collection limit exceeded. Remaining: ZMW ${remaining.toLocaleString()}` 
         };
       }
     }
@@ -241,19 +255,35 @@ export class DatabaseStorage implements IStorage {
     return { allowed: true };
   }
 
-  async updateDailySpending(userId: string, amount: number): Promise<void> {
-    const user = await this.getUser(userId);
-    
-    // Only track daily spending for merchants
-    if (user?.role === 'merchant') {
+  async updateDailyTransactionAmounts(userId: string, amount: number, role: string): Promise<void> {
+    // For merchants - track daily collections (money received)
+    if (role === 'merchant') {
       const wallet = await this.getOrCreateWallet(userId);
-      const currentDailySpent = Math.round(parseFloat(wallet.dailySpent || '0'));
-      const newDailySpent = currentDailySpent + Math.round(amount);
+      const currentDailyCollected = Math.round(parseFloat(wallet.dailyCollected || '0'));
+      const newDailyCollected = currentDailyCollected + Math.round(amount);
 
       await db
         .update(wallets)
         .set({
-          dailySpent: newDailySpent.toString(),
+          dailyCollected: newDailyCollected.toString(),
+          balance: Math.round(parseFloat(wallet.balance || '0') + amount).toString(),
+          lastTransactionDate: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(wallets.userId, userId));
+    }
+    
+    // For cashiers - track daily transfers (money sent)
+    if (role === 'cashier') {
+      const wallet = await this.getOrCreateWallet(userId);
+      const currentDailyTransferred = Math.round(parseFloat(wallet.dailyTransferred || '0'));
+      const newDailyTransferred = currentDailyTransferred + Math.round(amount);
+
+      await db
+        .update(wallets)
+        .set({
+          dailyTransferred: newDailyTransferred.toString(),
+          balance: Math.round(parseFloat(wallet.balance || '0') - amount).toString(),
           lastTransactionDate: new Date(),
           updatedAt: new Date(),
         })
