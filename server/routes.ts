@@ -253,18 +253,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/transactions', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      
-      // For cashiers, get all transactions in the system for monitoring
-      // For merchants, get only their own transactions
-      let transactions;
-      if (user?.role === 'cashier') {
-        // Get all transactions for cashiers to monitor system activity
-        transactions = await storage.getAllTransactions();
-      } else {
-        transactions = await storage.getTransactionsByUserId(userId);
-      }
-      
+      const transactions = await storage.getTransactionsByUserId(userId);
       res.json(transactions);
     } catch (error) {
       console.error("Error fetching transactions:", error);
