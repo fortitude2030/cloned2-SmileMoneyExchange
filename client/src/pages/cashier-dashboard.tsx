@@ -445,7 +445,7 @@ export default function CashierDashboard() {
                 requestCooldown > 60 ? 'bg-amber-500' : 'bg-red-500'}
             `}>
               <div className="text-2xl font-bold text-white">
-                {Math.floor(requestCooldown / 60)}:{(requestCooldown % 60).toString().padStart(2, '0')}
+                {requestCooldown.toString().padStart(2, '0')}
               </div>
             </div>
           </div>
