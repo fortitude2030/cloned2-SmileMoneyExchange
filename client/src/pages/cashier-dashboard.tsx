@@ -643,29 +643,21 @@ export default function CashierDashboard() {
                   const dateTime = formatDateTime(transaction.createdAt);
                   return (
                     <div key={transaction.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                      <div className="flex items-center">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center mr-3 ${
-                          transaction.status === 'completed' ? 'bg-green-200 dark:bg-green-800' :
-                          transaction.status === 'pending' ? 'bg-orange-200 dark:bg-orange-800' :
-                          transaction.status === 'rejected' ? 'bg-red-200 dark:bg-red-800' :
-                          'bg-gray-200 dark:bg-gray-700'
-                        }`}>
-                          <i className={`fas ${
-                            transaction.status === 'completed' ? 'fa-check text-green-500' :
-                            transaction.status === 'pending' ? 'fa-clock text-orange-500' :
-                            transaction.status === 'rejected' ? 'fa-times text-red-500' :
-                            'fa-times text-gray-400'
-                          }`}></i>
-                        </div>
+                      <div className="flex-1">
                         <div>
-                          <p className="font-medium text-gray-800 dark:text-gray-200 text-sm">
-                            {transaction.description || 'Cash Verification'}
+                          <p className={`font-medium text-sm ${
+                            transaction.status === 'completed' ? 'text-green-600 dark:text-green-400' :
+                            transaction.status === 'pending' ? 'text-orange-600 dark:text-orange-400' :
+                            transaction.status === 'rejected' ? 'text-red-600 dark:text-red-400' :
+                            'text-gray-600 dark:text-gray-400'
+                          }`}>
+                            {transaction.toUser?.name || transaction.fromUser?.name || 'Unknown Merchant'}
                           </p>
                           <p className="text-gray-600 dark:text-gray-400 text-xs">
                             {dateTime.date} at {dateTime.time}
                           </p>
                           <p className="text-gray-500 dark:text-gray-400 text-xs">
-                            ID: {transaction.transactionId}
+                            Ref: {transaction.transactionId}
                           </p>
                         </div>
                       </div>
