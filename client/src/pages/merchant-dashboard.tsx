@@ -91,6 +91,7 @@ export default function MerchantDashboard() {
     vmfNumber?: string;
     createdAt: string;
     description?: string;
+    rejectionReason?: string;
   }>>({
     queryKey: ["/api/transactions"],
     retry: false,
@@ -143,6 +144,34 @@ export default function MerchantDashboard() {
       });
     },
   });
+
+  // Monitor for transaction failures and reset merchant screen immediately
+  useEffect(() => {
+    if (transactions && transactions.length > 0) {
+      const latestTransaction = transactions[0]; // Most recent transaction
+      if (latestTransaction.status === 'rejected' && 
+          latestTransaction.transactionId !== lastProcessedTransactionId) {
+        
+        // Mark this transaction as processed to avoid repeated resets
+        setLastProcessedTransactionId(latestTransaction.transactionId);
+        
+        // Immediately reset merchant screen
+        setIsRequestDisabled(false);
+        setRequestCooldown(0);
+        setShowRequestCooldown(false);
+        setShowQRModal(false);
+        setPaymentAmount("");
+        setVmfNumber("");
+        
+        // Show failure notification
+        showFailureNotification(
+          latestTransaction.rejectionReason || "Transaction rejected",
+          latestTransaction.transactionId,
+          latestTransaction.amount
+        );
+      }
+    }
+  }, [transactions, lastProcessedTransactionId, showFailureNotification]);
 
   const handleRequestPayment = () => {
     if (!vmfNumber.trim()) {
