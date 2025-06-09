@@ -327,8 +327,8 @@ export class DatabaseStorage implements IStorage {
       );
 
     return {
-      completed: result?.completed || "0",
-      total: result?.total || "0"
+      completed: Math.round(parseFloat(result?.completed || "0")).toString(),
+      total: Math.round(parseFloat(result?.total || "0")).toString()
     };
   }
 

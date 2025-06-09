@@ -24,7 +24,7 @@ const branchSchema = z.object({
 });
 
 const settlementSchema = z.object({
-  amount: z.string().min(1, "Amount is required"),
+  amount: z.string().min(1, "Amount is required").transform((val) => Math.round(parseFloat(val)).toString()),
   bankName: z.string().min(1, "Bank name is required"),
   accountNumber: z.string().min(1, "Account number is required"),
   priority: z.enum(["low", "medium", "high"]),

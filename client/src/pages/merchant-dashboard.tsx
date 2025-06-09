@@ -242,8 +242,12 @@ export default function MerchantDashboard() {
                   id="amount"
                   type="number"
                   value={paymentAmount}
-                  onChange={(e) => setPaymentAmount(e.target.value)}
-                  placeholder="Enter amount"
+                  onChange={(e) => {
+                    // Round any input to whole numbers only
+                    const rounded = Math.round(parseFloat(e.target.value) || 0);
+                    setPaymentAmount(rounded > 0 ? rounded.toString() : "");
+                  }}
+                  placeholder="Enter amount (whole numbers only)"
                 />
               </div>
               <div>

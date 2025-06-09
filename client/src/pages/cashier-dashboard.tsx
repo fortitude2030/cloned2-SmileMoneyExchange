@@ -712,9 +712,13 @@ export default function CashierDashboard() {
               <Input
                 id="amount"
                 type="number"
-                placeholder="0.00"
+                placeholder="0"
                 value={cashAmount}
-                onChange={(e) => setCashAmount(e.target.value)}
+                onChange={(e) => {
+                  // Round any input to whole numbers only
+                  const rounded = Math.round(parseFloat(e.target.value) || 0);
+                  setCashAmount(rounded > 0 ? rounded.toString() : "");
+                }}
                 className="text-lg text-center font-bold"
               />
 
