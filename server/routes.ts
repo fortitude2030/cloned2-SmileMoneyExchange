@@ -212,7 +212,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Set expiration time for all pending transactions (both QR and RTP)
       const expiresAt = (req.body.status === 'pending') 
-        ? new Date(Date.now() + 30 * 1000) 
+        ? new Date(Date.now() + 120 * 1000) 
         : null;
       
       // Round the amount to ensure no decimals

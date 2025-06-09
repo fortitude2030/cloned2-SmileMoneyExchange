@@ -217,12 +217,12 @@ export default function CashierDashboard() {
     }
   }, [qrTransactions, activeQrTransaction]);
 
-  // Monitor for new payment requests and start timer
+  // Monitor for new payment requests and start inactivity timer
   useEffect(() => {
     if (activeTransaction) {
       const transactionId = activeTransaction.transactionId;
       
-      // Only start timer for truly new transactions that haven't been processed
+      // Start 30-second inactivity timer for new transactions (no action taken)
       if (!processedTransactionIds.has(transactionId) && requestCooldown === 0) {
         setRequestCooldown(30);
         setProcessedTransactionIds(prev => new Set(prev).add(transactionId));
@@ -231,6 +231,22 @@ export default function CashierDashboard() {
       setRequestCooldown(0);
     }
   }, [activeTransaction, requestCooldown, processedTransactionIds]);
+
+  // Reset inactivity timer when cashier takes action (enters amount for RTP)
+  useEffect(() => {
+    if (cashAmount && cashCountingStep >= 2) {
+      // Cashier has taken action, extend timer to 120 seconds for processing
+      setRequestCooldown(120);
+    }
+  }, [cashAmount, cashCountingStep]);
+
+  // Reset inactivity timer when cashier takes action on QR transactions
+  useEffect(() => {
+    if (qrAmount && qrProcessingStep >= 2) {
+      // Cashier has entered QR amount, extend timer to 120 seconds for processing
+      setRequestCooldown(120);
+    }
+  }, [qrAmount, qrProcessingStep]);
 
   // Handle timer expiration to automatically reject transactions
   useEffect(() => {
@@ -441,7 +457,9 @@ export default function CashierDashboard() {
           <div className="flex justify-center mb-4">
             <div className={`
               w-24 h-24 rounded-full flex items-center justify-center transition-colors duration-1000 ease-in-out
-              ${requestCooldown > 20 ? 'bg-green-500' : 
+              ${requestCooldown > 100 ? 'bg-green-500' : 
+                requestCooldown > 60 ? 'bg-amber-500' : 
+                requestCooldown > 20 ? 'bg-green-500' : 
                 requestCooldown > 10 ? 'bg-amber-500' : 'bg-red-500'}
             `}>
               <div className="text-2xl font-bold text-white">

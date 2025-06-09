@@ -14,13 +14,13 @@ interface QRCodeModalProps {
 export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCodeModalProps) {
   const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
   const [uniqueId] = useState(() => `QR${Date.now()}${Math.random().toString(36).substr(2, 9)}`);
-  const [timeLeft, setTimeLeft] = useState(30);
+  const [timeLeft, setTimeLeft] = useState(120);
   const [isExpired, setIsExpired] = useState(false);
 
   // Auto-generate QR code when modal opens
   useEffect(() => {
     if (isOpen && amount && vmfNumber) {
-      setTimeLeft(30);
+      setTimeLeft(120);
       setIsExpired(false);
       handleGenerateQR();
     }
@@ -144,7 +144,7 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
             {isExpired && (
               <Button 
                 onClick={() => {
-                  setTimeLeft(30);
+                  setTimeLeft(120);
                   setIsExpired(false);
                   handleGenerateQR();
                 }} 
