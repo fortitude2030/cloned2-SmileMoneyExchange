@@ -408,13 +408,13 @@ export default function CashierDashboard() {
           </div>
         </div>
 
-        {/* Cash Counting Workflow */}
-        <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
-          <CardContent className="p-4">
-            
-            <div className="space-y-4">
-              {/* Step 1: Enter Amount */}
-              <div className="flex items-start space-x-3">
+        {/* Cash Counting Workflow - Only show when there are pending transactions */}
+        {activeTransaction && (
+          <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
+            <CardContent className="p-4">
+              <div className="space-y-4">
+                {/* Step 1: Enter Amount */}
+                <div className="flex items-start space-x-3">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-1 ${
                   cashCountingStep > 1 ? 'bg-success' : 'bg-primary'
                 }`}>
@@ -505,7 +505,8 @@ export default function CashierDashboard() {
               </div>
             </div>
           </CardContent>
-        </Card>
+          </Card>
+        )}
 
         {/* Pending Payment Requests - Only show when there are pending transactions */}
         {activeTransaction && (
