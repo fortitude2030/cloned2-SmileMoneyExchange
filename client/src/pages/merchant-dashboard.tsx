@@ -148,9 +148,10 @@ export default function MerchantDashboard() {
 
     createPaymentRequest.mutate({ amount: paymentAmount, vmfNumber });
     
-    // Clear VMF photo from memory after submission
+    // Clear VMF photo and PDF from memory after submission
     setVmfPhoto(null);
     setVmfPhotoPreview(null);
+    setVmfPDF(null);
   };
 
   const formatCurrency = (amount: string | number) => {
@@ -360,9 +361,10 @@ export default function MerchantDashboard() {
 
               setShowQRModal(true);
               
-              // Clear VMF photo from memory after QR generation
+              // Clear VMF photo and PDF from memory after QR generation
               setVmfPhoto(null);
               setVmfPhotoPreview(null);
+              setVmfPDF(null);
             }}
             className="bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow h-auto"
             variant="ghost"
