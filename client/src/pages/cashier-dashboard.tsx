@@ -31,20 +31,21 @@ export default function CashierDashboard() {
     location: "Westlands Branch, Nairobi",
     amount: "0"
   });
-  const [requestCooldown, setRequestCooldown] = useState(0);
+  const [requestCooldown, setRequestCooldown] = useState(120); // Start with 2-minute timer
 
-  // Timer effect for request cooldown
+  // Timer effect for request cooldown - starts immediately
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (requestCooldown > 0) {
-      interval = setInterval(() => {
-        setRequestCooldown(prev => Math.max(0, prev - 1));
-      }, 1000);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [requestCooldown]);
+    const interval = setInterval(() => {
+      setRequestCooldown(prev => {
+        if (prev <= 0) {
+          return 120; // Reset to 2 minutes when it reaches 0
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, []);
 
   // Redirect if not authenticated
   useEffect(() => {
