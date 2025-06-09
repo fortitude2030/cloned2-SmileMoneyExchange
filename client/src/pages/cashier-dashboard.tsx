@@ -26,7 +26,7 @@ export default function CashierDashboard() {
   const [activeSession, setActiveSession] = useState({
     merchant: "Tech Store Plus",
     location: "Westlands Branch, Nairobi",
-    amount: cashAmount || "0"
+    amount: "0"
   });
 
   // Redirect if not authenticated
@@ -365,9 +365,133 @@ export default function CashierDashboard() {
         ]}
       />
 
+      {/* Amount Entry Modal */}
+      <Dialog open={showAmountModal} onOpenChange={setShowAmountModal}>
+        <DialogContent className="w-full max-w-sm mx-4">
+          <DialogHeader>
+            <DialogTitle className="text-center">Enter Cash Amount</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="amount">Cash Amount (ZMW)</Label>
+              <Input
+                id="amount"
+                type="number"
+                placeholder="0.00"
+                value={cashAmount}
+                onChange={(e) => setCashAmount(e.target.value)}
+                className="text-lg text-center font-bold"
+              />
+              <p className="text-xs text-gray-500 mt-1">Enter the physical cash amount you counted</p>
+            </div>
+            
+            <div className="flex space-x-3">
+              <Button 
+                onClick={() => setShowAmountModal(false)} 
+                variant="outline"
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => {
+                  if (cashAmount && parseFloat(cashAmount) > 0) {
+                    setCashCountingStep(2);
+                    setActiveSession(prev => ({ ...prev, amount: cashAmount }));
+                    setShowAmountModal(false);
+                    toast({
+                      title: "Amount Recorded",
+                      description: `Cash amount of ZMW ${parseFloat(cashAmount).toLocaleString()} recorded`,
+                    });
+                  } else {
+                    toast({
+                      title: "Invalid Amount",
+                      description: "Please enter a valid cash amount",
+                      variant: "destructive",
+                    });
+                  }
+                }}
+                disabled={!cashAmount || parseFloat(cashAmount) <= 0}
+                className="flex-1 bg-primary hover:bg-primary/90 text-white"
+              >
+                <i className="fas fa-check mr-2"></i>
+                Confirm
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* VMF Number Modal */}
+      <Dialog open={showVMFModal} onOpenChange={setShowVMFModal}>
+        <DialogContent className="w-full max-w-sm mx-4">
+          <DialogHeader>
+            <DialogTitle className="text-center">Enter VMF Number</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="vmf">VMF Form Number</Label>
+              <Input
+                id="vmf"
+                type="text"
+                placeholder="VMF-XXXXXX"
+                value={vmfNumber}
+                onChange={(e) => setVmfNumber(e.target.value.toUpperCase())}
+                className="text-lg text-center font-bold"
+              />
+              <p className="text-xs text-gray-500 mt-1">Enter the VMF form number exactly as printed</p>
+            </div>
+            
+            <div className="flex space-x-3">
+              <Button 
+                onClick={() => setShowVMFModal(false)} 
+                variant="outline"
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => {
+                  if (vmfNumber && vmfNumber.length >= 3) {
+                    setCashCountingStep(3);
+                    setShowVMFModal(false);
+                    toast({
+                      title: "VMF Number Recorded",
+                      description: `VMF number ${vmfNumber} recorded`,
+                    });
+                  } else {
+                    toast({
+                      title: "Invalid VMF Number",
+                      description: "Please enter a valid VMF number",
+                      variant: "destructive",
+                    });
+                  }
+                }}
+                disabled={!vmfNumber || vmfNumber.length < 3}
+                className="flex-1 bg-primary hover:bg-primary/90 text-white"
+              >
+                <i className="fas fa-check mr-2"></i>
+                Confirm
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <DocumentUploadModal
         isOpen={showUploadModal}
-        onClose={() => setShowUploadModal(false)}
+        onClose={() => {
+          setShowUploadModal(false);
+          if (cashCountingStep === 3) {
+            setCashCountingStep(4);
+            toast({
+              title: "VMF Photo Captured",
+              description: "Cash counting process completed successfully",
+            });
+          }
+        }}
       />
     </div>
   );
