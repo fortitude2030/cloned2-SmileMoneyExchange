@@ -10,15 +10,23 @@ import DocumentUploadModal from "@/components/document-upload-modal";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export default function CashierDashboard() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showAmountModal, setShowAmountModal] = useState(false);
+  const [showVMFModal, setShowVMFModal] = useState(false);
+  const [cashCountingStep, setCashCountingStep] = useState(1);
+  const [cashAmount, setCashAmount] = useState("");
+  const [vmfNumber, setVmfNumber] = useState("");
   const [activeSession, setActiveSession] = useState({
     merchant: "Tech Store Plus",
     location: "Westlands Branch, Nairobi",
-    amount: "25000"
+    amount: cashAmount || "0"
   });
 
   // Redirect if not authenticated
@@ -172,44 +180,92 @@ export default function CashierDashboard() {
             </h3>
             
             <div className="space-y-4">
-              {/* Step 1: Count Cash */}
+              {/* Step 1: Enter Amount */}
               <div className="flex items-start space-x-3">
-                <div className="w-8 h-8 bg-success rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                  <i className="fas fa-check text-white text-sm"></i>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-1 ${
+                  cashCountingStep > 1 ? 'bg-success' : 'bg-primary'
+                }`}>
+                  {cashCountingStep > 1 ? (
+                    <i className="fas fa-check text-white text-sm"></i>
+                  ) : (
+                    <span className="text-white text-sm font-bold">1</span>
+                  )}
                 </div>
                 <div className="flex-1">
-                  <h4 className="font-medium text-gray-800 dark:text-gray-200 text-sm">Physical Cash Counted</h4>
+                  <h4 className="font-medium text-gray-800 dark:text-gray-200 text-sm">Enter Cash Amount</h4>
                   <p className="text-gray-600 dark:text-gray-400 text-xs mt-1">
-                    {formatCurrency(activeSession.amount)} verified with merchant
+                    {cashAmount ? `ZMW ${parseFloat(cashAmount).toLocaleString()}` : 'Enter the physical cash amount counted'}
                   </p>
+                  {cashCountingStep === 1 && (
+                    <Button 
+                      onClick={() => setShowAmountModal(true)}
+                      className="mt-2 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium"
+                    >
+                      <i className="fas fa-calculator mr-2"></i>Enter Amount
+                    </Button>
+                  )}
                 </div>
               </div>
 
-              {/* Step 2: VMF Form */}
+              {/* Step 2: Enter VMF Number */}
               <div className="flex items-start space-x-3">
-                <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                  <span className="text-white text-sm font-bold">2</span>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-1 ${
+                  cashCountingStep > 2 ? 'bg-success' : cashCountingStep === 2 ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'
+                }`}>
+                  {cashCountingStep > 2 ? (
+                    <i className="fas fa-check text-white text-sm"></i>
+                  ) : (
+                    <span className="text-white text-sm font-bold">2</span>
+                  )}
                 </div>
                 <div className="flex-1">
-                  <h4 className="font-medium text-gray-800 dark:text-gray-200 text-sm">Upload VMF Documents</h4>
-                  <p className="text-gray-600 dark:text-gray-400 text-xs mt-1">Scan and upload triplicate forms</p>
-                  <Button 
-                    onClick={() => setShowUploadModal(true)}
-                    className="mt-2 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium"
-                  >
-                    <i className="fas fa-camera mr-2"></i>Upload Documents
-                  </Button>
+                  <h4 className={`font-medium text-sm ${
+                    cashCountingStep >= 2 ? 'text-gray-800 dark:text-gray-200' : 'text-gray-400'
+                  }`}>Enter VMF Number</h4>
+                  <p className={`text-xs mt-1 ${
+                    cashCountingStep >= 2 ? 'text-gray-600 dark:text-gray-400' : 'text-gray-400'
+                  }`}>
+                    {vmfNumber ? `VMF: ${vmfNumber}` : 'Input the VMF form number'}
+                  </p>
+                  {cashCountingStep === 2 && (
+                    <Button 
+                      onClick={() => setShowVMFModal(true)}
+                      className="mt-2 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium"
+                    >
+                      <i className="fas fa-hashtag mr-2"></i>Enter VMF Number
+                    </Button>
+                  )}
                 </div>
               </div>
 
-              {/* Step 3: Transfer */}
+              {/* Step 3: Take VMF Photo */}
               <div className="flex items-start space-x-3">
-                <div className="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                  <span className="text-white text-sm font-bold">3</span>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-1 ${
+                  cashCountingStep > 3 ? 'bg-success' : cashCountingStep === 3 ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'
+                }`}>
+                  {cashCountingStep > 3 ? (
+                    <i className="fas fa-check text-white text-sm"></i>
+                  ) : (
+                    <span className="text-white text-sm font-bold">3</span>
+                  )}
                 </div>
                 <div className="flex-1">
-                  <h4 className="font-medium text-gray-400 text-sm">Complete Transfer</h4>
-                  <p className="text-gray-400 text-xs mt-1">Await merchant payment request</p>
+                  <h4 className={`font-medium text-sm ${
+                    cashCountingStep >= 3 ? 'text-gray-800 dark:text-gray-200' : 'text-gray-400'
+                  }`}>Take VMF Photo</h4>
+                  <p className={`text-xs mt-1 ${
+                    cashCountingStep >= 3 ? 'text-gray-600 dark:text-gray-400' : 'text-gray-400'
+                  }`}>
+                    {cashCountingStep > 3 ? 'VMF photo captured successfully' : 'Use phone camera to capture VMF form'}
+                  </p>
+                  {cashCountingStep === 3 && (
+                    <Button 
+                      onClick={() => setShowUploadModal(true)}
+                      className="mt-2 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium"
+                    >
+                      <i className="fas fa-camera mr-2"></i>Take Photo
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
