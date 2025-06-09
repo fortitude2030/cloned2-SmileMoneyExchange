@@ -354,6 +354,25 @@ export class DatabaseStorage implements IStorage {
 
   // Transaction operations
   async createTransaction(transactionData: InsertTransaction): Promise<Transaction> {
+    // Check for existing pending transactions from the same user
+    const fromUserId = transactionData.fromUserId;
+    if (fromUserId) {
+      const existingPendingTransactions = await db
+        .select()
+        .from(transactions)
+        .where(
+          and(
+            eq(transactions.fromUserId, fromUserId),
+            eq(transactions.status, 'pending'),
+            sql`(expires_at IS NULL OR expires_at > NOW())`
+          )
+        );
+
+      if (existingPendingTransactions.length > 0) {
+        throw new Error('PENDING_TRANSACTION_EXISTS');
+      }
+    }
+
     // Generate unique transaction ID with LUS-XXXXXX format
     let transactionId: string;
     let isUnique = false;

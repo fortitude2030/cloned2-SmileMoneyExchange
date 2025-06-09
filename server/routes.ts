@@ -280,7 +280,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(transaction);
     } catch (error) {
       console.error("Error creating transaction:", error);
-      res.status(400).json({ message: "Failed to create transaction" });
+      
+      if (error instanceof Error && error.message === 'PENDING_TRANSACTION_EXISTS') {
+        res.status(409).json({ 
+          message: "A pending transaction already exists. Please wait for it to be completed or expired before creating a new one.",
+          code: "PENDING_TRANSACTION_EXISTS"
+        });
+      } else {
+        res.status(400).json({ message: "Failed to create transaction" });
+      }
     }
   });
 
