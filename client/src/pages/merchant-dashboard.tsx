@@ -25,6 +25,8 @@ export default function MerchantDashboard() {
   const [requestCooldown, setRequestCooldown] = useState(0);
   const [isRequestDisabled, setIsRequestDisabled] = useState(false);
   const [showRequestCooldown, setShowRequestCooldown] = useState(false);
+  const [vmfPhoto, setVmfPhoto] = useState<File | null>(null);
+  const [vmfPhotoPreview, setVmfPhotoPreview] = useState<string | null>(null);
 
   // Timer effect for request cooldown
   useEffect(() => {
@@ -118,10 +120,10 @@ export default function MerchantDashboard() {
   });
 
   const handleRequestPayment = () => {
-    if (!vmfNumber.trim()) {
+    if (!vmfNumber.trim() || !vmfPhoto) {
       toast({
-        title: "VMF Required",
-        description: "Please enter a valid VMF number",
+        title: "Missing Information",
+        description: "Please enter VMF number and upload VMF photo",
         variant: "destructive",
       });
       return;
@@ -204,6 +206,42 @@ export default function MerchantDashboard() {
         {/* Transfer Limits - Shows Wallet Balance */}
         {wallet && <WalletLimitsDisplay wallet={wallet} />}
 
+        {/* Prerequisites Flow */}
+        <Card className="shadow-sm border border-blue-200 dark:border-blue-700 mb-4 bg-blue-50 dark:bg-blue-900/20">
+          <CardContent className="p-4">
+            <h3 className="font-semibold text-blue-800 dark:text-blue-200 mb-4 flex items-center">
+              <i className="fas fa-list-check text-blue-600 mr-2"></i>
+              Payment Request Prerequisites
+            </h3>
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center space-x-3">
+                <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                  <span className="text-white text-xs font-bold">1</span>
+                </div>
+                <p className="text-blue-700 dark:text-blue-300">Enter the exact cash amount to be digitized</p>
+              </div>
+              <div className="flex items-center space-x-3">
+                <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                  <span className="text-white text-xs font-bold">2</span>
+                </div>
+                <p className="text-blue-700 dark:text-blue-300">Enter your VMF (Voucher Movement Form) number</p>
+              </div>
+              <div className="flex items-center space-x-3">
+                <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                  <span className="text-white text-xs font-bold">3</span>
+                </div>
+                <p className="text-blue-700 dark:text-blue-300">Upload a clear photo of your merchant VMF copy</p>
+              </div>
+              <div className="flex items-center space-x-3">
+                <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                  <span className="text-white text-xs font-bold">4</span>
+                </div>
+                <p className="text-blue-700 dark:text-blue-300">Generate QR code or submit payment request to cashier</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Payment Request Form */}
         <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
           <CardContent className="p-4">
@@ -230,6 +268,41 @@ export default function MerchantDashboard() {
                   required
                 />
               </div>
+              <div>
+                <Label htmlFor="vmf-photo">VMF Photo *</Label>
+                <div className="mt-1">
+                  <input
+                    id="vmf-photo"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setVmfPhoto(file);
+                        const reader = new FileReader();
+                        reader.onload = (e) => setVmfPhotoPreview(e.target?.result as string);
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                    className="block w-full text-sm text-gray-500 dark:text-gray-400
+                      file:mr-4 file:py-2 file:px-4
+                      file:rounded-lg file:border-0
+                      file:text-sm file:font-medium
+                      file:bg-primary file:text-white
+                      hover:file:bg-primary/90
+                      file:cursor-pointer cursor-pointer"
+                  />
+                  {vmfPhotoPreview && (
+                    <div className="mt-2">
+                      <img 
+                        src={vmfPhotoPreview} 
+                        alt="VMF Preview" 
+                        className="w-24 h-24 object-cover rounded-lg border border-gray-200 dark:border-gray-700"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -238,10 +311,10 @@ export default function MerchantDashboard() {
         <div className="grid grid-cols-2 gap-4 mb-6 mt-6">
           <Button
             onClick={() => {
-              if (!paymentAmount || !vmfNumber.trim()) {
+              if (!paymentAmount || !vmfNumber.trim() || !vmfPhoto) {
                 toast({
                   title: "Missing Information",
-                  description: "Please enter both amount and VMF number before generating QR code",
+                  description: "Please enter amount, VMF number, and upload VMF photo before generating QR code",
                   variant: "destructive",
                 });
                 return;
