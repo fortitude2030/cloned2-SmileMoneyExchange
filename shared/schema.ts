@@ -74,6 +74,7 @@ export const wallets = pgTable("wallets", {
 
 export const transactions = pgTable("transactions", {
   id: serial("id").primaryKey(),
+  transactionId: varchar("transaction_id").unique().notNull(), // LUS-XXXXXX format
   fromUserId: varchar("from_user_id"),
   toUserId: varchar("to_user_id").notNull(),
   amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),

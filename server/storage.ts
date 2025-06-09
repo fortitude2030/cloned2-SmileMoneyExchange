@@ -22,6 +22,7 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte, lt, sql, or, isNull, gt, not, inArray } from "drizzle-orm";
+import { generateTransactionId } from "./utils";
 
 export interface IStorage {
   // User operations (mandatory for Replit Auth)
@@ -307,9 +308,28 @@ export class DatabaseStorage implements IStorage {
 
   // Transaction operations
   async createTransaction(transactionData: InsertTransaction): Promise<Transaction> {
+    // Generate unique transaction ID with LUS-XXXXXX format
+    let transactionId: string;
+    let isUnique = false;
+    
+    // Ensure the transaction ID is unique
+    while (!isUnique) {
+      transactionId = generateTransactionId();
+      const existing = await db
+        .select()
+        .from(transactions)
+        .where(eq(transactions.transactionId, transactionId))
+        .limit(1);
+      
+      isUnique = existing.length === 0;
+    }
+    
     const [transaction] = await db
       .insert(transactions)
-      .values(transactionData)
+      .values({
+        ...transactionData,
+        transactionId: transactionId!
+      })
       .returning();
     return transaction;
   }

@@ -359,7 +359,7 @@ export default function MerchantDashboard() {
                             {dateTime.date} at {dateTime.time}
                           </p>
                           <p className="text-gray-500 dark:text-gray-400 text-xs">
-                            ID: {transaction.id}
+                            ID: {transaction.transactionId}
                           </p>
                         </div>
                       </div>
