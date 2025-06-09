@@ -567,11 +567,6 @@ export default function CashierDashboard() {
         {activeQrTransaction && (
           <Card className="shadow-sm border border-blue-200 dark:border-blue-700">
             <CardContent className="p-4">
-              <h3 className="font-semibold text-blue-800 dark:text-blue-200 mb-4 flex items-center">
-                <i className="fas fa-qrcode text-blue-600 mr-2"></i>
-                QR Code Payment
-              </h3>
-              
               <div className="space-y-3">
                 {/* Step 1: Enter Amount */}
                 <div className="flex items-center space-x-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
