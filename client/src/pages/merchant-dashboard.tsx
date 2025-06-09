@@ -99,6 +99,13 @@ export default function MerchantDashboard() {
       setRequestCooldown(60);
       setShowRequestCooldown(true);
       
+      // Clear form data only after successful submission
+      setPaymentAmount("");
+      setVmfNumber("");
+      setVmfPhoto(null);
+      setVmfPhotoPreview(null);
+      setVmfPDF(null);
+      
       toast({
         title: "Success",
         description: "Payment request sent to security cashier",
@@ -150,11 +157,6 @@ export default function MerchantDashboard() {
     }
 
     createPaymentRequest.mutate({ amount: paymentAmount, vmfNumber });
-    
-    // Clear VMF photo and PDF from memory after submission
-    setVmfPhoto(null);
-    setVmfPhotoPreview(null);
-    setVmfPDF(null);
   };
 
   const formatCurrency = (amount: string | number) => {
@@ -363,11 +365,6 @@ export default function MerchantDashboard() {
               }
 
               setShowQRModal(true);
-              
-              // Clear VMF photo and PDF from memory after QR generation
-              setVmfPhoto(null);
-              setVmfPhotoPreview(null);
-              setVmfPDF(null);
             }}
             className="bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow h-auto"
             variant="ghost"
