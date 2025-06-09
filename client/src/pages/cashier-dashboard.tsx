@@ -172,7 +172,9 @@ export default function CashierDashboard() {
   });
 
   // Get the active transaction for validation
-  const activeTransaction = pendingTransactions.length > 0 ? pendingTransactions[0] : null;
+  // Filter out QR code transactions from pending queue - they should not show in pending requests
+  const rtpTransactions = pendingTransactions.filter(t => t.type !== 'qr_code_payment');
+  const activeTransaction = rtpTransactions.length > 0 ? rtpTransactions[0] : null;
 
   // Monitor for new payment requests and start timer
   useEffect(() => {
