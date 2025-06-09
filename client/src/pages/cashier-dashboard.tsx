@@ -383,6 +383,8 @@ export default function CashierDashboard() {
       // For QR code transactions, open the QR scanner directly
       setCurrentTransaction(transaction);
       setShowQRScanner(true);
+      // Start countdown timer for QR processing
+      setRequestCooldown(120); // 2 minutes for QR scanning
       return;
     }
 
@@ -395,6 +397,9 @@ export default function CashierDashboard() {
       });
       return;
     }
+
+    // Start countdown timer for processing
+    setRequestCooldown(90); // 1.5 minutes for cash processing
 
     // Since validation already happened during steps 1 & 2, just approve
     approveTransaction.mutate({
@@ -983,8 +988,12 @@ export default function CashierDashboard() {
                   if (activeQrTransaction) {
                     setQrAmount(cashAmount);
                     setQrProcessingStep(2);
+                    // Start countdown timer for QR processing workflow
+                    setRequestCooldown(180); // 3 minutes for QR workflow
                   } else {
                     setCashCountingStep(2);
+                    // Start countdown timer for cash counting workflow
+                    setRequestCooldown(180); // 3 minutes for cash workflow
                   }
                   setActiveSession(prev => ({ ...prev, amount: cashAmount }));
                   setShowAmountModal(false);
