@@ -31,21 +31,20 @@ export default function CashierDashboard() {
     location: "Westlands Branch, Nairobi",
     amount: "0"
   });
-  const [requestCooldown, setRequestCooldown] = useState(120); // Start with 2-minute timer
+  const [requestCooldown, setRequestCooldown] = useState(0); // Start with no timer
 
-  // Timer effect for request cooldown - starts immediately
+  // Timer effect for request cooldown - only runs when cooldown > 0
   useEffect(() => {
-    const interval = setInterval(() => {
-      setRequestCooldown(prev => {
-        if (prev <= 0) {
-          return 120; // Reset to 2 minutes when it reaches 0
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    
-    return () => clearInterval(interval);
-  }, []);
+    let interval: NodeJS.Timeout;
+    if (requestCooldown > 0) {
+      interval = setInterval(() => {
+        setRequestCooldown(prev => Math.max(0, prev - 1));
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [requestCooldown]);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -79,6 +78,17 @@ export default function CashierDashboard() {
 
   // Get the active transaction for validation
   const activeTransaction = pendingTransactions.length > 0 ? pendingTransactions[0] : null;
+
+  // Monitor for new payment requests and start timer
+  useEffect(() => {
+    if (activeTransaction && requestCooldown === 0) {
+      // New payment request detected, start 2-minute timer
+      setRequestCooldown(120);
+    } else if (!activeTransaction) {
+      // No pending transactions, stop timer
+      setRequestCooldown(0);
+    }
+  }, [activeTransaction, requestCooldown]);
 
   // Approve transaction mutation with dual authentication
   const approveTransaction = useMutation({
