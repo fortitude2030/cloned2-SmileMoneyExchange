@@ -23,8 +23,18 @@ export default function MerchantDashboard() {
   // Force component re-render with timestamp
   const [renderKey] = useState(() => Date.now());
   const [showQRModal, setShowQRModal] = useState(false);
-  const [paymentAmount, setPaymentAmount] = useState("");
-  const [vmfNumber, setVmfNumber] = useState("");
+  const [paymentAmount, setPaymentAmount] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('merchant-payment-amount') || "";
+    }
+    return "";
+  });
+  const [vmfNumber, setVmfNumber] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('merchant-vmf-number') || "";
+    }
+    return "";
+  });
   const [showAllTransactions, setShowAllTransactions] = useState(false);
   const [requestCooldown, setRequestCooldown] = useState(0);
   const [isRequestDisabled, setIsRequestDisabled] = useState(false);
@@ -33,6 +43,19 @@ export default function MerchantDashboard() {
   const [vmfPhotoPreview, setVmfPhotoPreview] = useState<string | null>(null);
   const [vmfPDF, setVmfPDF] = useState<File | null>(null);
   const [isConvertingToPDF, setIsConvertingToPDF] = useState(false);
+
+  // Save form data to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('merchant-payment-amount', paymentAmount);
+    }
+  }, [paymentAmount]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('merchant-vmf-number', vmfNumber);
+    }
+  }, [vmfNumber]);
 
   // Timer effect for request cooldown
   useEffect(() => {
@@ -105,6 +128,12 @@ export default function MerchantDashboard() {
       setVmfPhoto(null);
       setVmfPhotoPreview(null);
       setVmfPDF(null);
+      
+      // Clear localStorage data
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('merchant-payment-amount');
+        localStorage.removeItem('merchant-vmf-number');
+      }
       
       toast({
         title: "Success",
@@ -277,10 +306,8 @@ export default function MerchantDashboard() {
                             
                             setVmfPDF(pdfFile);
                             
-                            toast({
-                              title: "Photo Converted",
-                              description: "VMF photo automatically converted to PDF format",
-                            });
+                            // Use a more subtle notification to prevent re-renders
+                            console.log("VMF photo converted to PDF successfully");
                           } catch (error) {
                             console.error('PDF conversion failed:', error);
                             toast({
