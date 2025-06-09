@@ -272,18 +272,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.updateWalletBalance(transaction.toUserId, newBalance);
       }
 
-      // Broadcast real-time update to all connected clients
-      if (app.locals.broadcastTransactionUpdate && transaction) {
-        app.locals.broadcastTransactionUpdate('transaction_status_updated', {
-          transactionId: transaction.transactionId,
-          id: transactionId,
-          status,
-          fromUserId: transaction.fromUserId,
-          toUserId: transaction.toUserId,
-          amount: transaction.amount
-        });
-      }
-
       res.json({ message: "Transaction status updated" });
     } catch (error) {
       console.error("Error updating transaction status:", error);
@@ -441,9 +429,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Setup WebSocket for real-time updates
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
   
-  // Store WebSocket reference for broadcasting transaction updates
-  app.locals.wss = wss;
-  
   wss.on('connection', (ws: WebSocket) => {
     console.log('WebSocket client connected');
     
@@ -467,19 +452,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('WebSocket client disconnected');
     });
   });
-  
-  // Helper function to broadcast transaction updates
-  const broadcastTransactionUpdate = (type: string, data: any) => {
-    const message = JSON.stringify({ type, data, timestamp: Date.now() });
-    wss.clients.forEach((client) => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(message);
-      }
-    });
-  };
-  
-  // Store broadcast function for use in routes
-  app.locals.broadcastTransactionUpdate = broadcastTransactionUpdate;
 
   return httpServer;
 }
