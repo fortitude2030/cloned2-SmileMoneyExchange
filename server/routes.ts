@@ -207,14 +207,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       
-      // Auto-approve RTP transactions (cash_digitization) - no pending status
+      // Keep original status for all transactions
       let finalStatus = req.body.status;
-      if (req.body.type === 'cash_digitization' && req.body.status === 'pending') {
-        finalStatus = 'completed';
-      }
       
-      // Set expiration time only for QR transactions that remain pending
-      const expiresAt = (req.body.status === 'pending' && req.body.type === 'qr_code_payment') 
+      // Set expiration time for all pending transactions (both QR and RTP)
+      const expiresAt = (req.body.status === 'pending') 
         ? new Date(Date.now() + 120 * 1000) 
         : null;
       
