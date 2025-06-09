@@ -15,26 +15,24 @@ import {
   insertSettlementRequestSchema,
 } from "@shared/schema";
 
-// Convert image to PDF function
+// Convert image to PDF function using base64 encoding
 async function convertImageToPDF(imagePath: string, outputPath: string): Promise<void> {
   try {
-    const image = await loadImage(imagePath);
+    // Read image file and convert to base64
+    const imageBuffer = fs.readFileSync(imagePath);
+    const base64Image = imageBuffer.toString('base64');
+    const mimeType = imagePath.toLowerCase().includes('.png') ? 'PNG' : 'JPEG';
     
-    // Create PDF with appropriate size
-    const pdf = new jsPDF({
-      orientation: image.width > image.height ? 'landscape' : 'portrait',
-      unit: 'px',
-      format: [image.width, image.height]
-    });
+    // Create PDF document
+    const pdf = new jsPDF();
     
-    // Add image to PDF
-    pdf.addImage(image as any, 'JPEG', 0, 0, image.width, image.height);
+    // Add image to PDF (auto-sizing to fit page)
+    pdf.addImage(`data:image/${mimeType.toLowerCase()};base64,${base64Image}`, mimeType, 10, 10, 180, 240);
     
     // Save PDF
     const pdfBuffer = Buffer.from(pdf.output('arraybuffer'));
     fs.writeFileSync(outputPath, pdfBuffer);
     
-    console.log(`PDF created: ${outputPath}`);
   } catch (error) {
     console.error('Error converting image to PDF:', error);
     throw error;
