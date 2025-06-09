@@ -21,6 +21,8 @@ export default function MerchantDashboard() {
   const [showQRModal, setShowQRModal] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [vmfNumber, setVmfNumber] = useState("");
+  const [vmfPhoto, setVmfPhoto] = useState<File | null>(null);
+  const [vmfPhotoUrl, setVmfPhotoUrl] = useState<string>("");
   const [showAllTransactions, setShowAllTransactions] = useState(false);
   const [requestCooldown, setRequestCooldown] = useState(0);
   const [isRequestDisabled, setIsRequestDisabled] = useState(false);
@@ -118,10 +120,10 @@ export default function MerchantDashboard() {
   });
 
   const handleRequestPayment = () => {
-    if (!vmfNumber.trim()) {
+    if (!vmfNumber.trim() || !vmfPhoto) {
       toast({
-        title: "VMF Required",
-        description: "Please enter a valid VMF number",
+        title: "Missing Information",
+        description: "Please enter VMF number and capture VMF photo",
         variant: "destructive",
       });
       return;
@@ -146,6 +148,18 @@ export default function MerchantDashboard() {
 
   const formatCurrency = (amount: string | number) => {
     return `ZMW ${Math.round(parseFloat(amount.toString())).toLocaleString()}`;
+  };
+
+  const handleVmfPhotoCapture = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setVmfPhoto(file);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setVmfPhotoUrl(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const getStatusBadge = (status: string, rejectionReason?: string) => {
@@ -230,6 +244,70 @@ export default function MerchantDashboard() {
                   required
                 />
               </div>
+              
+              {/* VMF Photo Capture */}
+              <div>
+                <Label htmlFor="vmf-photo">VMF Photo *</Label>
+                <div className="mt-2">
+                  {!vmfPhoto ? (
+                    <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center">
+                      <i className="fas fa-camera text-gray-400 text-2xl mb-3"></i>
+                      <p className="text-gray-600 dark:text-gray-400 text-sm mb-3">
+                        Take a photo of your VMF document
+                      </p>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={handleVmfPhotoCapture}
+                        className="hidden"
+                        id="vmf-photo-input"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => document.getElementById('vmf-photo-input')?.click()}
+                        className="w-full"
+                      >
+                        <i className="fas fa-camera mr-2"></i>
+                        Capture VMF Photo
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <img
+                        src={vmfPhotoUrl}
+                        alt="VMF Document"
+                        className="w-full h-48 object-cover rounded-lg border border-gray-200 dark:border-gray-700"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => {
+                          setVmfPhoto(null);
+                          setVmfPhotoUrl("");
+                        }}
+                        className="absolute top-2 right-2"
+                      >
+                        <i className="fas fa-times"></i>
+                      </Button>
+                      <div className="mt-2 flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => document.getElementById('vmf-photo-input')?.click()}
+                          className="flex-1"
+                        >
+                          <i className="fas fa-camera mr-2"></i>
+                          Retake Photo
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -238,10 +316,10 @@ export default function MerchantDashboard() {
         <div className="grid grid-cols-2 gap-4 mb-6 mt-6">
           <Button
             onClick={() => {
-              if (!paymentAmount || !vmfNumber.trim()) {
+              if (!paymentAmount || !vmfNumber.trim() || !vmfPhoto) {
                 toast({
                   title: "Missing Information",
-                  description: "Please enter both amount and VMF number before generating QR code",
+                  description: "Please enter amount, VMF number, and capture VMF photo before generating QR code",
                   variant: "destructive",
                 });
                 return;
