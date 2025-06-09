@@ -23,7 +23,28 @@ export default function QRScannerComponent({ isOpen, onClose, onScanSuccess, exp
 
     const initializeScanner = async () => {
       try {
-        // Check camera permission
+        setError("");
+        setIsScanning(false);
+        
+        // Request camera permission first
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { 
+              facingMode: 'environment',
+              width: { ideal: 640 },
+              height: { ideal: 480 }
+            } 
+          });
+          stream.getTracks().forEach(track => track.stop()); // Stop the test stream
+          console.log("Camera permission granted");
+        } catch (permissionErr) {
+          console.error("Camera permission error:", permissionErr);
+          setError("Camera permission denied. Please allow camera access and try again.");
+          setHasPermission(false);
+          return;
+        }
+
+        // Check if camera is available
         const hasCamera = await QrScanner.hasCamera();
         if (!hasCamera) {
           setError("No camera found on this device");
@@ -35,6 +56,8 @@ export default function QRScannerComponent({ isOpen, onClose, onScanSuccess, exp
           videoRef.current!,
           (result) => {
             try {
+              console.log("QR Code detected:", result.data);
+              
               // Parse and validate QR code data
               const qrData = parsePaymentQR(result.data);
               
@@ -67,33 +90,46 @@ export default function QRScannerComponent({ isOpen, onClose, onScanSuccess, exp
             highlightScanRegion: true,
             highlightCodeOutline: true,
             maxScansPerSecond: 5,
+            returnDetailedScanResult: true,
           }
         );
 
         setScanner(qrScanner);
+        
+        // Start the scanner
         await qrScanner.start();
         setIsScanning(true);
         setHasPermission(true);
-        setError("");
+        console.log("QR Scanner started successfully");
 
       } catch (err: any) {
         console.error("Scanner initialization error:", err);
-        if (err.name === 'NotAllowedError') {
-          setError("Camera permission denied. Please allow camera access.");
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          setError("Camera permission denied. Please allow camera access and try again.");
+          setHasPermission(false);
+        } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+          setError("No camera found on this device");
           setHasPermission(false);
         } else {
-          setError("Failed to start camera");
+          setError(`Failed to start camera: ${err.message || 'Unknown error'}`);
           setHasPermission(false);
         }
       }
     };
 
-    initializeScanner();
+    const timeoutId = setTimeout(() => {
+      initializeScanner();
+    }, 300); // Small delay to ensure DOM is ready
 
     return () => {
+      clearTimeout(timeoutId);
       if (scanner) {
-        scanner.stop();
-        scanner.destroy();
+        try {
+          scanner.stop();
+          scanner.destroy();
+        } catch (err) {
+          console.error("Error stopping scanner:", err);
+        }
       }
     };
   }, [isOpen, expectedAmount]);
@@ -172,20 +208,35 @@ export default function QRScannerComponent({ isOpen, onClose, onScanSuccess, exp
             </div>
           ) : (
             <>
-              <div className="relative">
+              <div className="relative bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden">
                 <video
                   ref={videoRef}
-                  className="w-full h-64 object-cover rounded-lg bg-black"
-                  style={{ transform: 'scaleX(-1)' }}
+                  className="w-full h-64 object-cover bg-black"
+                  autoPlay
+                  muted
+                  playsInline
+                  style={{ minHeight: '256px' }}
                 />
                 
+                {!isScanning && hasPermission !== false && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
+                    <div className="text-center text-white">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
+                      <p className="text-sm">Starting camera...</p>
+                    </div>
+                  </div>
+                )}
+                
                 {isScanning && (
-                  <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                     <div className="w-48 h-48 border-2 border-blue-500 rounded-lg relative">
                       <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-blue-500 rounded-tl-lg"></div>
                       <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-blue-500 rounded-tr-lg"></div>
                       <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-blue-500 rounded-bl-lg"></div>
                       <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-blue-500 rounded-br-lg"></div>
+                    </div>
+                    <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-70 text-white px-3 py-1 rounded-full text-sm">
+                      Point camera at QR code
                     </div>
                   </div>
                 )}
