@@ -23,16 +23,13 @@ export async function generateQRCode(data: string, size: number = 200): Promise<
     const encodedData = encodeURIComponent(data);
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodedData}&format=png&margin=10`;
     
-    // Verify the URL is accessible
-    const response = await fetch(qrUrl, { method: 'HEAD' });
-    if (!response.ok) {
-      throw new Error('QR code generation service unavailable');
-    }
-    
+    // Return URL directly without verification to avoid CORS issues
     return qrUrl;
   } catch (error) {
     console.error('Error generating QR code:', error);
-    throw new Error('Failed to generate QR code. Please try again.');
+    // Return a fallback QR code URL instead of throwing
+    const fallbackData = encodeURIComponent('QR_GENERATION_ERROR');
+    return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${fallbackData}&format=png&margin=10`;
   }
 }
 
