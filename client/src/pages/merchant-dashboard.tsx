@@ -19,7 +19,7 @@ import { Label } from "@/components/ui/label";
 export default function MerchantDashboard() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
-  const { showPendingNotification, showFailureNotification } = useTransactionNotifications();
+  const { showSuccessNotification, showFailureNotification } = useTransactionNotifications();
   const [showQRModal, setShowQRModal] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [vmfNumber, setVmfNumber] = useState("");

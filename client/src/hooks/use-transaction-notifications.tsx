@@ -1,112 +1,57 @@
 import { createContext, useContext, useState, ReactNode } from "react";
-import TransactionNotification from "@/components/transaction-notification";
-
-interface NotificationData {
-  id: string;
-  type: "success" | "failure" | "pending";
-  title: string;
-  message: string;
-  transactionId?: string;
-  amount?: string;
-  autoCloseDelay?: number;
-}
+import SimpleTransactionPopup from "@/components/simple-transaction-popup";
 
 interface TransactionNotificationContextType {
-  showNotification: (notification: Omit<NotificationData, "id">) => void;
-  showSuccessNotification: (transactionId: string, amount: string, message?: string) => void;
-  showFailureNotification: (reason: string, transactionId?: string, amount?: string) => void;
-  showPendingNotification: (transactionId: string, amount: string, message?: string) => void;
+  showSuccessNotification: (transactionId?: string, amount?: string, message?: string) => void;
+  showFailureNotification: (reason?: string, transactionId?: string, amount?: string) => void;
+  showPendingNotification: (transactionId?: string, amount?: string, message?: string) => void;
 }
 
 const TransactionNotificationContext = createContext<TransactionNotificationContextType | undefined>(undefined);
 
 export function TransactionNotificationProvider({ children }: { children: ReactNode }) {
-  const [notifications, setNotifications] = useState<NotificationData[]>([]);
+  const [currentPopup, setCurrentPopup] = useState<{ type: "success" | "failure"; visible: boolean } | null>(null);
 
-  const showNotification = (notification: Omit<NotificationData, "id">) => {
-    const id = `notification-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const newNotification = { ...notification, id };
-    
-    setNotifications(prev => [...prev, newNotification]);
+  const showSuccessNotification = () => {
+    setCurrentPopup({ type: "success", visible: true });
   };
 
-  const removeNotification = (id: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
+  const showFailureNotification = () => {
+    setCurrentPopup({ type: "failure", visible: true });
   };
 
-  const showSuccessNotification = (transactionId: string, amount: string, message?: string) => {
-    showNotification({
-      type: "success",
-      title: "Transaction Approved",
-      message: message || "Payment has been processed successfully",
-      transactionId,
-      amount,
-      autoCloseDelay: 5000
-    });
+  const showPendingNotification = () => {
+    // For pending notifications, we'll just ignore them since we simplified to success/failure only
   };
 
-  const showFailureNotification = (reason: string, transactionId?: string, amount?: string) => {
-    const reasonMessages: Record<string, string> = {
-      "mismatched amount": "Cash amount doesn't match merchant request",
-      "mismatched vmf number": "VMF number doesn't match merchant request",
-      "manual rejection": "Transaction was manually rejected",
-      "expired": "Transaction request has expired",
-      "insufficient funds": "Insufficient wallet balance",
-      "limit exceeded": "Daily transaction limit exceeded"
-    };
-
-    showNotification({
-      type: "failure",
-      title: "Transaction Rejected",
-      message: reasonMessages[reason] || `Transaction failed: ${reason}`,
-      transactionId,
-      amount,
-      autoCloseDelay: 6000
-    });
+  const closePopup = () => {
+    setCurrentPopup(null);
   };
 
-  const showPendingNotification = (transactionId: string, amount: string, message?: string) => {
-    showNotification({
-      type: "pending",
-      title: "Processing Transaction",
-      message: message || "Awaiting security cashier approval",
-      transactionId,
-      amount,
-      autoCloseDelay: 4000
-    });
+  const value = {
+    showSuccessNotification,
+    showFailureNotification,
+    showPendingNotification
   };
 
   return (
-    <TransactionNotificationContext.Provider value={{
-      showNotification,
-      showSuccessNotification,
-      showFailureNotification,
-      showPendingNotification
-    }}>
+    <TransactionNotificationContext.Provider value={value}>
       {children}
-      
-      {/* Render notifications */}
-      {notifications.map((notification, index) => (
-        <TransactionNotification
-          key={notification.id}
-          isVisible={true}
-          type={notification.type}
-          title={notification.title}
-          message={notification.message}
-          transactionId={notification.transactionId}
-          amount={notification.amount}
-          autoCloseDelay={notification.autoCloseDelay}
-          onClose={() => removeNotification(notification.id)}
+      {currentPopup && (
+        <SimpleTransactionPopup
+          isVisible={currentPopup.visible}
+          type={currentPopup.type}
+          onClose={closePopup}
         />
-      ))}
+      )}
     </TransactionNotificationContext.Provider>
   );
 }
 
 export function useTransactionNotifications() {
   const context = useContext(TransactionNotificationContext);
-  if (!context) {
-    throw new Error("useTransactionNotifications must be used within a TransactionNotificationProvider");
+  if (context === undefined) {
+    throw new Error('useTransactionNotifications must be used within a TransactionNotificationProvider');
   }
   return context;
 }
