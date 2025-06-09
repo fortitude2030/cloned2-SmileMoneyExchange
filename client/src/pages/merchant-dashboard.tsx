@@ -4,7 +4,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { createPDFFromImage, generateVMFPDFFilename } from "@/lib/pdf-utils";
 import MobileHeader from "@/components/mobile-header";
 import MobileNav from "@/components/mobile-nav";
 import QRCodeModal from "@/components/qr-code-modal";
@@ -19,43 +18,15 @@ import { Label } from "@/components/ui/label";
 export default function MerchantDashboard() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
-  
-  // Force component re-render with timestamp
-  const [renderKey] = useState(() => Date.now());
   const [showQRModal, setShowQRModal] = useState(false);
-  const [paymentAmount, setPaymentAmount] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('merchant-payment-amount') || "";
-    }
-    return "";
-  });
-  const [vmfNumber, setVmfNumber] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('merchant-vmf-number') || "";
-    }
-    return "";
-  });
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [vmfNumber, setVmfNumber] = useState("");
   const [showAllTransactions, setShowAllTransactions] = useState(false);
   const [requestCooldown, setRequestCooldown] = useState(0);
   const [isRequestDisabled, setIsRequestDisabled] = useState(false);
   const [showRequestCooldown, setShowRequestCooldown] = useState(false);
   const [vmfPhoto, setVmfPhoto] = useState<File | null>(null);
   const [vmfPhotoPreview, setVmfPhotoPreview] = useState<string | null>(null);
-  const [vmfPDF, setVmfPDF] = useState<File | null>(null);
-  const [isConvertingToPDF, setIsConvertingToPDF] = useState(false);
-
-  // Save form data to localStorage
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('merchant-payment-amount', paymentAmount);
-    }
-  }, [paymentAmount]);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('merchant-vmf-number', vmfNumber);
-    }
-  }, [vmfNumber]);
 
   // Timer effect for request cooldown
   useEffect(() => {
@@ -122,19 +93,6 @@ export default function MerchantDashboard() {
       setRequestCooldown(60);
       setShowRequestCooldown(true);
       
-      // Clear form data only after successful submission
-      setPaymentAmount("");
-      setVmfNumber("");
-      setVmfPhoto(null);
-      setVmfPhotoPreview(null);
-      setVmfPDF(null);
-      
-      // Clear localStorage data
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('merchant-payment-amount');
-        localStorage.removeItem('merchant-vmf-number');
-      }
-      
       toast({
         title: "Success",
         description: "Payment request sent to security cashier",
@@ -162,10 +120,10 @@ export default function MerchantDashboard() {
   });
 
   const handleRequestPayment = () => {
-    if (!vmfNumber.trim() || !vmfPDF) {
+    if (!vmfNumber.trim() || !vmfPhoto) {
       toast({
         title: "Missing Information",
-        description: "Please enter VMF number and upload VMF photo (PDF conversion required)",
+        description: "Please enter VMF number and upload VMF photo",
         variant: "destructive",
       });
       return;
@@ -238,7 +196,7 @@ export default function MerchantDashboard() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-20">
       <MobileHeader
-        title="Merchant Portal - v2.0"
+        title="Merchant Portal"
         subtitle={user?.firstName || "Merchant"}
         icon="fas fa-store"
         color="primary"
@@ -282,48 +240,12 @@ export default function MerchantDashboard() {
                     id="vmf-photo"
                     type="file"
                     accept="image/*"
-                    capture="environment"
-                    onChange={async (e) => {
+                    onChange={(e) => {
                       const file = e.target.files?.[0];
-                      const inputElement = e.target as HTMLInputElement;
                       if (file) {
                         setVmfPhoto(file);
-                        setIsConvertingToPDF(true);
-                        
                         const reader = new FileReader();
-                        reader.onload = async (readerEvent) => {
-                          const imageData = readerEvent.target?.result as string;
-                          setVmfPhotoPreview(imageData);
-                          
-                          try {
-                            // Convert image to PDF automatically
-                            const pdfFilename = generateVMFPDFFilename(vmfNumber || 'TEMP');
-                            const pdfBlob = await createPDFFromImage(imageData, pdfFilename);
-                            const pdfFile = new File([pdfBlob], pdfFilename, {
-                              type: 'application/pdf',
-                              lastModified: Date.now()
-                            });
-                            
-                            setVmfPDF(pdfFile);
-                            
-                            // Use a more subtle notification to prevent re-renders
-                            console.log("VMF photo converted to PDF successfully");
-                          } catch (error) {
-                            console.error('PDF conversion failed:', error);
-                            toast({
-                              title: "Conversion Failed",
-                              description: "Failed to convert photo to PDF. Please try again.",
-                              variant: "destructive",
-                            });
-                          } finally {
-                            setIsConvertingToPDF(false);
-                          }
-                          
-                          // Clear the input value to remove file from memory immediately
-                          if (inputElement) {
-                            inputElement.value = '';
-                          }
-                        };
+                        reader.onload = (e) => setVmfPhotoPreview(e.target?.result as string);
                         reader.readAsDataURL(file);
                       }
                     }}
@@ -335,27 +257,13 @@ export default function MerchantDashboard() {
                       hover:file:bg-primary/90
                       file:cursor-pointer cursor-pointer"
                   />
-                  {isConvertingToPDF && (
-                    <div className="mt-2 text-center">
-                      <div className="inline-flex items-center space-x-2 text-blue-600 dark:text-blue-400">
-                        <i className="fas fa-spinner fa-spin"></i>
-                        <span className="text-sm">Converting to PDF...</span>
-                      </div>
-                    </div>
-                  )}
-                  {vmfPhotoPreview && !isConvertingToPDF && (
+                  {vmfPhotoPreview && (
                     <div className="mt-2">
                       <img 
                         src={vmfPhotoPreview} 
                         alt="VMF Preview" 
                         className="w-24 h-24 object-cover rounded-lg border border-gray-200 dark:border-gray-700"
                       />
-                      {vmfPDF && (
-                        <div className="mt-2 flex items-center space-x-2 text-green-600 dark:text-green-400">
-                          <i className="fas fa-file-pdf text-sm"></i>
-                          <span className="text-xs">Converted to PDF</span>
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>
@@ -368,10 +276,10 @@ export default function MerchantDashboard() {
         <div className="grid grid-cols-2 gap-4 mb-6 mt-6">
           <Button
             onClick={() => {
-              if (!paymentAmount || !vmfNumber.trim() || !vmfPDF) {
+              if (!paymentAmount || !vmfNumber.trim() || !vmfPhoto) {
                 toast({
                   title: "Missing Information",
-                  description: "Please enter amount, VMF number, and upload VMF photo (PDF conversion required) before generating QR code",
+                  description: "Please enter amount, VMF number, and upload VMF photo before generating QR code",
                   variant: "destructive",
                 });
                 return;
