@@ -578,25 +578,56 @@ export default function CashierDashboard() {
                     </div>
                     
                     <div className="flex space-x-3">
-                      <Button 
-                        onClick={() => handleApproveTransaction(transaction)}
-                        disabled={approveTransaction.isPending || rejectTransaction.isPending}
-                        className="flex-1 bg-success hover:bg-success/90 text-white py-2 rounded-lg font-medium"
-                      >
-                        <i className="fas fa-check mr-2"></i>
-                        {approveTransaction.isPending ? "Verifying..." : "Approve Transfer"}
-                      </Button>
-                      <Button 
-                        onClick={() => rejectTransaction.mutate({
-                          transactionId: transaction.id,
-                          reason: "manual rejection"
-                        })}
-                        disabled={rejectTransaction.isPending || approveTransaction.isPending}
-                        className="flex-1 bg-destructive hover:bg-destructive/90 text-white py-2 rounded-lg font-medium"
-                      >
-                        <i className="fas fa-times mr-2"></i>
-                        {rejectTransaction.isPending ? "Rejecting..." : "Reject"}
-                      </Button>
+                      {transaction.type === 'qr_code_payment' ? (
+                        // QR Code transactions: Direct scanner button
+                        <>
+                          <Button 
+                            onClick={() => {
+                              setCurrentTransaction(transaction);
+                              setShowQRScanner(true);
+                            }}
+                            disabled={approveTransaction.isPending || rejectTransaction.isPending}
+                            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-medium"
+                          >
+                            <i className="fas fa-qrcode mr-2"></i>
+                            Scan QR Code
+                          </Button>
+                          <Button 
+                            onClick={() => rejectTransaction.mutate({
+                              transactionId: transaction.id,
+                              reason: "manual rejection"
+                            })}
+                            disabled={rejectTransaction.isPending || approveTransaction.isPending}
+                            className="flex-1 bg-destructive hover:bg-destructive/90 text-white py-2 rounded-lg font-medium"
+                          >
+                            <i className="fas fa-times mr-2"></i>
+                            {rejectTransaction.isPending ? "Rejecting..." : "Reject"}
+                          </Button>
+                        </>
+                      ) : (
+                        // Cash digitization transactions: Original approve/reject flow
+                        <>
+                          <Button 
+                            onClick={() => handleApproveTransaction(transaction)}
+                            disabled={approveTransaction.isPending || rejectTransaction.isPending}
+                            className="flex-1 bg-success hover:bg-success/90 text-white py-2 rounded-lg font-medium"
+                          >
+                            <i className="fas fa-check mr-2"></i>
+                            {approveTransaction.isPending ? "Verifying..." : "Approve Transfer"}
+                          </Button>
+                          <Button 
+                            onClick={() => rejectTransaction.mutate({
+                              transactionId: transaction.id,
+                              reason: "manual rejection"
+                            })}
+                            disabled={rejectTransaction.isPending || approveTransaction.isPending}
+                            className="flex-1 bg-destructive hover:bg-destructive/90 text-white py-2 rounded-lg font-medium"
+                          >
+                            <i className="fas fa-times mr-2"></i>
+                            {rejectTransaction.isPending ? "Rejecting..." : "Reject"}
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </div>
                 ))}
