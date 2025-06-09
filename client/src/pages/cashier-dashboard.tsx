@@ -8,6 +8,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import MobileHeader from "@/components/mobile-header";
 import MobileNav from "@/components/mobile-nav";
 import DocumentUploadModal from "@/components/document-upload-modal";
+import QRScannerComponent from "@/components/qr-scanner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -1060,71 +1061,46 @@ export default function CashierDashboard() {
       </Dialog>
 
       {/* QR Scanner Modal for QR Code Transactions */}
-      <Dialog open={showQRScanner} onOpenChange={setShowQRScanner}>
-        <DialogContent className="w-full max-w-sm mx-4">
-          <DialogHeader>
-            <DialogTitle className="text-center">Scan QR Code</DialogTitle>
-          </DialogHeader>
-          
-          <div className="space-y-4">
-            <div className="text-center">
-              <div className="w-48 h-48 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center mx-auto mb-4">
-                <div className="text-center">
-                  <i className="fas fa-qrcode text-4xl text-gray-400 mb-2"></i>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Position QR code within frame
-                  </p>
-                </div>
-              </div>
-              
-              {currentTransaction && (
-                <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
-                  <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                    Expected Amount: {formatCurrency(currentTransaction.amount)}
-                  </p>
-                  <p className="text-xs text-blue-600 dark:text-blue-300">
-                    Ref: {currentTransaction.transactionId}
-                  </p>
-                </div>
-              )}
-            </div>
+      <QRScannerComponent
+        isOpen={showQRScanner}
+        onClose={() => {
+          setShowQRScanner(false);
+          setCurrentTransaction(null);
+        }}
+        onScanSuccess={(qrData) => {
+          // Process the scanned QR code data
+          if (currentTransaction && qrData) {
+            // Validate the QR data matches the current transaction
+            const expectedAmount = parseFloat(currentTransaction.amount);
+            const scannedAmount = qrData.amount;
             
-            <div className="flex space-x-3">
-              <Button 
-                onClick={() => {
-                  setShowQRScanner(false);
-                  setCurrentTransaction(null);
-                }} 
-                variant="outline"
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button 
-                onClick={() => {
-                  // Simulate successful QR scan and approve transaction
-                  if (currentTransaction) {
-                    approveTransaction.mutate({
-                      transactionId: currentTransaction.id,
-                      cashierAmount: currentTransaction.amount,
-                      cashierVmfNumber: currentTransaction.vmfNumber || "",
-                      originalAmount: currentTransaction.amount,
-                      originalVmfNumber: currentTransaction.vmfNumber || ""
-                    });
-                    setShowQRScanner(false);
-                    setCurrentTransaction(null);
-                  }
-                }}
-                disabled={!currentTransaction || approveTransaction.isPending}
-                className="flex-1 bg-success hover:bg-success/90 text-white"
-              >
-                <i className="fas fa-check mr-2"></i>
-                {approveTransaction.isPending ? "Processing..." : "Confirm Payment"}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+            if (Math.abs(expectedAmount - scannedAmount) < 0.01) {
+              // Amounts match, approve the transaction
+              approveTransaction.mutate({
+                transactionId: currentTransaction.id,
+                cashierAmount: currentTransaction.amount,
+                cashierVmfNumber: currentTransaction.vmfNumber || "",
+                originalAmount: currentTransaction.amount,
+                originalVmfNumber: currentTransaction.vmfNumber || ""
+              });
+              
+              toast({
+                title: "QR Code Verified",
+                description: `Payment of ${formatCurrency(currentTransaction.amount)} confirmed`,
+              });
+            } else {
+              toast({
+                title: "Amount Mismatch",
+                description: `Expected ${formatCurrency(currentTransaction.amount)}, got ZMW ${scannedAmount.toLocaleString()}`,
+                variant: "destructive",
+              });
+            }
+          }
+          setShowQRScanner(false);
+          setCurrentTransaction(null);
+        }}
+        expectedAmount={currentTransaction?.amount}
+      />
 
       <DocumentUploadModal
         isOpen={showUploadModal}
