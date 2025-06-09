@@ -3,7 +3,7 @@ import { Progress } from "@/components/ui/progress";
 
 interface WalletLimitsDisplayProps {
   wallet: {
-    balance: string;
+    balance: string | null;
     dailyLimit: string;
     dailySpent: string;
     isActive: boolean;
