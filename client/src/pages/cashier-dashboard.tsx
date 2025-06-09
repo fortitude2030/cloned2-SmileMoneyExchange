@@ -1106,19 +1106,27 @@ export default function CashierDashboard() {
         isOpen={showUploadModal}
         onClose={() => {
           setShowUploadModal(false);
-          if (cashCountingStep === 3) {
-            setCashCountingStep(4);
+          
+          // Handle QR processing workflow
+          if (activeQrTransaction && qrProcessingStep === 3) {
+            setQrProcessingStep(4);
             toast({
               title: "VMF Photo Captured",
-              description: "Cash counting process completed successfully",
+              description: "Ready to scan QR code",
             });
-          } else if (qrProcessingStep === 3) {
-            setQrProcessingStep(4);
             // Launch QR scanner for QR code transactions
             setTimeout(() => {
               setShowQRScanner(true);
               setCurrentTransaction(activeQrTransaction);
             }, 500);
+          }
+          // Handle cash counting workflow  
+          else if (cashCountingStep === 3) {
+            setCashCountingStep(4);
+            toast({
+              title: "VMF Photo Captured",
+              description: "Cash counting process completed successfully",
+            });
           }
         }}
       />
