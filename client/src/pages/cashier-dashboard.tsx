@@ -859,6 +859,73 @@ export default function CashierDashboard() {
         </DialogContent>
       </Dialog>
 
+      {/* QR Scanner Modal for QR Code Transactions */}
+      <Dialog open={showQRScanner} onOpenChange={setShowQRScanner}>
+        <DialogContent className="w-full max-w-sm mx-4">
+          <DialogHeader>
+            <DialogTitle className="text-center">Scan QR Code</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="text-center">
+              <div className="w-48 h-48 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center mx-auto mb-4">
+                <div className="text-center">
+                  <i className="fas fa-qrcode text-4xl text-gray-400 mb-2"></i>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Position QR code within frame
+                  </p>
+                </div>
+              </div>
+              
+              {currentTransaction && (
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+                  <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                    Expected Amount: {formatCurrency(currentTransaction.amount)}
+                  </p>
+                  <p className="text-xs text-blue-600 dark:text-blue-300">
+                    Ref: {currentTransaction.transactionId}
+                  </p>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex space-x-3">
+              <Button 
+                onClick={() => {
+                  setShowQRScanner(false);
+                  setCurrentTransaction(null);
+                }} 
+                variant="outline"
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => {
+                  // Simulate successful QR scan and approve transaction
+                  if (currentTransaction) {
+                    approveTransaction.mutate({
+                      transactionId: currentTransaction.id,
+                      cashierAmount: currentTransaction.amount,
+                      cashierVmfNumber: currentTransaction.vmfNumber || "",
+                      originalAmount: currentTransaction.amount,
+                      originalVmfNumber: currentTransaction.vmfNumber || ""
+                    });
+                    setShowQRScanner(false);
+                    setCurrentTransaction(null);
+                  }
+                }}
+                disabled={!currentTransaction || approveTransaction.isPending}
+                className="flex-1 bg-success hover:bg-success/90 text-white"
+              >
+                <i className="fas fa-check mr-2"></i>
+                {approveTransaction.isPending ? "Processing..." : "Confirm Payment"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <DocumentUploadModal
         isOpen={showUploadModal}
         onClose={() => {
