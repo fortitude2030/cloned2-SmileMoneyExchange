@@ -358,11 +358,9 @@ export default function MerchantDashboard() {
                           <p className="text-gray-600 dark:text-gray-400 text-xs">
                             {dateTime.date} at {dateTime.time}
                           </p>
-                          {transaction.vmfNumber && (
-                            <p className="text-gray-500 dark:text-gray-400 text-xs">
-                              VMF: {transaction.vmfNumber}
-                            </p>
-                          )}
+                          <p className="text-gray-500 dark:text-gray-400 text-xs">
+                            ID: {transaction.id}
+                          </p>
                         </div>
                       </div>
                       <div className="text-right">
