@@ -79,15 +79,17 @@ export default function WalletLimitsDisplay({ wallet, userRole }: WalletLimitsDi
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-gray-600 dark:text-gray-400">
-                {isMerchant ? 'All digital money received' : 'Transferred today'}
+                {isMerchant ? 'Used up Daily Limit' : 'Transferred today'}
               </span>
-              <span className="font-medium">
-                {isMerchant ? '+' : '-'}{formatCurrency(dailyUsed.toString())}
+              <span className="font-medium text-red-600">
+                {isMerchant ? '-' : '-'}{formatCurrency(dailyUsed.toString())}
               </span>
             </div>
             <Progress value={dailyPercentage} className="h-2" />
             <div className="flex justify-between text-sm">
-              <span className="text-gray-600 dark:text-gray-400">Remaining</span>
+              <span className="text-gray-600 dark:text-gray-400">
+                {isMerchant ? 'Remaining Limit Today' : 'Remaining'}
+              </span>
               <span className={`font-medium ${
                 dailyRemaining < 0 ? 'text-red-600' : 'text-green-600'
               }`}>
