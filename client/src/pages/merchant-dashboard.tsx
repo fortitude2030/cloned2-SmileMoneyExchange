@@ -206,41 +206,6 @@ export default function MerchantDashboard() {
         {/* Transfer Limits - Shows Wallet Balance */}
         {wallet && <WalletLimitsDisplay wallet={wallet} />}
 
-        {/* Prerequisites Flow */}
-        <Card className="shadow-sm border border-blue-200 dark:border-blue-700 mb-4 bg-blue-50 dark:bg-blue-900/20">
-          <CardContent className="p-4">
-            <h3 className="font-semibold text-blue-800 dark:text-blue-200 mb-4 flex items-center">
-              <i className="fas fa-list-check text-blue-600 mr-2"></i>
-              Payment Request Prerequisites
-            </h3>
-            <div className="space-y-3 text-sm">
-              <div className="flex items-center space-x-3">
-                <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-                  <span className="text-white text-xs font-bold">1</span>
-                </div>
-                <p className="text-blue-700 dark:text-blue-300">Enter the exact cash amount to be digitized</p>
-              </div>
-              <div className="flex items-center space-x-3">
-                <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-                  <span className="text-white text-xs font-bold">2</span>
-                </div>
-                <p className="text-blue-700 dark:text-blue-300">Enter your VMF (Voucher Movement Form) number</p>
-              </div>
-              <div className="flex items-center space-x-3">
-                <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-                  <span className="text-white text-xs font-bold">3</span>
-                </div>
-                <p className="text-blue-700 dark:text-blue-300">Upload a clear photo of your merchant VMF copy</p>
-              </div>
-              <div className="flex items-center space-x-3">
-                <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-                  <span className="text-white text-xs font-bold">4</span>
-                </div>
-                <p className="text-blue-700 dark:text-blue-300">Generate QR code or submit payment request to cashier</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Payment Request Form */}
         <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
