@@ -147,40 +147,7 @@ export default function MerchantDashboard() {
     },
   });
 
-  // Monitor for transaction failures and reset merchant screen immediately
-  useEffect(() => {
-    if (transactions && transactions.length > 0) {
-      // Check all recent transactions (last 3) for any new rejections
-      const recentTransactions = transactions.slice(0, 3);
-      const newlyRejectedTransactions = recentTransactions.filter(tx => 
-        tx.status === 'rejected' && 
-        !processedTransactionIds.has(tx.transactionId)
-      );
-      
-      if (newlyRejectedTransactions.length > 0) {
-        const newlyRejectedTransaction = newlyRejectedTransactions[0];
-        console.log('Detected failed transaction, resetting merchant screen:', newlyRejectedTransaction.transactionId);
-        
-        // Mark this transaction as processed to avoid repeated resets
-        setProcessedTransactionIds(prev => new Set([...prev, newlyRejectedTransaction.transactionId]));
-        
-        // Immediately reset merchant screen
-        setIsRequestDisabled(false);
-        setRequestCooldown(0);
-        setShowRequestCooldown(false);
-        setShowQRModal(false);
-        setPaymentAmount("");
-        setVmfNumber("");
-        
-        // Show failure notification
-        showFailureNotification(
-          newlyRejectedTransaction.rejectionReason || "Transaction rejected",
-          newlyRejectedTransaction.transactionId,
-          newlyRejectedTransaction.amount
-        );
-      }
-    }
-  }, [transactions]); // Only depend on transactions
+
 
   const handleRequestPayment = () => {
     if (!vmfNumber.trim()) {
