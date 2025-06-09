@@ -90,12 +90,13 @@ export default function MerchantDashboard() {
       });
     },
     onSuccess: (data, variables) => {
-      // Show animated pending notification
-      showPendingNotification(
-        `LUS-${Math.random().toString().substring(2, 8)}`, 
-        variables.amount,
-        "Request sent to security cashier"
-      );
+      // Clear form and show success toast
+      setPaymentAmount("");
+      setVmfNumber("");
+      toast({
+        title: "Request Sent",
+        description: "Your payment request has been sent to the security cashier",
+      });
       
       queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
     },

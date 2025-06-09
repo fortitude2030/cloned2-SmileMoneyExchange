@@ -108,11 +108,8 @@ export default function CashierDashboard() {
       });
     },
     onSuccess: (_, variables) => {
-      showSuccessNotification(
-        `Transaction approved`,
-        variables.cashierAmount,
-        "Dual authentication verified - transfer completed"
-      );
+      showSuccessNotification();
+      setRequestCooldown(120); // Start 2-minute cooldown
       queryClient.invalidateQueries({ queryKey: ["/api/transactions/pending"] });
     },
     onError: (error) => {
@@ -130,11 +127,11 @@ export default function CashierDashboard() {
       
       const errorMessage = error.message;
       if (errorMessage === "AMOUNT_MISMATCH") {
-        showFailureNotification("mismatched amount", `Transaction failed`, cashAmount);
+        showFailureNotification();
       } else if (errorMessage === "VMF_MISMATCH") {
-        showFailureNotification("mismatched vmf number", `Transaction failed`, cashAmount);
+        showFailureNotification();
       } else {
-        showFailureNotification("approval failed", `Transaction failed`, cashAmount);
+        showFailureNotification();
       }
     },
   });
@@ -148,11 +145,7 @@ export default function CashierDashboard() {
       });
     },
     onSuccess: (_, variables) => {
-      showFailureNotification(
-        variables.reason,
-        `Transaction rejected`,
-        cashAmount || "0"
-      );
+      showFailureNotification();
       
       // Reset the workflow for next transaction
       setCashCountingStep(1);
@@ -516,11 +509,7 @@ export default function CashierDashboard() {
                     
                     if (Math.abs(cashierAmountNum - originalAmountNum) > 0.01) {
                       // Immediate transaction failure due to amount mismatch
-                      showFailureNotification(
-                        "mismatched amount",
-                        activeTransaction.transactionId,
-                        activeTransaction.amount
-                      );
+                      showFailureNotification();
                       rejectTransaction.mutate({
                         transactionId: activeTransaction.id,
                         reason: "mismatched amount"
@@ -596,11 +585,7 @@ export default function CashierDashboard() {
                   if (activeTransaction) {
                     if (vmfNumber.toUpperCase() !== (activeTransaction.vmfNumber || "").toUpperCase()) {
                       // Immediate transaction failure due to VMF mismatch
-                      showFailureNotification(
-                        "mismatched vmf number",
-                        activeTransaction.transactionId,
-                        activeTransaction.amount
-                      );
+                      showFailureNotification();
                       rejectTransaction.mutate({
                         transactionId: activeTransaction.id,
                         reason: "mismatched vmf number"
