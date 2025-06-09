@@ -254,6 +254,9 @@ export default function CashierDashboard() {
                         <p className="text-gray-600 dark:text-gray-400 text-sm">
                           {transaction.description || 'Cash Digitization'}
                         </p>
+                        <p className="text-gray-500 dark:text-gray-400 text-xs">
+                          ID: {transaction.transactionId}
+                        </p>
                       </div>
                       <div className="text-right">
                         <p className="font-bold text-xl text-gray-800 dark:text-gray-200">
