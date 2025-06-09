@@ -415,9 +415,9 @@ export default function CashierDashboard() {
               <div className="space-y-4">
                 {/* Step 1: Enter Amount */}
                 <div className="flex items-start space-x-3">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-1 ${
-                  cashCountingStep > 1 ? 'bg-success' : 'bg-primary'
-                }`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-1 ${
+                    cashCountingStep > 1 ? 'bg-success' : 'bg-primary'
+                  }`}>
                   {cashCountingStep > 1 ? (
                     <i className="fas fa-check text-white text-sm"></i>
                   ) : (
@@ -502,9 +502,9 @@ export default function CashierDashboard() {
                     </Button>
                   )}
                 </div>
+                </div>
               </div>
-            </div>
-          </CardContent>
+            </CardContent>
           </Card>
         )}
 

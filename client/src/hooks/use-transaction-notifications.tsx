@@ -2,9 +2,9 @@ import { createContext, useContext, useState, ReactNode } from "react";
 import SimpleTransactionPopup from "@/components/simple-transaction-popup";
 
 interface TransactionNotificationContextType {
-  showSuccessNotification: (transactionId?: string, amount?: string, message?: string) => void;
-  showFailureNotification: (reason?: string, transactionId?: string, amount?: string) => void;
-  showPendingNotification: (transactionId?: string, amount?: string, message?: string) => void;
+  showSuccessNotification: () => void;
+  showFailureNotification: () => void;
+  showPendingNotification: () => void;
 }
 
 const TransactionNotificationContext = createContext<TransactionNotificationContextType | undefined>(undefined);
