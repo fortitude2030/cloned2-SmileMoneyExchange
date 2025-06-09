@@ -32,6 +32,7 @@ export default function CashierDashboard() {
     amount: "0"
   });
   const [requestCooldown, setRequestCooldown] = useState(0); // Start with no timer
+  const [processedTransactionIds, setProcessedTransactionIds] = useState<Set<string>>(new Set());
 
   // Timer effect for request cooldown - only runs when cooldown > 0
   useEffect(() => {
@@ -90,22 +91,18 @@ export default function CashierDashboard() {
 
   // Monitor for new payment requests and start timer
   useEffect(() => {
-    console.log('Timer effect triggered:', { 
-      activeTransaction: !!activeTransaction, 
-      transactionId: activeTransaction?.transactionId,
-      requestCooldown 
-    });
-    
-    if (activeTransaction && requestCooldown === 0) {
-      console.log('Starting timer for transaction:', activeTransaction.transactionId);
-      // New payment request detected, start 2-minute timer
-      setRequestCooldown(120);
+    if (activeTransaction) {
+      const transactionId = activeTransaction.transactionId;
+      
+      // Only start timer for truly new transactions that haven't been processed
+      if (!processedTransactionIds.has(transactionId) && requestCooldown === 0) {
+        setRequestCooldown(120);
+        setProcessedTransactionIds(prev => new Set(prev).add(transactionId));
+      }
     } else if (!activeTransaction && requestCooldown > 0) {
-      console.log('Stopping timer - no active transaction');
-      // No pending transactions, stop timer
       setRequestCooldown(0);
     }
-  }, [activeTransaction]);
+  }, [activeTransaction, requestCooldown, processedTransactionIds]);
 
   // Handle timer expiration to automatically reject transactions
   useEffect(() => {
@@ -116,6 +113,14 @@ export default function CashierDashboard() {
             status: "rejected",
             rejectionReason: "timed out"
           });
+          
+          // Remove timed out transaction from processed set
+          setProcessedTransactionIds(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(activeTransaction.transactionId);
+            return newSet;
+          });
+          
           queryClient.invalidateQueries({ queryKey: ["/api/transactions/pending"] });
         } catch (error) {
           console.error("Failed to reject timed out transaction:", error);
@@ -158,7 +163,16 @@ export default function CashierDashboard() {
     },
     onSuccess: (_, variables) => {
       showSuccessNotification();
-      setRequestCooldown(120); // Start 2-minute cooldown
+      setRequestCooldown(0); // Stop timer since transaction is completed
+      // Remove completed transaction from processed set
+      setProcessedTransactionIds(prev => {
+        const newSet = new Set(prev);
+        // Find the transaction ID from the variables if available
+        if (activeTransaction) {
+          newSet.delete(activeTransaction.transactionId);
+        }
+        return newSet;
+      });
       queryClient.invalidateQueries({ queryKey: ["/api/transactions/pending"] });
     },
     onError: (error) => {
@@ -195,6 +209,16 @@ export default function CashierDashboard() {
     },
     onSuccess: (_, variables) => {
       showFailureNotification();
+      setRequestCooldown(0); // Stop timer since transaction is rejected
+      
+      // Remove rejected transaction from processed set
+      setProcessedTransactionIds(prev => {
+        const newSet = new Set(prev);
+        if (activeTransaction) {
+          newSet.delete(activeTransaction.transactionId);
+        }
+        return newSet;
+      });
       
       // Reset the workflow for next transaction
       setCashCountingStep(1);
