@@ -37,9 +37,18 @@ export default function CashierDashboard() {
   }, [isAuthenticated, isLoading, toast]);
 
   // Fetch pending transactions
-  const { data: pendingTransactions = [], isLoading: transactionsLoading } = useQuery({
+  const { data: pendingTransactions = [], isLoading: transactionsLoading } = useQuery<Array<{
+    id: number;
+    transactionId: string;
+    amount: string;
+    status: string;
+    vmfNumber?: string;
+    createdAt: string;
+    description?: string;
+  }>>({
     queryKey: ["/api/transactions/pending"],
     retry: false,
+    enabled: isAuthenticated,
   });
 
   // Approve transaction mutation
@@ -131,7 +140,7 @@ export default function CashierDashboard() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-20">
       <MobileHeader
         title="Security Cashier"
-        subtitle={user?.firstName || "Security Cashier"}
+        subtitle={(user as any)?.firstName || "Security Cashier"}
         icon="fas fa-shield-alt"
         color="accent"
       />

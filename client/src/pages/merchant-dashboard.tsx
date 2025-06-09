@@ -62,22 +62,40 @@ export default function MerchantDashboard() {
   }, [isAuthenticated, isLoading, toast]);
 
   // Fetch wallet data
-  const { data: wallet, isLoading: walletLoading } = useQuery({
+  const { data: wallet, isLoading: walletLoading } = useQuery<{
+    id: number;
+    balance: string;
+    dailyLimit: string;
+    dailySpent: string;
+    isActive: boolean;
+    todayCompleted?: string;
+    todayTotal?: string;
+  }>({
     queryKey: ["/api/wallet"],
     retry: false,
+    enabled: isAuthenticated,
   });
 
   // Fetch transactions
-  const { data: transactions = [], isLoading: transactionsLoading } = useQuery({
+  const { data: transactions = [], isLoading: transactionsLoading } = useQuery<Array<{
+    id: number;
+    transactionId: string;
+    amount: string;
+    status: string;
+    vmfNumber?: string;
+    createdAt: string;
+    description?: string;
+  }>>({
     queryKey: ["/api/transactions"],
     retry: false,
+    enabled: isAuthenticated,
   });
 
   // Create payment request mutation
   const createPaymentRequest = useMutation({
     mutationFn: async ({ amount, vmfNumber }: { amount: string; vmfNumber: string }) => {
       await apiRequest("POST", "/api/transactions", {
-        toUserId: user?.id,
+        toUserId: user?.id || "",
         amount,
         vmfNumber,
         type: "cash_digitization",
@@ -195,7 +213,7 @@ export default function MerchantDashboard() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-20">
       <MobileHeader
         title="Merchant Portal"
-        subtitle={user?.firstName || "Merchant"}
+        subtitle={(user as any)?.firstName || "Merchant"}
         icon="fas fa-store"
         color="primary"
       />
