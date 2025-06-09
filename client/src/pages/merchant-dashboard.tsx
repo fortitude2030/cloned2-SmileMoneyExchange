@@ -8,7 +8,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import MobileHeader from "@/components/mobile-header";
 import MobileNav from "@/components/mobile-nav";
 import QRCodeModal from "@/components/qr-code-modal";
-import RequestCooldownModal from "@/components/request-cooldown-modal";
+
 import WalletLimitsDisplay from "@/components/wallet-limits-display";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,30 +24,7 @@ export default function MerchantDashboard() {
   const [paymentAmount, setPaymentAmount] = useState("");
   const [vmfNumber, setVmfNumber] = useState("");
   const [showAllTransactions, setShowAllTransactions] = useState(false);
-  const [requestCooldown, setRequestCooldown] = useState(0);
-  const [isRequestDisabled, setIsRequestDisabled] = useState(false);
-  const [showRequestCooldown, setShowRequestCooldown] = useState(false);
 
-
-  // Timer effect for request cooldown
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (requestCooldown > 0) {
-      interval = setInterval(() => {
-        setRequestCooldown(prev => {
-          const newValue = prev - 1;
-          if (newValue <= 0) {
-            setIsRequestDisabled(false);
-            setShowRequestCooldown(false);
-          }
-          return Math.max(0, newValue);
-        });
-      }, 1000);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [requestCooldown]);
 
 
 
@@ -96,7 +73,7 @@ export default function MerchantDashboard() {
     queryKey: ["/api/transactions"],
     retry: false,
     enabled: isAuthenticated,
-    refetchInterval: 1000, // Poll every 1 second for real-time updates
+    refetchInterval: 2000, // Poll every 2 seconds for real-time updates
     refetchIntervalInBackground: true, // Continue polling when tab is in background
   });
 
@@ -113,11 +90,6 @@ export default function MerchantDashboard() {
       });
     },
     onSuccess: (data, variables) => {
-      // Start 120-second cooldown with modal
-      setIsRequestDisabled(true);
-      setRequestCooldown(120);
-      setShowRequestCooldown(true);
-      
       // Show animated pending notification
       showPendingNotification(
         `LUS-${Math.random().toString().substring(2, 8)}`, 
@@ -317,7 +289,7 @@ export default function MerchantDashboard() {
           
           <Button
             onClick={handleRequestPayment}
-            disabled={createPaymentRequest.isPending || isRequestDisabled}
+            disabled={createPaymentRequest.isPending}
             className="bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow h-auto disabled:opacity-50"
             variant="ghost"
           >
@@ -440,11 +412,7 @@ export default function MerchantDashboard() {
         vmfNumber={vmfNumber}
       />
 
-      <RequestCooldownModal
-        isOpen={showRequestCooldown}
-        countdown={requestCooldown}
-        onClose={() => setShowRequestCooldown(false)}
-      />
+
     </div>
   );
 }

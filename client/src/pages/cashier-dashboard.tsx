@@ -31,6 +31,20 @@ export default function CashierDashboard() {
     location: "Westlands Branch, Nairobi",
     amount: "0"
   });
+  const [requestCooldown, setRequestCooldown] = useState(0);
+
+  // Timer effect for request cooldown
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (requestCooldown > 0) {
+      interval = setInterval(() => {
+        setRequestCooldown(prev => Math.max(0, prev - 1));
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [requestCooldown]);
 
   // Redirect if not authenticated
   useEffect(() => {
