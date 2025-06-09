@@ -569,7 +569,7 @@ export default function CashierDashboard() {
             <CardContent className="p-4">
               <h3 className="font-semibold text-blue-800 dark:text-blue-200 mb-4 flex items-center">
                 <i className="fas fa-qrcode text-blue-600 mr-2"></i>
-                QR Code Payment: {formatCurrency(activeQrTransaction.amount)}
+                QR Code Payment
               </h3>
               
               <div className="space-y-3">
