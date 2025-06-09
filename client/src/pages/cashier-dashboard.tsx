@@ -98,6 +98,12 @@ export default function CashierDashboard() {
   const [processedTransactionIds, setProcessedTransactionIds] = useState<Set<string>>(new Set());
   const [showAllTransactions, setShowAllTransactions] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
+  
+  // QR processing states
+  const [qrProcessingStep, setQrProcessingStep] = useState(1);
+  const [qrAmount, setQrAmount] = useState("");
+  const [qrVmfNumber, setQrVmfNumber] = useState("");
+  const [activeQrTransaction, setActiveQrTransaction] = useState<any>(null);
 
   // Timer effect for request cooldown - only runs when cooldown > 0
   useEffect(() => {
@@ -134,7 +140,7 @@ export default function CashierDashboard() {
     }
   }, [isAuthenticated, isLoading, toast]);
 
-  // Fetch pending transactions
+  // Fetch pending transactions (only RTP)
   const { data: pendingTransactions = [], isLoading: transactionsLoading } = useQuery<Array<{
     id: number;
     transactionId: string;
@@ -146,6 +152,24 @@ export default function CashierDashboard() {
     type?: string;
   }>>({
     queryKey: ["/api/transactions/pending"],
+    retry: false,
+    enabled: isAuthenticated,
+    refetchInterval: 1000, // Poll every second for real-time updates
+    refetchIntervalInBackground: true,
+  });
+
+  // Fetch QR transactions separately for direct processing
+  const { data: qrTransactions = [], isLoading: qrTransactionsLoading } = useQuery<Array<{
+    id: number;
+    transactionId: string;
+    amount: string;
+    status: string;
+    vmfNumber?: string;
+    createdAt: string;
+    description?: string;
+    type: string;
+  }>>({
+    queryKey: ["/api/transactions/qr-verification"],
     retry: false,
     enabled: isAuthenticated,
     refetchInterval: 1000, // Poll every second for real-time updates
@@ -175,6 +199,21 @@ export default function CashierDashboard() {
   // Filter out QR code transactions from pending queue - they should not show in pending requests
   const rtpTransactions = pendingTransactions.filter(t => t.type !== 'qr_code_payment');
   const activeTransaction = rtpTransactions.length > 0 ? rtpTransactions[0] : null;
+
+  // Set the first QR transaction as active when available
+  useEffect(() => {
+    if (qrTransactions.length > 0 && !activeQrTransaction) {
+      setActiveQrTransaction(qrTransactions[0]);
+      setQrProcessingStep(1);
+      setQrAmount("");
+      setQrVmfNumber("");
+    } else if (qrTransactions.length === 0) {
+      setActiveQrTransaction(null);
+      setQrProcessingStep(1);
+      setQrAmount("");
+      setQrVmfNumber("");
+    }
+  }, [qrTransactions, activeQrTransaction]);
 
   // Monitor for new payment requests and start timer
   useEffect(() => {
@@ -524,6 +563,101 @@ export default function CashierDashboard() {
 
 
 
+        {/* QR Code Processing - Direct 3-step flow for QR transactions */}
+        {activeQrTransaction && (
+          <Card className="shadow-sm border border-blue-200 dark:border-blue-700">
+            <CardContent className="p-4">
+              <h3 className="font-semibold text-blue-800 dark:text-blue-200 mb-4 flex items-center">
+                <i className="fas fa-qrcode text-blue-600 mr-2"></i>
+                QR Code Payment: {formatCurrency(activeQrTransaction.amount)}
+              </h3>
+              
+              <div className="space-y-3">
+                {/* Step 1: Enter Amount */}
+                <div className="flex items-center space-x-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                    qrProcessingStep >= 1 ? 'bg-blue-600 text-white' : 'bg-gray-300 dark:bg-gray-700 text-gray-600'
+                  }`}>
+                    1
+                  </div>
+                  <div className="flex-1">
+                    <h4 className={`font-medium text-sm ${
+                      qrProcessingStep >= 1 ? 'text-gray-800 dark:text-gray-200' : 'text-gray-400'
+                    }`}>Enter Cash Amount</h4>
+                    {qrProcessingStep > 1 && (
+                      <p className="text-green-600 dark:text-green-400 text-xs mt-1">
+                        Amount entered: {formatCurrency(qrAmount)}
+                      </p>
+                    )}
+                    {qrProcessingStep === 1 && (
+                      <Button 
+                        onClick={() => setShowAmountModal(true)}
+                        className="mt-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+                      >
+                        Enter Amount
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Step 2: Enter VMF Number */}
+                <div className="flex items-center space-x-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                    qrProcessingStep >= 2 ? 'bg-blue-600 text-white' : 'bg-gray-300 dark:bg-gray-700 text-gray-600'
+                  }`}>
+                    2
+                  </div>
+                  <div className="flex-1">
+                    <h4 className={`font-medium text-sm ${
+                      qrProcessingStep >= 2 ? 'text-gray-800 dark:text-gray-200' : 'text-gray-400'
+                    }`}>Enter VMF Number</h4>
+                    {qrProcessingStep > 2 && (
+                      <p className="text-green-600 dark:text-green-400 text-xs mt-1">
+                        VMF entered: {qrVmfNumber}
+                      </p>
+                    )}
+                    {qrProcessingStep === 2 && (
+                      <Button 
+                        onClick={() => setShowVMFModal(true)}
+                        className="mt-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+                      >
+                        Enter VMF
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Step 3: Take Photo & Launch QR Scanner */}
+                <div className="flex items-center space-x-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                    qrProcessingStep >= 3 ? 'bg-blue-600 text-white' : 'bg-gray-300 dark:bg-gray-700 text-gray-600'
+                  }`}>
+                    3
+                  </div>
+                  <div className="flex-1">
+                    <h4 className={`font-medium text-sm ${
+                      qrProcessingStep >= 3 ? 'text-gray-800 dark:text-gray-200' : 'text-gray-400'
+                    }`}>Take VMF Photo</h4>
+                    {qrProcessingStep > 3 && (
+                      <p className="text-green-600 dark:text-green-400 text-xs mt-1">
+                        Photo captured - Ready for QR scan
+                      </p>
+                    )}
+                    {qrProcessingStep === 3 && (
+                      <Button 
+                        onClick={() => setShowUploadModal(true)}
+                        className="mt-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+                      >
+                        Take Photo
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Pending Payment Requests - Only show when there are pending transactions */}
         {activeTransaction && (
           <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
@@ -782,27 +916,41 @@ export default function CashierDashboard() {
                     return;
                   }
 
-                  // Immediate validation against active transaction
-                  if (activeTransaction) {
+                  // Validation for both RTP and QR transactions
+                  const targetTransaction = activeTransaction || activeQrTransaction;
+                  if (targetTransaction) {
                     const cashierAmountNum = parseFloat(cashAmount);
-                    const originalAmountNum = parseFloat(activeTransaction.amount);
+                    const originalAmountNum = parseFloat(targetTransaction.amount);
                     
                     if (Math.abs(cashierAmountNum - originalAmountNum) > 0.01) {
                       // Immediate transaction failure due to amount mismatch
                       showFailureNotification();
-                      rejectTransaction.mutate({
-                        transactionId: activeTransaction.id,
-                        reason: "mismatched amount"
-                      });
+                      if (activeTransaction) {
+                        rejectTransaction.mutate({
+                          transactionId: activeTransaction.id,
+                          reason: "mismatched amount"
+                        });
+                        setCashCountingStep(1);
+                      } else if (activeQrTransaction) {
+                        rejectTransaction.mutate({
+                          transactionId: activeQrTransaction.id,
+                          reason: "mismatched amount"
+                        });
+                        setQrProcessingStep(1);
+                      }
                       setShowAmountModal(false);
-                      setCashCountingStep(1);
                       setCashAmount("");
                       return;
                     }
                   }
 
                   // If validation passes, proceed to next step
-                  setCashCountingStep(2);
+                  if (activeQrTransaction) {
+                    setQrAmount(cashAmount);
+                    setQrProcessingStep(2);
+                  } else {
+                    setCashCountingStep(2);
+                  }
                   setActiveSession(prev => ({ ...prev, amount: cashAmount }));
                   setShowAmountModal(false);
                   toast({
@@ -861,25 +1009,37 @@ export default function CashierDashboard() {
                     return;
                   }
 
-                  // Immediate validation against active transaction
-                  if (activeTransaction) {
-                    if (vmfNumber.toUpperCase() !== (activeTransaction.vmfNumber || "").toUpperCase()) {
+                  // Validation for both RTP and QR transactions
+                  const targetTransaction = activeTransaction || activeQrTransaction;
+                  if (targetTransaction) {
+                    if (vmfNumber.toUpperCase() !== (targetTransaction.vmfNumber || "").toUpperCase()) {
                       // Immediate transaction failure due to VMF mismatch
                       showFailureNotification();
                       rejectTransaction.mutate({
-                        transactionId: activeTransaction.id,
+                        transactionId: targetTransaction.id,
                         reason: "mismatched vmf number"
                       });
                       setShowVMFModal(false);
-                      setCashCountingStep(1);
-                      setCashAmount("");
+                      if (activeTransaction) {
+                        setCashCountingStep(1);
+                        setCashAmount("");
+                      } else if (activeQrTransaction) {
+                        setQrProcessingStep(1);
+                        setQrAmount("");
+                        setQrVmfNumber("");
+                      }
                       setVmfNumber("");
                       return;
                     }
                   }
 
                   // If validation passes, proceed to next step
-                  setCashCountingStep(3);
+                  if (activeQrTransaction) {
+                    setQrVmfNumber(vmfNumber);
+                    setQrProcessingStep(3);
+                  } else {
+                    setCashCountingStep(3);
+                  }
                   setShowVMFModal(false);
                   toast({
                     title: "VMF Number Verified",
