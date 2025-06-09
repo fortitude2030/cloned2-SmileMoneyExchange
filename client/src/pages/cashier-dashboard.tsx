@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useTransactionNotifications } from "@/hooks/use-transaction-notifications";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import MobileHeader from "@/components/mobile-header";
@@ -17,6 +18,7 @@ import { Label } from "@/components/ui/label";
 export default function CashierDashboard() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
+  const { showSuccessNotification, showFailureNotification } = useTransactionNotifications();
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showAmountModal, setShowAmountModal] = useState(false);
   const [showVMFModal, setShowVMFModal] = useState(false);
@@ -87,11 +89,12 @@ export default function CashierDashboard() {
         verifiedVmfNumber: data.cashierVmfNumber
       });
     },
-    onSuccess: () => {
-      toast({
-        title: "Success",
-        description: "Transfer approved - dual authentication passed",
-      });
+    onSuccess: (_, variables) => {
+      showSuccessNotification(
+        `Transaction approved`,
+        variables.cashierAmount,
+        "Dual authentication verified - transfer completed"
+      );
       queryClient.invalidateQueries({ queryKey: ["/api/transactions/pending"] });
     },
     onError: (error) => {
@@ -109,23 +112,11 @@ export default function CashierDashboard() {
       
       const errorMessage = error.message;
       if (errorMessage === "AMOUNT_MISMATCH") {
-        toast({
-          title: "Amount Mismatch",
-          description: "The cash amount doesn't match the merchant request",
-          variant: "destructive",
-        });
+        showFailureNotification("mismatched amount", `Transaction failed`, cashAmount);
       } else if (errorMessage === "VMF_MISMATCH") {
-        toast({
-          title: "VMF Number Mismatch", 
-          description: "The VMF number doesn't match the merchant request",
-          variant: "destructive",
-        });
+        showFailureNotification("mismatched vmf number", `Transaction failed`, cashAmount);
       } else {
-        toast({
-          title: "Error",
-          description: "Failed to approve transfer",
-          variant: "destructive",
-        });
+        showFailureNotification("approval failed", `Transaction failed`, cashAmount);
       }
     },
   });
@@ -138,11 +129,12 @@ export default function CashierDashboard() {
         rejectionReason: data.reason
       });
     },
-    onSuccess: () => {
-      toast({
-        title: "Transaction Rejected",
-        description: "Transfer has been rejected with reason",
-      });
+    onSuccess: (_, variables) => {
+      showFailureNotification(
+        variables.reason,
+        `Transaction rejected`,
+        cashAmount || "0"
+      );
       queryClient.invalidateQueries({ queryKey: ["/api/transactions/pending"] });
     },
     onError: (error) => {
@@ -182,6 +174,11 @@ export default function CashierDashboard() {
     const originalAmountNum = parseFloat(transaction.amount);
     
     if (Math.abs(cashierAmountNum - originalAmountNum) > 0.01) {
+      showFailureNotification(
+        "mismatched amount",
+        transaction.transactionId,
+        transaction.amount
+      );
       rejectTransaction.mutate({
         transactionId: transaction.id,
         reason: "mismatched amount"
@@ -191,6 +188,11 @@ export default function CashierDashboard() {
     
     // Validate VMF numbers match exactly (case-insensitive)
     if (vmfNumber.toUpperCase() !== (transaction.vmfNumber || "").toUpperCase()) {
+      showFailureNotification(
+        "mismatched vmf number",
+        transaction.transactionId,
+        transaction.amount
+      );
       rejectTransaction.mutate({
         transactionId: transaction.id,
         reason: "mismatched vmf number"

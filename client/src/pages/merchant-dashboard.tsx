@@ -106,16 +106,19 @@ export default function MerchantDashboard() {
         description: `Cash digitization request - VMF: ${vmfNumber}`,
       });
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       // Start 60-second cooldown with modal
       setIsRequestDisabled(true);
       setRequestCooldown(60);
       setShowRequestCooldown(true);
       
-      toast({
-        title: "Success",
-        description: "Payment request sent to security cashier",
-      });
+      // Show animated pending notification
+      showPendingNotification(
+        `LUS-${Math.random().toString().substring(2, 8)}`, 
+        variables.amount,
+        "Request sent to security cashier"
+      );
+      
       queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
     },
     onError: (error) => {
