@@ -267,7 +267,7 @@ export default function CashierDashboard() {
         {requestCooldown > 0 && (
           <div className="flex justify-center mb-4">
             <div className={`
-              w-24 h-24 rounded-full flex items-center justify-center transition-colors duration-500
+              w-24 h-24 rounded-full flex items-center justify-center transition-colors duration-1500
               ${requestCooldown > 60 ? 'bg-green-500' : 
                 requestCooldown > 30 ? 'bg-amber-500' : 'bg-red-500'}
             `}>
