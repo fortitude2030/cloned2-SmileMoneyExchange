@@ -577,9 +577,6 @@ export default function CashierDashboard() {
                     1
                   </div>
                   <div className="flex-1">
-                    <h4 className={`font-medium text-sm ${
-                      qrProcessingStep >= 1 ? 'text-gray-800 dark:text-gray-200' : 'text-gray-400'
-                    }`}>Enter Cash Amount</h4>
                     {qrProcessingStep > 1 && (
                       <p className="text-green-600 dark:text-green-400 text-xs mt-1">
                         Amount entered: {formatCurrency(qrAmount)}
