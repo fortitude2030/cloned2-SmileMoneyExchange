@@ -25,6 +25,7 @@ export default function CashierDashboard() {
   const [cashCountingStep, setCashCountingStep] = useState(1);
   const [cashAmount, setCashAmount] = useState("");
   const [vmfNumber, setVmfNumber] = useState("");
+  const [currentTransaction, setCurrentTransaction] = useState<any>(null);
   const [activeSession, setActiveSession] = useState({
     merchant: "Tech Store Plus",
     location: "Westlands Branch, Nairobi",
@@ -60,6 +61,9 @@ export default function CashierDashboard() {
     retry: false,
     enabled: isAuthenticated,
   });
+
+  // Get the active transaction for validation
+  const activeTransaction = pendingTransactions.length > 0 ? pendingTransactions[0] : null;
 
   // Approve transaction mutation with dual authentication
   const approveTransaction = useMutation({
@@ -135,6 +139,13 @@ export default function CashierDashboard() {
         `Transaction rejected`,
         cashAmount || "0"
       );
+      
+      // Reset the workflow for next transaction
+      setCashCountingStep(1);
+      setCashAmount("");
+      setVmfNumber("");
+      setActiveSession(prev => ({ ...prev, amount: "0" }));
+      
       queryClient.invalidateQueries({ queryKey: ["/api/transactions/pending"] });
     },
     onError: (error) => {
@@ -157,7 +168,7 @@ export default function CashierDashboard() {
     },
   });
 
-  // Handle dual authentication verification
+  // Handle final transaction approval (validations already completed)
   const handleApproveTransaction = (transaction: any) => {
     // Check if cashier has completed the 3-step process
     if (cashCountingStep < 4 || !cashAmount || !vmfNumber) {
@@ -169,38 +180,7 @@ export default function CashierDashboard() {
       return;
     }
 
-    // Validate amounts match exactly
-    const cashierAmountNum = parseFloat(cashAmount);
-    const originalAmountNum = parseFloat(transaction.amount);
-    
-    if (Math.abs(cashierAmountNum - originalAmountNum) > 0.01) {
-      showFailureNotification(
-        "mismatched amount",
-        transaction.transactionId,
-        transaction.amount
-      );
-      rejectTransaction.mutate({
-        transactionId: transaction.id,
-        reason: "mismatched amount"
-      });
-      return;
-    }
-    
-    // Validate VMF numbers match exactly (case-insensitive)
-    if (vmfNumber.toUpperCase() !== (transaction.vmfNumber || "").toUpperCase()) {
-      showFailureNotification(
-        "mismatched vmf number",
-        transaction.transactionId,
-        transaction.amount
-      );
-      rejectTransaction.mutate({
-        transactionId: transaction.id,
-        reason: "mismatched vmf number"
-      });
-      return;
-    }
-
-    // If both validations pass, approve the transaction
+    // Since validation already happened during steps 1 & 2, just approve
     approveTransaction.mutate({
       transactionId: transaction.id,
       cashierAmount: cashAmount,
@@ -484,21 +464,46 @@ export default function CashierDashboard() {
               </Button>
               <Button 
                 onClick={() => {
-                  if (cashAmount && parseFloat(cashAmount) > 0) {
-                    setCashCountingStep(2);
-                    setActiveSession(prev => ({ ...prev, amount: cashAmount }));
-                    setShowAmountModal(false);
-                    toast({
-                      title: "Amount Recorded",
-                      description: `Cash amount of ZMW ${parseFloat(cashAmount).toLocaleString()} recorded`,
-                    });
-                  } else {
+                  if (!cashAmount || parseFloat(cashAmount) <= 0) {
                     toast({
                       title: "Invalid Amount",
                       description: "Please enter a valid cash amount",
                       variant: "destructive",
                     });
+                    return;
                   }
+
+                  // Immediate validation against active transaction
+                  if (activeTransaction) {
+                    const cashierAmountNum = parseFloat(cashAmount);
+                    const originalAmountNum = parseFloat(activeTransaction.amount);
+                    
+                    if (Math.abs(cashierAmountNum - originalAmountNum) > 0.01) {
+                      // Immediate transaction failure due to amount mismatch
+                      showFailureNotification(
+                        "mismatched amount",
+                        activeTransaction.transactionId,
+                        activeTransaction.amount
+                      );
+                      rejectTransaction.mutate({
+                        transactionId: activeTransaction.id,
+                        reason: "mismatched amount"
+                      });
+                      setShowAmountModal(false);
+                      setCashCountingStep(1);
+                      setCashAmount("");
+                      return;
+                    }
+                  }
+
+                  // If validation passes, proceed to next step
+                  setCashCountingStep(2);
+                  setActiveSession(prev => ({ ...prev, amount: cashAmount }));
+                  setShowAmountModal(false);
+                  toast({
+                    title: "Amount Verified",
+                    description: `Cash amount of ZMW ${parseFloat(cashAmount).toLocaleString()} matches merchant request`,
+                  });
                 }}
                 disabled={!cashAmount || parseFloat(cashAmount) <= 0}
                 className="flex-1 bg-primary hover:bg-primary/90 text-white"
@@ -542,20 +547,43 @@ export default function CashierDashboard() {
               </Button>
               <Button 
                 onClick={() => {
-                  if (vmfNumber && vmfNumber.length >= 3) {
-                    setCashCountingStep(3);
-                    setShowVMFModal(false);
-                    toast({
-                      title: "VMF Number Recorded",
-                      description: `VMF number ${vmfNumber} recorded`,
-                    });
-                  } else {
+                  if (!vmfNumber || vmfNumber.length < 3) {
                     toast({
                       title: "Invalid VMF Number",
                       description: "Please enter a valid VMF number",
                       variant: "destructive",
                     });
+                    return;
                   }
+
+                  // Immediate validation against active transaction
+                  if (activeTransaction) {
+                    if (vmfNumber.toUpperCase() !== (activeTransaction.vmfNumber || "").toUpperCase()) {
+                      // Immediate transaction failure due to VMF mismatch
+                      showFailureNotification(
+                        "mismatched vmf number",
+                        activeTransaction.transactionId,
+                        activeTransaction.amount
+                      );
+                      rejectTransaction.mutate({
+                        transactionId: activeTransaction.id,
+                        reason: "mismatched vmf number"
+                      });
+                      setShowVMFModal(false);
+                      setCashCountingStep(1);
+                      setCashAmount("");
+                      setVmfNumber("");
+                      return;
+                    }
+                  }
+
+                  // If validation passes, proceed to next step
+                  setCashCountingStep(3);
+                  setShowVMFModal(false);
+                  toast({
+                    title: "VMF Number Verified",
+                    description: `VMF number ${vmfNumber} matches merchant request`,
+                  });
                 }}
                 disabled={!vmfNumber || vmfNumber.length < 3}
                 className="flex-1 bg-primary hover:bg-primary/90 text-white"
