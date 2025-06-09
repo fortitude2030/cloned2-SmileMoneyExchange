@@ -81,6 +81,8 @@ export default function CashierDashboard() {
     queryKey: ["/api/transactions/pending"],
     retry: false,
     enabled: isAuthenticated,
+    refetchInterval: 1000, // Poll every second for real-time updates
+    refetchIntervalInBackground: true,
   });
 
   // Get the active transaction for validation
@@ -88,14 +90,22 @@ export default function CashierDashboard() {
 
   // Monitor for new payment requests and start timer
   useEffect(() => {
+    console.log('Timer effect triggered:', { 
+      activeTransaction: !!activeTransaction, 
+      transactionId: activeTransaction?.transactionId,
+      requestCooldown 
+    });
+    
     if (activeTransaction && requestCooldown === 0) {
+      console.log('Starting timer for transaction:', activeTransaction.transactionId);
       // New payment request detected, start 2-minute timer
       setRequestCooldown(120);
-    } else if (!activeTransaction) {
+    } else if (!activeTransaction && requestCooldown > 0) {
+      console.log('Stopping timer - no active transaction');
       // No pending transactions, stop timer
       setRequestCooldown(0);
     }
-  }, [activeTransaction, requestCooldown]);
+  }, [activeTransaction]);
 
   // Handle timer expiration to automatically reject transactions
   useEffect(() => {
