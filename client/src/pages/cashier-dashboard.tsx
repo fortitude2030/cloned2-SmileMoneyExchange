@@ -452,6 +452,38 @@ export default function CashierDashboard() {
       />
 
       <div className="p-4">
+        {/* Test Timer Buttons (temporary) */}
+        {requestCooldown === 0 && (
+          <div className="flex justify-center gap-2 mb-4">
+            <Button 
+              onClick={() => setRequestCooldown(30)}
+              size="sm"
+              className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1"
+            >
+              Start 30s Timer
+            </Button>
+          </div>
+        )}
+
+        {requestCooldown > 0 && requestCooldown <= 30 && (
+          <div className="flex justify-center gap-2 mb-2">
+            <Button 
+              onClick={() => setRequestCooldown(120)}
+              size="sm"
+              className="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1"
+            >
+              Simulate Action (→120s)
+            </Button>
+            <Button 
+              onClick={() => setRequestCooldown(0)}
+              size="sm"
+              className="bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1"
+            >
+              Stop Timer
+            </Button>
+          </div>
+        )}
+
         {/* Request Cooldown Timer */}
         {requestCooldown > 0 && (
           <div className="flex justify-center mb-4">
