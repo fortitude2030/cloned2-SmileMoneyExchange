@@ -82,7 +82,7 @@ export default function MerchantDashboard() {
     enabled: isAuthenticated,
   });
 
-  // Fetch transactions
+  // Fetch transactions with frequent polling for real-time updates
   const { data: transactions = [], isLoading: transactionsLoading } = useQuery<Array<{
     id: number;
     transactionId: string;
@@ -96,6 +96,8 @@ export default function MerchantDashboard() {
     queryKey: ["/api/transactions"],
     retry: false,
     enabled: isAuthenticated,
+    refetchInterval: 1000, // Poll every 1 second for real-time updates
+    refetchIntervalInBackground: true, // Continue polling when tab is in background
   });
 
   // Create payment request mutation
@@ -148,12 +150,18 @@ export default function MerchantDashboard() {
   // Monitor for transaction failures and reset merchant screen immediately
   useEffect(() => {
     if (transactions && transactions.length > 0) {
-      const latestTransaction = transactions[0]; // Most recent transaction
-      if (latestTransaction.status === 'rejected' && 
-          latestTransaction.transactionId !== lastProcessedTransactionId) {
+      // Check all recent transactions (last 3) for any new rejections
+      const recentTransactions = transactions.slice(0, 3);
+      const newlyRejectedTransaction = recentTransactions.find(tx => 
+        tx.status === 'rejected' && 
+        tx.transactionId !== lastProcessedTransactionId
+      );
+      
+      if (newlyRejectedTransaction) {
+        console.log('Detected failed transaction, resetting merchant screen:', newlyRejectedTransaction.transactionId);
         
         // Mark this transaction as processed to avoid repeated resets
-        setLastProcessedTransactionId(latestTransaction.transactionId);
+        setLastProcessedTransactionId(newlyRejectedTransaction.transactionId);
         
         // Immediately reset merchant screen
         setIsRequestDisabled(false);
@@ -165,9 +173,9 @@ export default function MerchantDashboard() {
         
         // Show failure notification
         showFailureNotification(
-          latestTransaction.rejectionReason || "Transaction rejected",
-          latestTransaction.transactionId,
-          latestTransaction.amount
+          newlyRejectedTransaction.rejectionReason || "Transaction rejected",
+          newlyRejectedTransaction.transactionId,
+          newlyRejectedTransaction.amount
         );
       }
     }
