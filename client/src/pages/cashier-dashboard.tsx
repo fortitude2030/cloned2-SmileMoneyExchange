@@ -10,7 +10,6 @@ import DocumentUploadModal from "@/components/document-upload-modal";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import type { Transaction } from "@/../../shared/schema";
 
 export default function CashierDashboard() {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -38,7 +37,7 @@ export default function CashierDashboard() {
   }, [isAuthenticated, isLoading, toast]);
 
   // Fetch pending transactions
-  const { data: pendingTransactions = [], isLoading: transactionsLoading } = useQuery<Transaction[]>({
+  const { data: pendingTransactions = [], isLoading: transactionsLoading } = useQuery({
     queryKey: ["/api/transactions/pending"],
     retry: false,
   });
@@ -247,7 +246,7 @@ export default function CashierDashboard() {
               </div>
             ) : (
               <div className="space-y-3">
-                {pendingTransactions.map((transaction: Transaction) => (
+                {pendingTransactions.map((transaction: any) => (
                   <div key={transaction.id} className="border border-warning bg-warning bg-opacity-5 rounded-lg p-4">
                     <div className="flex items-center justify-between mb-3">
                       <div>

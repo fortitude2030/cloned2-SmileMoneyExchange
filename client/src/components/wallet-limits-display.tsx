@@ -3,7 +3,7 @@ import { Progress } from "@/components/ui/progress";
 
 interface WalletLimitsDisplayProps {
   wallet: {
-    balance: string | null;
+    balance: string;
     dailyLimit: string;
     dailySpent: string;
     isActive: boolean;
@@ -25,7 +25,7 @@ export default function WalletLimitsDisplay({ wallet }: WalletLimitsDisplayProps
 
   const dailyLimit = 1000000; // K1,000,000 fixed limit for merchants
   const spentToday = Math.round(parseFloat(wallet.todayCompleted || '0')); // Completed transactions only
-  const walletBalance = Math.round(parseFloat(wallet.balance || '0')); // Actual wallet balance
+  const walletBalance = Math.round(parseFloat(wallet.todayTotal || '0')); // Today's total transactions (completed + pending)
   const dailyRemaining = Math.max(dailyLimit - spentToday, 0); // Daily limit - spent today
   const dailyPercentage = Math.min((spentToday / dailyLimit) * 100, 100);
 
@@ -68,7 +68,7 @@ export default function WalletLimitsDisplay({ wallet }: WalletLimitsDisplayProps
           
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
-              <span className="text-gray-600 dark:text-gray-400">Approved today</span>
+              <span className="text-gray-600 dark:text-gray-400">Spent today</span>
               <span className="font-medium">-{formatCurrency(spentToday.toString())}</span>
             </div>
             <Progress value={dailyPercentage} className="h-2" />

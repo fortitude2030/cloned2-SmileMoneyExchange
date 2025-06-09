@@ -1,12 +1,11 @@
 /**
- * Generate a unique transaction ID in LUS-{VMF}-XXXXXX format
- * @param vmfNumber - The VMF number to include in the transaction ID
- * @returns string - Transaction ID like "LUS-ABC123-456789"
+ * Generate a unique transaction ID in LUS-XXXXXX format
+ * @returns string - Transaction ID like "LUS-123456"
  */
-export function generateTransactionId(vmfNumber: string): string {
+export function generateTransactionId(): string {
   // Generate 6 random digits
   const randomNumbers = Math.floor(100000 + Math.random() * 900000);
-  return `LUS-${vmfNumber}-${randomNumbers}`;
+  return `LUS-${randomNumbers}`;
 }
 
 /**
@@ -15,5 +14,5 @@ export function generateTransactionId(vmfNumber: string): string {
  * @returns boolean - True if valid format
  */
 export function isValidTransactionId(transactionId: string): boolean {
-  return /^LUS-.+-\d{6}$/.test(transactionId);
+  return /^LUS-\d{6}$/.test(transactionId);
 }

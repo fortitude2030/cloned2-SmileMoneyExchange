@@ -14,13 +14,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { Wallet, Transaction } from "@/../../shared/schema";
-
-type WalletResponse = Wallet & {
-  dailySpent: string;
-  todayCompleted?: string;
-  todayTotal?: string;
-};
 
 export default function MerchantDashboard() {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -32,8 +25,6 @@ export default function MerchantDashboard() {
   const [requestCooldown, setRequestCooldown] = useState(0);
   const [isRequestDisabled, setIsRequestDisabled] = useState(false);
   const [showRequestCooldown, setShowRequestCooldown] = useState(false);
-  const [vmfPhoto, setVmfPhoto] = useState<File | null>(null);
-  const [vmfPhotoPreview, setVmfPhotoPreview] = useState<string | null>(null);
 
   // Timer effect for request cooldown
   useEffect(() => {
@@ -71,13 +62,13 @@ export default function MerchantDashboard() {
   }, [isAuthenticated, isLoading, toast]);
 
   // Fetch wallet data
-  const { data: wallet, isLoading: walletLoading } = useQuery<WalletResponse>({
+  const { data: wallet, isLoading: walletLoading } = useQuery({
     queryKey: ["/api/wallet"],
     retry: false,
   });
 
   // Fetch transactions
-  const { data: transactions = [], isLoading: transactionsLoading } = useQuery<Transaction[]>({
+  const { data: transactions = [], isLoading: transactionsLoading } = useQuery({
     queryKey: ["/api/transactions"],
     retry: false,
   });
@@ -127,10 +118,10 @@ export default function MerchantDashboard() {
   });
 
   const handleRequestPayment = () => {
-    if (!vmfNumber.trim() || !vmfPhoto) {
+    if (!vmfNumber.trim()) {
       toast({
-        title: "Missing Information",
-        description: "Please enter VMF number and upload VMF photo",
+        title: "VMF Required",
+        description: "Please enter a valid VMF number",
         variant: "destructive",
       });
       return;
@@ -211,15 +202,7 @@ export default function MerchantDashboard() {
 
       <div className="p-4">
         {/* Transfer Limits - Shows Wallet Balance */}
-        {wallet && <WalletLimitsDisplay wallet={{
-          balance: wallet.balance,
-          dailyLimit: wallet.dailyLimit,
-          dailySpent: wallet.dailySpent,
-          isActive: wallet.isActive,
-          todayCompleted: wallet.todayCompleted,
-          todayTotal: wallet.todayTotal
-        }} />}
-
+        {wallet && <WalletLimitsDisplay wallet={wallet} />}
 
         {/* Payment Request Form */}
         <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
@@ -247,41 +230,6 @@ export default function MerchantDashboard() {
                   required
                 />
               </div>
-              <div>
-                <Label htmlFor="vmf-photo">VMF Photo *</Label>
-                <div className="mt-1">
-                  <input
-                    id="vmf-photo"
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        setVmfPhoto(file);
-                        const reader = new FileReader();
-                        reader.onload = (e) => setVmfPhotoPreview(e.target?.result as string);
-                        reader.readAsDataURL(file);
-                      }
-                    }}
-                    className="block w-full text-sm text-gray-500 dark:text-gray-400
-                      file:mr-4 file:py-2 file:px-4
-                      file:rounded-lg file:border-0
-                      file:text-sm file:font-medium
-                      file:bg-primary file:text-white
-                      hover:file:bg-primary/90
-                      file:cursor-pointer cursor-pointer"
-                  />
-                  {vmfPhotoPreview && (
-                    <div className="mt-2">
-                      <img 
-                        src={vmfPhotoPreview} 
-                        alt="VMF Preview" 
-                        className="w-24 h-24 object-cover rounded-lg border border-gray-200 dark:border-gray-700"
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
             </div>
           </CardContent>
         </Card>
@@ -290,10 +238,10 @@ export default function MerchantDashboard() {
         <div className="grid grid-cols-2 gap-4 mb-6 mt-6">
           <Button
             onClick={() => {
-              if (!paymentAmount || !vmfNumber.trim() || !vmfPhoto) {
+              if (!paymentAmount || !vmfNumber.trim()) {
                 toast({
                   title: "Missing Information",
-                  description: "Please enter amount, VMF number, and upload VMF photo before generating QR code",
+                  description: "Please enter both amount and VMF number before generating QR code",
                   variant: "destructive",
                 });
                 return;

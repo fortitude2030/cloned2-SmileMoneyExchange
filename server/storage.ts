@@ -166,7 +166,7 @@ export class DatabaseStorage implements IStorage {
       .insert(wallets)
       .values({ 
         userId,
-        balance: "1000000",
+        balance: "0",
         dailyLimit: "1000000",
         dailySpent: "0",
         lastResetDate: new Date(),
@@ -308,13 +308,13 @@ export class DatabaseStorage implements IStorage {
 
   // Transaction operations
   async createTransaction(transactionData: InsertTransaction): Promise<Transaction> {
-    // Generate unique transaction ID with LUS-{VMF}-XXXXXX format
+    // Generate unique transaction ID with LUS-XXXXXX format
     let transactionId: string;
     let isUnique = false;
     
     // Ensure the transaction ID is unique
     while (!isUnique) {
-      transactionId = generateTransactionId(transactionData.vmfNumber || 'TEMP');
+      transactionId = generateTransactionId();
       const existing = await db
         .select()
         .from(transactions)
