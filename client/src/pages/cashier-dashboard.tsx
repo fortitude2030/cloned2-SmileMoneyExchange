@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 export default function CashierDashboard() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
+  const { isConnected } = useWebSocket();
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [activeSession, setActiveSession] = useState({
     merchant: "Tech Store Plus",
