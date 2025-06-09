@@ -93,14 +93,16 @@ export default function MerchantDashboard() {
 
   // Create payment request mutation
   const createPaymentRequest = useMutation({
-    mutationFn: async ({ amount, vmfNumber }: { amount: string; vmfNumber: string }) => {
+    mutationFn: async ({ amount, vmfNumber, type = "cash_digitization" }: { amount: string; vmfNumber: string; type?: string }) => {
       await apiRequest("POST", "/api/transactions", {
         toUserId: (user as any)?.id || "",
         amount,
         vmfNumber,
-        type: "cash_digitization",
+        type,
         status: "pending",
-        description: `Cash digitization request - VMF: ${vmfNumber}`,
+        description: type === "qr_code_payment" 
+          ? `QR code payment request - VMF: ${vmfNumber}`
+          : `Cash digitization request - VMF: ${vmfNumber}`,
       });
     },
     onSuccess: (data, variables) => {
@@ -292,8 +294,14 @@ export default function MerchantDashboard() {
                 return;
               }
 
-              setShowQRModal(true);
+              // Create a pending QR code transaction
+              createPaymentRequest.mutate({ 
+                amount: paymentAmount, 
+                vmfNumber,
+                type: "qr_code_payment"
+              } as any);
             }}
+            disabled={createPaymentRequest.isPending}
             className="bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow h-auto"
             variant="ghost"
           >

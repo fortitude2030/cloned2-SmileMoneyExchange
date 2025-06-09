@@ -97,6 +97,7 @@ export default function CashierDashboard() {
   const [requestCooldown, setRequestCooldown] = useState(0); // Start with no timer
   const [processedTransactionIds, setProcessedTransactionIds] = useState<Set<string>>(new Set());
   const [showAllTransactions, setShowAllTransactions] = useState(false);
+  const [showQRScanner, setShowQRScanner] = useState(false);
 
   // Timer effect for request cooldown - only runs when cooldown > 0
   useEffect(() => {
@@ -331,7 +332,15 @@ export default function CashierDashboard() {
 
   // Handle final transaction approval (validations already completed)
   const handleApproveTransaction = (transaction: any) => {
-    // Check if cashier has completed the 3-step process
+    // Check if this is a QR code transaction
+    if (transaction.type === 'qr_code_payment') {
+      // For QR code transactions, open the QR scanner directly
+      setCurrentTransaction(transaction);
+      setShowQRScanner(true);
+      return;
+    }
+
+    // For cash digitization transactions, check if cashier has completed the 3-step process
     if (cashCountingStep < 4 || !cashAmount || !vmfNumber) {
       toast({
         title: "Incomplete Process",
