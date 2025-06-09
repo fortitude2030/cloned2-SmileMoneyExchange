@@ -384,7 +384,7 @@ export class DatabaseStorage implements IStorage {
       .from(transactions)
       .where(
         and(
-          sql`(from_user_id = ${userId} OR to_user_id = ${userId})`,
+          sql`(from_user_id = ${userId} OR to_user_id = ${userId} OR processed_by = ${userId})`,
           sql`(status != 'pending' OR expires_at IS NULL OR expires_at > NOW())`
         )
       )
@@ -419,7 +419,7 @@ export class DatabaseStorage implements IStorage {
     await db
       .update(transactions)
       .set({ 
-        toUserId: processorId,
+        processedBy: processorId,
         updatedAt: new Date()
       })
       .where(eq(transactions.id, id));

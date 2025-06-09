@@ -86,6 +86,7 @@ export const transactions = pgTable("transactions", {
   vmfDocumentIds: text("vmf_document_ids").array(),
   rejectionReason: varchar("rejection_reason"), // reason for rejection
   qrCode: text("qr_code"),
+  processedBy: varchar("processed_by"), // cashier who processed the transaction
   expiresAt: timestamp("expires_at"), // Transaction expiration timestamp
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
