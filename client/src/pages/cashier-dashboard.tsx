@@ -38,13 +38,20 @@ export default function CashierDashboard() {
     let interval: NodeJS.Timeout;
     if (requestCooldown > 0) {
       interval = setInterval(() => {
-        setRequestCooldown(prev => Math.max(0, prev - 1));
+        setRequestCooldown(prev => {
+          if (prev <= 1) {
+            return 0; // Stop timer
+          }
+          return prev - 1;
+        });
       }, 1000);
     }
     return () => {
       if (interval) clearInterval(interval);
     };
   }, [requestCooldown]);
+
+
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -89,6 +96,27 @@ export default function CashierDashboard() {
       setRequestCooldown(0);
     }
   }, [activeTransaction, requestCooldown]);
+
+  // Handle timer expiration to automatically reject transactions
+  useEffect(() => {
+    const checkTimerExpiry = async () => {
+      if (requestCooldown === 0 && activeTransaction) {
+        try {
+          await apiRequest("PATCH", `/api/transactions/${activeTransaction.id}/status`, {
+            status: "rejected",
+            rejectionReason: "timed out"
+          });
+          queryClient.invalidateQueries({ queryKey: ["/api/transactions/pending"] });
+        } catch (error) {
+          console.error("Failed to reject timed out transaction:", error);
+        }
+      }
+    };
+
+    // Add a small delay to prevent immediate execution
+    const timer = setTimeout(checkTimerExpiry, 100);
+    return () => clearTimeout(timer);
+  }, [requestCooldown, activeTransaction]);
 
   // Approve transaction mutation with dual authentication
   const approveTransaction = useMutation({
