@@ -716,7 +716,7 @@ export default function CashierDashboard() {
                 onChange={(e) => setCashAmount(e.target.value)}
                 className="text-lg text-center font-bold"
               />
-              <p className="text-xs text-gray-500 mt-1">Enter the physical cash amount you counted</p>
+
             </div>
             
             <div className="flex space-x-3">
@@ -795,7 +795,7 @@ export default function CashierDashboard() {
                 onChange={(e) => setVmfNumber(e.target.value.toUpperCase())}
                 className="text-lg text-center font-bold"
               />
-              <p className="text-xs text-gray-500 mt-1">Enter the VMF form number exactly as printed</p>
+
             </div>
             
             <div className="flex space-x-3">
