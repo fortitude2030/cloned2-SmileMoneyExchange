@@ -11,6 +11,7 @@ import DocumentUploadModal from "@/components/document-upload-modal";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import type { Transaction } from "@shared/schema";
 
 export default function CashierDashboard() {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -39,7 +40,7 @@ export default function CashierDashboard() {
   }, [isAuthenticated, isLoading, toast]);
 
   // Fetch pending transactions
-  const { data: pendingTransactions = [], isLoading: transactionsLoading } = useQuery({
+  const { data: pendingTransactions = [], isLoading: transactionsLoading } = useQuery<Transaction[]>({
     queryKey: ["/api/transactions/pending"],
     retry: false,
   });
@@ -238,7 +239,7 @@ export default function CashierDashboard() {
                   </div>
                 ))}
               </div>
-            ) : pendingTransactions.length === 0 ? (
+            ) : (pendingTransactions as Transaction[]).length === 0 ? (
               <div className="text-center py-8">
                 <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
                   <i className="fas fa-bell text-gray-400 text-xl"></i>
@@ -248,7 +249,7 @@ export default function CashierDashboard() {
               </div>
             ) : (
               <div className="space-y-3">
-                {pendingTransactions.map((transaction: any) => (
+                {(pendingTransactions as Transaction[]).map((transaction) => (
                   <div key={transaction.id} className="border border-warning bg-warning bg-opacity-5 rounded-lg p-4">
                     <div className="flex items-center justify-between mb-3">
                       <div>

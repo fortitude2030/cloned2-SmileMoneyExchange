@@ -340,7 +340,7 @@ export default function MerchantDashboard() {
               }
               
               const amount = Math.round(parseFloat(paymentAmount));
-              const dailySpent = Math.round(parseFloat(wallet?.dailySpent || "0"));
+              const dailySpent = Math.round(parseFloat(wallet?.dailySpent?.toString() || "0"));
               const dailyLimit = 1000000;
               const remainingLimit = dailyLimit - dailySpent;
 
