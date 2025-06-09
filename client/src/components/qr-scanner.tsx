@@ -17,6 +17,7 @@ export default function QRScannerComponent({ isOpen, onClose, onScanSuccess, exp
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string>("");
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     if (!isOpen || !videoRef.current) return;
@@ -25,32 +26,19 @@ export default function QRScannerComponent({ isOpen, onClose, onScanSuccess, exp
       try {
         setError("");
         setIsScanning(false);
+        setHasPermission(null);
         
-        // Request camera permission first
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { 
-              facingMode: 'environment',
-              width: { ideal: 640 },
-              height: { ideal: 480 }
-            } 
-          });
-          stream.getTracks().forEach(track => track.stop()); // Stop the test stream
-          console.log("Camera permission granted");
-        } catch (permissionErr) {
-          console.error("Camera permission error:", permissionErr);
-          setError("Camera permission denied. Please allow camera access and try again.");
-          setHasPermission(false);
-          return;
-        }
+        console.log("Initializing QR Scanner...");
 
-        // Check if camera is available
+        // Simple camera availability check
         const hasCamera = await QrScanner.hasCamera();
         if (!hasCamera) {
           setError("No camera found on this device");
           setHasPermission(false);
           return;
         }
+
+        console.log("Camera detected, creating scanner...");
 
         const qrScanner = new QrScanner(
           videoRef.current!,
@@ -87,24 +75,32 @@ export default function QRScannerComponent({ isOpen, onClose, onScanSuccess, exp
           },
           {
             preferredCamera: 'environment',
-            highlightScanRegion: true,
-            highlightCodeOutline: true,
-            maxScansPerSecond: 5,
-            returnDetailedScanResult: true,
+            highlightScanRegion: false,
+            highlightCodeOutline: false,
+            maxScansPerSecond: 3,
           }
         );
 
+        console.log("Starting QR scanner...");
         setScanner(qrScanner);
         
-        // Start the scanner
-        await qrScanner.start();
+        // Start the scanner with timeout
+        const startPromise = qrScanner.start();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Camera start timeout')), 10000)
+        );
+        
+        await Promise.race([startPromise, timeoutPromise]);
+        
         setIsScanning(true);
         setHasPermission(true);
         console.log("QR Scanner started successfully");
 
       } catch (err: any) {
         console.error("Scanner initialization error:", err);
-        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        if (err.message === 'Camera start timeout') {
+          setError("Camera took too long to start. Please try again.");
+        } else if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
           setError("Camera permission denied. Please allow camera access and try again.");
           setHasPermission(false);
         } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
@@ -113,6 +109,17 @@ export default function QRScannerComponent({ isOpen, onClose, onScanSuccess, exp
         } else {
           setError(`Failed to start camera: ${err.message || 'Unknown error'}`);
           setHasPermission(false);
+          
+          // Retry up to 3 times
+          if (retryCount < 3) {
+            console.log(`Retrying camera initialization (attempt ${retryCount + 1}/3)...`);
+            setRetryCount(prev => prev + 1);
+            setTimeout(() => {
+              setError("");
+              setHasPermission(null);
+              initializeScanner();
+            }, 2000);
+          }
         }
       }
     };
@@ -132,7 +139,7 @@ export default function QRScannerComponent({ isOpen, onClose, onScanSuccess, exp
         }
       }
     };
-  }, [isOpen, expectedAmount]);
+  }, [isOpen, expectedAmount, retryCount]);
 
   const handleClose = () => {
     if (scanner) {
@@ -218,7 +225,7 @@ export default function QRScannerComponent({ isOpen, onClose, onScanSuccess, exp
                   style={{ minHeight: '256px' }}
                 />
                 
-                {!isScanning && hasPermission !== false && (
+                {!isScanning && hasPermission === null && (
                   <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
                     <div className="text-center text-white">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
@@ -244,10 +251,22 @@ export default function QRScannerComponent({ isOpen, onClose, onScanSuccess, exp
 
               {error && (
                 <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-3">
-                  <p className="text-red-600 dark:text-red-400 text-sm font-medium flex items-center">
+                  <p className="text-red-600 dark:text-red-400 text-sm font-medium flex items-center mb-2">
                     <i className="fas fa-exclamation-triangle mr-2"></i>
                     {error}
                   </p>
+                  <Button 
+                    onClick={() => {
+                      setError("");
+                      setHasPermission(null);
+                      setRetryCount(0);
+                    }}
+                    className="bg-red-600 hover:bg-red-700 text-white text-sm"
+                    size="sm"
+                  >
+                    <i className="fas fa-redo mr-2"></i>
+                    Try Again
+                  </Button>
                 </div>
               )}
 
