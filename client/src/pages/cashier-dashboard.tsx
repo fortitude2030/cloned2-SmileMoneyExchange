@@ -601,9 +601,6 @@ export default function CashierDashboard() {
                     2
                   </div>
                   <div className="flex-1">
-                    <h4 className={`font-medium text-sm ${
-                      qrProcessingStep >= 2 ? 'text-gray-800 dark:text-gray-200' : 'text-gray-400'
-                    }`}>Enter VMF Number</h4>
                     {qrProcessingStep > 2 && (
                       <p className="text-green-600 dark:text-green-400 text-xs mt-1">
                         VMF entered: {qrVmfNumber}
@@ -628,9 +625,6 @@ export default function CashierDashboard() {
                     3
                   </div>
                   <div className="flex-1">
-                    <h4 className={`font-medium text-sm ${
-                      qrProcessingStep >= 3 ? 'text-gray-800 dark:text-gray-200' : 'text-gray-400'
-                    }`}>Take VMF Photo</h4>
                     {qrProcessingStep > 3 && (
                       <p className="text-green-600 dark:text-green-400 text-xs mt-1">
                         Photo captured - Ready for QR scan
