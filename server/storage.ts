@@ -212,9 +212,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateWalletBalance(userId: string, balance: string): Promise<void> {
+    const roundedBalance = Math.round(parseFloat(balance)).toString();
     await db
       .update(wallets)
-      .set({ balance, updatedAt: new Date() })
+      .set({ balance: roundedBalance, updatedAt: new Date() })
       .where(eq(wallets.userId, userId));
   }
 
