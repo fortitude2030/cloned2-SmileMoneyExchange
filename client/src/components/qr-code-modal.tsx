@@ -46,10 +46,8 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
   const handleGenerateQR = async () => {
     try {
       const paymentData = {
-        amount: parseFloat(amount),
         type: "cash_digitization",
         timestamp: Date.now(),
-        vmfNumber: vmfNumber,
         uniqueId: uniqueId,
       };
       const qrUrl = await generateQRCode(JSON.stringify(paymentData));
@@ -129,23 +127,9 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
           )}
           
           <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 border border-green-200 dark:border-green-700">
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <p className="text-green-700 dark:text-green-400 font-medium mb-1">Amount</p>
-                <p className="text-lg font-bold text-green-800 dark:text-green-200">
-                  {formatCurrency(amount || "0")}
-                </p>
-              </div>
-              <div>
-                <p className="text-green-700 dark:text-green-400 font-medium mb-1">VMF Number</p>
-                <p className="text-lg font-bold text-green-800 dark:text-green-200">
-                  {vmfNumber}
-                </p>
-              </div>
-            </div>
-            <div className="mt-3 pt-3 border-t border-green-200 dark:border-green-700">
+            <div className="text-center">
               <p className="text-green-700 dark:text-green-400 font-medium mb-1">QR Code ID</p>
-              <p className="text-xs text-green-600 dark:text-green-400 font-mono">
+              <p className="text-sm text-green-600 dark:text-green-400 font-mono">
                 {uniqueId}
               </p>
             </div>
