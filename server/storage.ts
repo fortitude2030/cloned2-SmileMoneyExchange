@@ -50,6 +50,7 @@ export interface IStorage {
   // Transaction operations
   createTransaction(transaction: InsertTransaction): Promise<Transaction>;
   getTransactionsByUserId(userId: string): Promise<Transaction[]>;
+  getAllTransactions(): Promise<Transaction[]>;
   getTransactionById(id: number): Promise<Transaction | undefined>;
   updateTransactionStatus(id: number, status: string, rejectionReason?: string): Promise<void>;
   updateTransactionProcessor(id: number, processorId: string): Promise<void>;
@@ -388,6 +389,16 @@ export class DatabaseStorage implements IStorage {
           sql`(from_user_id = ${userId} OR to_user_id = ${userId} OR processed_by = ${userId})`,
           sql`(status != 'pending' OR expires_at IS NULL OR expires_at > NOW())`
         )
+      )
+      .orderBy(desc(transactions.createdAt));
+  }
+
+  async getAllTransactions(): Promise<Transaction[]> {
+    return await db
+      .select()
+      .from(transactions)
+      .where(
+        sql`(status != 'pending' OR expires_at IS NULL OR expires_at > NOW())`
       )
       .orderBy(desc(transactions.createdAt));
   }

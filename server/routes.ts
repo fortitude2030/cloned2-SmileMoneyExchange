@@ -255,12 +255,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
-      // For cashiers, get transactions where they are involved (either sender or receiver)
+      // For cashiers, get all transactions in the system for monitoring
       // For merchants, get only their own transactions
       let transactions;
       if (user?.role === 'cashier') {
-        // Get all transactions where cashier is fromUserId or toUserId
-        transactions = await storage.getTransactionsByUserId(userId);
+        // Get all transactions for cashiers to monitor system activity
+        transactions = await storage.getAllTransactions();
       } else {
         transactions = await storage.getTransactionsByUserId(userId);
       }
