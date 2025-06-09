@@ -215,7 +215,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Set expiration time only for QR transactions that remain pending
       const expiresAt = (req.body.status === 'pending' && req.body.type === 'qr_code_payment') 
-        ? new Date(Date.now() + 60 * 1000) 
+        ? new Date(Date.now() + 120 * 1000) 
         : null;
       
       // Round the amount to ensure no decimals

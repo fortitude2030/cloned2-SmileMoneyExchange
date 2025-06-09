@@ -338,18 +338,34 @@ export class DatabaseStorage implements IStorage {
   // Mark expired pending transactions as expired
   async markExpiredTransactions(): Promise<void> {
     const now = new Date();
-    await db
-      .update(transactions)
-      .set({ 
-        status: 'expired',
-        updatedAt: now
-      })
+    
+    // First, get the transactions that will be expired
+    const expiredTransactions = await db
+      .select()
+      .from(transactions)
       .where(
         and(
           eq(transactions.status, 'pending'),
           sql`expires_at IS NOT NULL AND expires_at <= NOW()`
         )
       );
+    
+    if (expiredTransactions.length > 0) {
+      console.log(`Expiring ${expiredTransactions.length} transactions`);
+      
+      await db
+        .update(transactions)
+        .set({ 
+          status: 'expired',
+          updatedAt: now
+        })
+        .where(
+          and(
+            eq(transactions.status, 'pending'),
+            sql`expires_at IS NOT NULL AND expires_at <= NOW()`
+          )
+        );
+    }
   }
 
   // Transaction operations
@@ -460,7 +476,12 @@ export class DatabaseStorage implements IStorage {
     return await db
       .select()
       .from(transactions)
-      .where(eq(transactions.status, 'pending'))
+      .where(
+        and(
+          eq(transactions.status, 'pending'),
+          sql`(expires_at IS NULL OR expires_at > NOW())`
+        )
+      )
       .orderBy(desc(transactions.createdAt));
   }
 
@@ -479,7 +500,8 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(transactions.toUserId, userId),
-          eq(transactions.status, "pending")
+          eq(transactions.status, "pending"),
+          sql`(expires_at IS NULL OR expires_at > NOW())`
         )
       )
       .orderBy(desc(transactions.createdAt));

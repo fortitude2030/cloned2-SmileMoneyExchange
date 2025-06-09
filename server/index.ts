@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { storage } from "./storage";
 
 const app = express();
 
@@ -12,6 +13,15 @@ setInterval(() => {
     // Reset happens automatically when merchant wallets are accessed via getOrCreateWallet
   }
 }, 5 * 60 * 1000); // Check every 5 minutes
+
+// Transaction expiration cleanup - runs every 30 seconds
+setInterval(async () => {
+  try {
+    await storage.markExpiredTransactions();
+  } catch (error) {
+    log(`Error cleaning up expired transactions: ${error}`);
+  }
+}, 30 * 1000); // Check every 30 seconds
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
