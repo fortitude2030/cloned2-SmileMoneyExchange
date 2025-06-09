@@ -19,6 +19,9 @@ import { Label } from "@/components/ui/label";
 export default function MerchantDashboard() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
+  
+  // Force component re-render with timestamp
+  const [renderKey] = useState(() => Date.now());
   const [showQRModal, setShowQRModal] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [vmfNumber, setVmfNumber] = useState("");
@@ -204,7 +207,7 @@ export default function MerchantDashboard() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-20">
       <MobileHeader
-        title="Merchant Portal"
+        title="Merchant Portal - v2.0"
         subtitle={user?.firstName || "Merchant"}
         icon="fas fa-store"
         color="primary"
