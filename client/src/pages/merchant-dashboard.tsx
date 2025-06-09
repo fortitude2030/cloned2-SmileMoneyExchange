@@ -144,6 +144,10 @@ export default function MerchantDashboard() {
     }
 
     createPaymentRequest.mutate({ amount: paymentAmount, vmfNumber });
+    
+    // Clear VMF photo from memory after submission
+    setVmfPhoto(null);
+    setVmfPhotoPreview(null);
   };
 
   const formatCurrency = (amount: string | number) => {
@@ -240,12 +244,20 @@ export default function MerchantDashboard() {
                     id="vmf-photo"
                     type="file"
                     accept="image/*"
+                    capture="environment"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
+                      const inputElement = e.target as HTMLInputElement;
                       if (file) {
                         setVmfPhoto(file);
                         const reader = new FileReader();
-                        reader.onload = (e) => setVmfPhotoPreview(e.target?.result as string);
+                        reader.onload = (readerEvent) => {
+                          setVmfPhotoPreview(readerEvent.target?.result as string);
+                          // Clear the input value to remove file from memory immediately
+                          if (inputElement) {
+                            inputElement.value = '';
+                          }
+                        };
                         reader.readAsDataURL(file);
                       }
                     }}
@@ -300,6 +312,10 @@ export default function MerchantDashboard() {
               }
 
               setShowQRModal(true);
+              
+              // Clear VMF photo from memory after QR generation
+              setVmfPhoto(null);
+              setVmfPhotoPreview(null);
             }}
             className="bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow h-auto"
             variant="ghost"
