@@ -393,11 +393,6 @@ export default function MerchantDashboard() {
                           <p className="text-gray-500 dark:text-gray-400 text-xs">
                             ID: {transaction.transactionId}
                           </p>
-                          {transaction.status === 'rejected' && transaction.rejectionReason && (
-                            <p className="text-red-600 dark:text-red-400 text-xs font-medium mt-1">
-                              Rejected: {transaction.rejectionReason}
-                            </p>
-                          )}
                         </div>
                       </div>
                       <div className="text-right">
