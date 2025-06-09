@@ -85,7 +85,7 @@ export default function WalletLimitsDisplay({ wallet, userRole }: WalletLimitsDi
               <span className="text-gray-600 dark:text-gray-400">
                 {isMerchant ? 'Used up Daily Limit' : 'Transferred today'}
               </span>
-              <span className="font-medium text-red-600">
+              <span className="font-medium text-black dark:text-white">
                 {isMerchant ? '-' : '-'}{formatCurrency(dailyUsed.toString())}
               </span>
             </div>
