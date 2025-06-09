@@ -436,9 +436,9 @@ export default function CashierDashboard() {
       />
 
       <div className="p-4">
-        {/* Request Cooldown Timer */}
-        {requestCooldown > 0 && (
-          <div className="flex justify-center mb-4">
+        {/* Request Cooldown Timer - Always show for debugging */}
+        <div className="flex justify-center mb-4">
+          {requestCooldown > 0 ? (
             <div className={`
               w-24 h-24 rounded-full flex items-center justify-center transition-colors duration-1500
               ${requestCooldown > 60 ? 'bg-green-500' : 
@@ -448,8 +448,21 @@ export default function CashierDashboard() {
                 {Math.floor(requestCooldown / 60)}:{(requestCooldown % 60).toString().padStart(2, '0')}
               </div>
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="text-center">
+              <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                Timer: {requestCooldown} (Debug)
+              </div>
+              <Button 
+                onClick={() => setRequestCooldown(10)}
+                size="sm"
+                className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1"
+              >
+                Test Timer (10s)
+              </Button>
+            </div>
+          )}
+        </div>
 
         {/* Active Session Card */}
         <div className="gradient-accent rounded-2xl p-6 text-white mb-6 animate-fade-in">
@@ -989,10 +1002,12 @@ export default function CashierDashboard() {
                     setQrAmount(cashAmount);
                     setQrProcessingStep(2);
                     // Start countdown timer for QR processing workflow
+                    console.log("Setting QR countdown timer to 180");
                     setRequestCooldown(180); // 3 minutes for QR workflow
                   } else {
                     setCashCountingStep(2);
                     // Start countdown timer for cash counting workflow
+                    console.log("Setting cash countdown timer to 180");
                     setRequestCooldown(180); // 3 minutes for cash workflow
                   }
                   setActiveSession(prev => ({ ...prev, amount: cashAmount }));
