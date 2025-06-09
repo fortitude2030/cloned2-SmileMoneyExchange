@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { useAuth } from "@/hooks/useAuth";
 
 interface DocumentUploadModalProps {
   isOpen: boolean;
@@ -22,13 +23,22 @@ interface UploadedDocument {
 
 export default function DocumentUploadModal({ isOpen, onClose, transactionId }: DocumentUploadModalProps) {
   const { toast } = useToast();
-  const [documents, setDocuments] = useState<UploadedDocument[]>([
-    { id: "merchant", type: "vmf_merchant", name: "Merchant Copy", uploaded: false },
-    { id: "cashbag", type: "vmf_cashbag", name: "Cash Bag Copy", uploaded: false },
-  ]);
+  const { user } = useAuth();
   
-  const merchantFileRef = useRef<HTMLInputElement>(null);
-  const cashbagFileRef = useRef<HTMLInputElement>(null);
+  // Show only relevant VMF copy based on user role
+  const getDocumentsByRole = () => {
+    if ((user as any)?.role === 'merchant') {
+      return [{ id: "merchant", type: "vmf_merchant", name: "Merchant Copy", uploaded: false }];
+    } else if ((user as any)?.role === 'cashier') {
+      return [{ id: "cashbag", type: "vmf_cashbag", name: "Cashier Copy", uploaded: false }];
+    }
+    // Fallback for other roles
+    return [{ id: "merchant", type: "vmf_merchant", name: "Merchant Copy", uploaded: false }];
+  };
+  
+  const [documents, setDocuments] = useState<UploadedDocument[]>(getDocumentsByRole());
+  
+  const fileRef = useRef<HTMLInputElement>(null);
 
   // Upload document mutation
   const uploadDocument = useMutation({
@@ -133,20 +143,18 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
 
   const handleCameraCapture = (documentId: string) => {
     // For mobile devices, this will open the camera
-    const fileInput = documentId === "merchant" ? merchantFileRef.current : cashbagFileRef.current;
-    if (fileInput) {
-      fileInput.accept = "image/*";
-      fileInput.capture = "environment" as any; // Use back camera
-      fileInput.click();
+    if (fileRef.current) {
+      fileRef.current.accept = "image/*";
+      fileRef.current.capture = "environment" as any; // Use back camera
+      fileRef.current.click();
     }
   };
 
   const handleGallerySelect = (documentId: string) => {
-    const fileInput = documentId === "merchant" ? merchantFileRef.current : cashbagFileRef.current;
-    if (fileInput) {
-      fileInput.accept = "image/*,application/pdf";
-      fileInput.removeAttribute("capture");
-      fileInput.click();
+    if (fileRef.current) {
+      fileRef.current.accept = "image/*,application/pdf";
+      fileRef.current.removeAttribute("capture");
+      fileRef.current.click();
     }
   };
 
@@ -171,11 +179,8 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
   };
 
   const handleClose = () => {
-    // Reset state when closing
-    setDocuments([
-      { id: "merchant", type: "vmf_merchant", name: "Merchant Copy", uploaded: false },
-      { id: "cashbag", type: "vmf_cashbag", name: "Cash Bag Copy", uploaded: false },
-    ]);
+    // Reset state when closing - use role-based documents
+    setDocuments(getDocumentsByRole());
     onClose();
   };
 
@@ -236,9 +241,9 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
                 )}
               </div>
               
-              {/* Hidden file inputs */}
+              {/* Hidden file input */}
               <input
-                ref={document.id === "merchant" ? merchantFileRef : cashbagFileRef}
+                ref={fileRef}
                 type="file"
                 className="hidden"
                 onChange={(e) => handleFileSelect(document.id, e.target.files?.[0] || null)}
