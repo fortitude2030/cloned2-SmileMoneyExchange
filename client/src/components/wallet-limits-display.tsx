@@ -14,22 +14,28 @@ interface WalletLimitsDisplayProps {
   userRole: string;
 }
 
-export default function WalletLimitsDisplay({ wallet }: WalletLimitsDisplayProps) {
+export default function WalletLimitsDisplay({ wallet, userRole }: WalletLimitsDisplayProps) {
   const formatCurrency = (amount: string) => {
     return `ZMW ${Math.round(parseFloat(amount || '0')).toLocaleString()}`;
   };
 
-  const calculatePercentage = (spent: string, limit: string) => {
-    const spentAmount = Math.round(parseFloat(spent || '0'));
+  const calculatePercentage = (used: string, limit: string) => {
+    const usedAmount = Math.round(parseFloat(used || '0'));
     const limitAmount = Math.round(parseFloat(limit || '1'));
-    return Math.min((spentAmount / limitAmount) * 100, 100);
+    return Math.min((usedAmount / limitAmount) * 100, 100);
   };
 
-  const dailyLimit = 1000000; // K1,000,000 fixed limit for merchants
-  const spentToday = Math.round(parseFloat(wallet.todayCompleted || '0')); // Completed transactions only
-  const walletBalance = Math.round(parseFloat(wallet.todayTotal || '0')); // Today's total transactions (completed + pending)
-  const dailyRemaining = Math.max(dailyLimit - spentToday, 0); // Daily limit - spent today
-  const dailyPercentage = Math.min((spentToday / dailyLimit) * 100, 100);
+  // Different logic for merchants vs cashiers
+  const isMerchant = userRole === 'merchant';
+  const isCashier = userRole === 'cashier';
+  
+  const dailyLimit = isMerchant ? 1000000 : 2000000; // Merchants: 1M collection limit, Cashiers: 2M transfer limit
+  const dailyUsed = isMerchant 
+    ? Math.round(parseFloat(wallet.dailyCollected || '0')) 
+    : Math.round(parseFloat(wallet.dailyTransferred || '0'));
+  const walletBalance = Math.round(parseFloat(wallet.balance || '0'));
+  const dailyRemaining = Math.max(dailyLimit - dailyUsed, 0);
+  const dailyPercentage = Math.min((dailyUsed / dailyLimit) * 100, 100);
 
   return (
     <div className="space-y-4">
@@ -52,7 +58,7 @@ export default function WalletLimitsDisplay({ wallet }: WalletLimitsDisplayProps
               {formatCurrency(walletBalance.toString())}
             </div>
             <div className="text-xs text-black/70 dark:text-white/70">
-              Today's transactions
+              {isMerchant ? "Today's collections" : "Available balance"}
             </div>
           </div>
         </CardContent>
@@ -62,16 +68,22 @@ export default function WalletLimitsDisplay({ wallet }: WalletLimitsDisplayProps
       <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-2">
-            <h4 className="font-medium text-gray-800 dark:text-gray-200">Daily Transfer Limit</h4>
+            <h4 className="font-medium text-gray-800 dark:text-gray-200">
+              {isMerchant ? 'Daily Collection Limit' : 'Daily Transfer Limit'}
+            </h4>
             <span className="text-xs text-gray-500 dark:text-gray-400">
-              ZMW 1,000,000
+              {formatCurrency(dailyLimit.toString())}
             </span>
           </div>
           
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
-              <span className="text-gray-600 dark:text-gray-400">Spent today</span>
-              <span className="font-medium">-{formatCurrency(spentToday.toString())}</span>
+              <span className="text-gray-600 dark:text-gray-400">
+                {isMerchant ? 'Collected today' : 'Transferred today'}
+              </span>
+              <span className="font-medium">
+                {isMerchant ? '+' : '-'}{formatCurrency(dailyUsed.toString())}
+              </span>
             </div>
             <Progress value={dailyPercentage} className="h-2" />
             <div className="flex justify-between text-sm">
@@ -97,7 +109,7 @@ export default function WalletLimitsDisplay({ wallet }: WalletLimitsDisplayProps
                   Approaching Daily Limit
                 </p>
                 <p className="text-xs text-orange-600 dark:text-orange-300">
-                  You're close to reaching your daily transfer limit.
+                  You're close to reaching your daily {isMerchant ? 'collection' : 'transfer'} limit.
                 </p>
               </div>
             </div>

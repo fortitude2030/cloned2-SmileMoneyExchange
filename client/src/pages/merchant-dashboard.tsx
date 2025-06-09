@@ -220,7 +220,15 @@ export default function MerchantDashboard() {
 
       <div className="p-4">
         {/* Transfer Limits - Shows Wallet Balance */}
-        {wallet && <WalletLimitsDisplay wallet={wallet} />}
+        {wallet && <WalletLimitsDisplay wallet={{
+          balance: wallet.balance,
+          dailyLimit: wallet.dailyLimit,
+          dailyCollected: wallet.dailyCollected || wallet.dailySpent || '0',
+          dailyTransferred: wallet.dailyTransferred || '0',
+          isActive: wallet.isActive,
+          todayCompleted: wallet.todayCompleted,
+          todayTotal: wallet.todayTotal
+        }} userRole="merchant" />}
 
         {/* Payment Request Form */}
         <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
