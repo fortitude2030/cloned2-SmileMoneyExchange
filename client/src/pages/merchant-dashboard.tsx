@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { createPDFFromImage, generateVMFPDFFilename } from "@/lib/pdf-utils";
 import MobileHeader from "@/components/mobile-header";
 import MobileNav from "@/components/mobile-nav";
 import QRCodeModal from "@/components/qr-code-modal";
@@ -27,6 +28,8 @@ export default function MerchantDashboard() {
   const [showRequestCooldown, setShowRequestCooldown] = useState(false);
   const [vmfPhoto, setVmfPhoto] = useState<File | null>(null);
   const [vmfPhotoPreview, setVmfPhotoPreview] = useState<string | null>(null);
+  const [vmfPDF, setVmfPDF] = useState<File | null>(null);
+  const [isConvertingToPDF, setIsConvertingToPDF] = useState(false);
 
   // Timer effect for request cooldown
   useEffect(() => {
@@ -120,10 +123,10 @@ export default function MerchantDashboard() {
   });
 
   const handleRequestPayment = () => {
-    if (!vmfNumber.trim() || !vmfPhoto) {
+    if (!vmfNumber.trim() || !vmfPDF) {
       toast({
         title: "Missing Information",
-        description: "Please enter VMF number and upload VMF photo",
+        description: "Please enter VMF number and upload VMF photo (PDF conversion required)",
         variant: "destructive",
       });
       return;
@@ -245,14 +248,44 @@ export default function MerchantDashboard() {
                     type="file"
                     accept="image/*"
                     capture="environment"
-                    onChange={(e) => {
+                    onChange={async (e) => {
                       const file = e.target.files?.[0];
                       const inputElement = e.target as HTMLInputElement;
                       if (file) {
                         setVmfPhoto(file);
+                        setIsConvertingToPDF(true);
+                        
                         const reader = new FileReader();
-                        reader.onload = (readerEvent) => {
-                          setVmfPhotoPreview(readerEvent.target?.result as string);
+                        reader.onload = async (readerEvent) => {
+                          const imageData = readerEvent.target?.result as string;
+                          setVmfPhotoPreview(imageData);
+                          
+                          try {
+                            // Convert image to PDF automatically
+                            const pdfFilename = generateVMFPDFFilename(vmfNumber || 'TEMP');
+                            const pdfBlob = await createPDFFromImage(imageData, pdfFilename);
+                            const pdfFile = new File([pdfBlob], pdfFilename, {
+                              type: 'application/pdf',
+                              lastModified: Date.now()
+                            });
+                            
+                            setVmfPDF(pdfFile);
+                            
+                            toast({
+                              title: "Photo Converted",
+                              description: "VMF photo automatically converted to PDF format",
+                            });
+                          } catch (error) {
+                            console.error('PDF conversion failed:', error);
+                            toast({
+                              title: "Conversion Failed",
+                              description: "Failed to convert photo to PDF. Please try again.",
+                              variant: "destructive",
+                            });
+                          } finally {
+                            setIsConvertingToPDF(false);
+                          }
+                          
                           // Clear the input value to remove file from memory immediately
                           if (inputElement) {
                             inputElement.value = '';
@@ -269,13 +302,27 @@ export default function MerchantDashboard() {
                       hover:file:bg-primary/90
                       file:cursor-pointer cursor-pointer"
                   />
-                  {vmfPhotoPreview && (
+                  {isConvertingToPDF && (
+                    <div className="mt-2 text-center">
+                      <div className="inline-flex items-center space-x-2 text-blue-600 dark:text-blue-400">
+                        <i className="fas fa-spinner fa-spin"></i>
+                        <span className="text-sm">Converting to PDF...</span>
+                      </div>
+                    </div>
+                  )}
+                  {vmfPhotoPreview && !isConvertingToPDF && (
                     <div className="mt-2">
                       <img 
                         src={vmfPhotoPreview} 
                         alt="VMF Preview" 
                         className="w-24 h-24 object-cover rounded-lg border border-gray-200 dark:border-gray-700"
                       />
+                      {vmfPDF && (
+                        <div className="mt-2 flex items-center space-x-2 text-green-600 dark:text-green-400">
+                          <i className="fas fa-file-pdf text-sm"></i>
+                          <span className="text-xs">Converted to PDF</span>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -288,10 +335,10 @@ export default function MerchantDashboard() {
         <div className="grid grid-cols-2 gap-4 mb-6 mt-6">
           <Button
             onClick={() => {
-              if (!paymentAmount || !vmfNumber.trim() || !vmfPhoto) {
+              if (!paymentAmount || !vmfNumber.trim() || !vmfPDF) {
                 toast({
                   title: "Missing Information",
-                  description: "Please enter amount, VMF number, and upload VMF photo before generating QR code",
+                  description: "Please enter amount, VMF number, and upload VMF photo (PDF conversion required) before generating QR code",
                   variant: "destructive",
                 });
                 return;
