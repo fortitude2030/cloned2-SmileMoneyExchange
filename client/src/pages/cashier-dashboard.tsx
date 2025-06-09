@@ -200,14 +200,15 @@ export default function CashierDashboard() {
   const rtpTransactions = pendingTransactions.filter(t => t.type !== 'qr_code_payment');
   const activeTransaction = rtpTransactions.length > 0 ? rtpTransactions[0] : null;
 
-  // Set the first QR transaction as active when available
+  // Set the first QR transaction as active when available (only new pending ones)
   useEffect(() => {
-    if (qrTransactions.length > 0 && !activeQrTransaction) {
-      setActiveQrTransaction(qrTransactions[0]);
+    const pendingQrTransactions = qrTransactions.filter(t => t.status === 'pending');
+    if (pendingQrTransactions.length > 0 && !activeQrTransaction) {
+      setActiveQrTransaction(pendingQrTransactions[0]);
       setQrProcessingStep(1);
       setQrAmount("");
       setQrVmfNumber("");
-    } else if (qrTransactions.length === 0) {
+    } else if (pendingQrTransactions.length === 0) {
       setActiveQrTransaction(null);
       setQrProcessingStep(1);
       setQrAmount("");
