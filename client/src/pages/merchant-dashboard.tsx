@@ -116,7 +116,7 @@ export default function MerchantDashboard() {
       
       queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       if (isUnauthorizedError(error)) {
         toast({
           title: "Unauthorized",
@@ -128,6 +128,17 @@ export default function MerchantDashboard() {
         }, 500);
         return;
       }
+      
+      // Handle pending transaction restriction
+      if (error?.response?.data?.code === 'PENDING_TRANSACTION_EXISTS') {
+        toast({
+          title: "Transaction Already Pending",
+          description: "You already have a pending transaction. Please wait for it to be completed before creating a new one.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       toast({
         title: "Error",
         description: "Failed to create payment request",
