@@ -85,11 +85,11 @@ export default function WalletLimitsDisplay({ wallet, userRole }: WalletLimitsDi
               <span className="text-gray-600 dark:text-gray-400">
                 {isMerchant ? 'Used up Daily Limit' : 'Transferred today'}
               </span>
-              <span className="font-medium text-black dark:text-white">
+              <span className="font-medium text-red-600">
                 {isMerchant ? '-' : '-'}{formatCurrency(dailyUsed.toString())}
               </span>
             </div>
-            <Progress value={dailyPercentage} className="h-2" />
+            <Progress value={dailyPercentage} className="h-2 [&>div]:bg-red-600" />
             <div className="flex justify-between text-sm">
               <span className="text-gray-600 dark:text-gray-400">
                 {isMerchant ? 'Remaining Limit Today' : 'Remaining'}
