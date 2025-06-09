@@ -27,6 +27,7 @@ export default function MerchantDashboard() {
   const [requestCooldown, setRequestCooldown] = useState(0);
   const [isRequestDisabled, setIsRequestDisabled] = useState(false);
   const [showRequestCooldown, setShowRequestCooldown] = useState(false);
+  const [lastProcessedTransactionId, setLastProcessedTransactionId] = useState<string | null>(null);
 
   // Timer effect for request cooldown
   useEffect(() => {
@@ -47,6 +48,8 @@ export default function MerchantDashboard() {
       if (interval) clearInterval(interval);
     };
   }, [requestCooldown]);
+
+
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -107,9 +110,9 @@ export default function MerchantDashboard() {
       });
     },
     onSuccess: (data, variables) => {
-      // Start 60-second cooldown with modal
+      // Start 120-second cooldown with modal
       setIsRequestDisabled(true);
-      setRequestCooldown(60);
+      setRequestCooldown(120);
       setShowRequestCooldown(true);
       
       // Show animated pending notification
