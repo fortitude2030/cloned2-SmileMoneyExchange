@@ -660,8 +660,8 @@ export default function CashierDashboard() {
           </Card>
         )}
 
-        {/* Pending Payment Requests - Only show when there are pending transactions */}
-        {activeTransaction && (
+        {/* RTP Pending Payment Requests - Remove this card since we auto-approve RTP transactions */}
+        {false && activeTransaction && (
           <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
           <CardContent className="p-4">
             <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">

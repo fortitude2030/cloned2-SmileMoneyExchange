@@ -180,8 +180,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/transactions', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      // Set expiration time for merchant payment requests (60 seconds from creation)
-      const expiresAt = (req.body.status === 'pending' && req.body.type === 'cash_digitization') 
+      
+      // Auto-approve RTP transactions (cash_digitization) - no pending status
+      let finalStatus = req.body.status;
+      if (req.body.type === 'cash_digitization' && req.body.status === 'pending') {
+        finalStatus = 'completed';
+      }
+      
+      // Set expiration time only for QR transactions that remain pending
+      const expiresAt = (req.body.status === 'pending' && req.body.type === 'qr_code_payment') 
         ? new Date(Date.now() + 60 * 1000) 
         : null;
       
@@ -190,6 +197,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const transactionData = insertTransactionSchema.parse({
         ...req.body,
+        status: finalStatus,
         amount: roundedAmount.toString(),
         fromUserId: req.body.fromUserId || userId,
         expiresAt,
