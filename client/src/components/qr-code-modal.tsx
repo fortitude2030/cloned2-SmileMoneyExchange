@@ -3,7 +3,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { generateQRCode } from "@/lib/qr-utils";
-import { useWebSocket } from "@/hooks/useWebSocket";
 
 interface QRCodeModalProps {
   isOpen: boolean;
@@ -17,7 +16,6 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
   const [uniqueId] = useState(() => `QR${Date.now()}${Math.random().toString(36).substr(2, 9)}`);
   const [timeLeft, setTimeLeft] = useState(60);
   const [isExpired, setIsExpired] = useState(false);
-  const { sendMessage } = useWebSocket();
 
   // Auto-generate QR code when modal opens
   useEffect(() => {
@@ -36,8 +34,6 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
       setTimeLeft(prev => {
         if (prev <= 1) {
           setIsExpired(true);
-          // Broadcast QR code expiration to all connected clients
-          sendMessage('qr_code_expired', { uniqueId, timestamp: Date.now() });
           return 0;
         }
         return prev - 1;
