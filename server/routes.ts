@@ -281,7 +281,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/transactions/:id/status', isAuthenticated, async (req: any, res) => {
     try {
       const transactionId = parseInt(req.params.id);
-      const { status } = req.body;
+      const { status, rejectionReason, verifiedAmount, verifiedVmfNumber } = req.body;
       
       if (!['pending', 'approved', 'completed', 'rejected'].includes(status)) {
         return res.status(400).json({ message: "Invalid status" });
@@ -292,7 +292,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Transaction not found" });
       }
 
-      await storage.updateTransactionStatus(transactionId, status);
+      // Update transaction status with rejection reason if provided
+      await storage.updateTransactionStatus(transactionId, status, rejectionReason);
       
       // If approved, update wallet balances
       if (status === 'completed' && transaction.toUserId) {

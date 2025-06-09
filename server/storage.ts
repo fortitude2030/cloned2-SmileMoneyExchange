@@ -51,7 +51,7 @@ export interface IStorage {
   createTransaction(transaction: InsertTransaction): Promise<Transaction>;
   getTransactionsByUserId(userId: string): Promise<Transaction[]>;
   getTransactionById(id: number): Promise<Transaction | undefined>;
-  updateTransactionStatus(id: number, status: string): Promise<void>;
+  updateTransactionStatus(id: number, status: string, rejectionReason?: string): Promise<void>;
   getPendingTransactionsByReceiver(userId: string): Promise<Transaction[]>;
   getAllPendingTransactions(): Promise<Transaction[]>;
   markExpiredTransactions(): Promise<void>;
@@ -397,10 +397,19 @@ export class DatabaseStorage implements IStorage {
     return transaction;
   }
 
-  async updateTransactionStatus(id: number, status: string): Promise<void> {
+  async updateTransactionStatus(id: number, status: string, rejectionReason?: string): Promise<void> {
+    const updateData: any = { 
+      status, 
+      updatedAt: new Date() 
+    };
+    
+    if (rejectionReason) {
+      updateData.rejectionReason = rejectionReason;
+    }
+    
     await db
       .update(transactions)
-      .set({ status, updatedAt: new Date() })
+      .set(updateData)
       .where(eq(transactions.id, id));
   }
 

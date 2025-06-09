@@ -59,17 +59,38 @@ export default function CashierDashboard() {
     enabled: isAuthenticated,
   });
 
-  // Approve transaction mutation
+  // Approve transaction mutation with dual authentication
   const approveTransaction = useMutation({
-    mutationFn: async (transactionId: number) => {
-      await apiRequest("PATCH", `/api/transactions/${transactionId}/status`, {
-        status: "completed"
+    mutationFn: async (data: { 
+      transactionId: number; 
+      cashierAmount: string; 
+      cashierVmfNumber: string;
+      originalAmount: string;
+      originalVmfNumber: string;
+    }) => {
+      // Validate amounts match exactly
+      const cashierAmountNum = parseFloat(data.cashierAmount);
+      const originalAmountNum = parseFloat(data.originalAmount);
+      
+      if (Math.abs(cashierAmountNum - originalAmountNum) > 0.01) {
+        throw new Error("AMOUNT_MISMATCH");
+      }
+      
+      // Validate VMF numbers match exactly (case-insensitive)
+      if (data.cashierVmfNumber.toUpperCase() !== data.originalVmfNumber.toUpperCase()) {
+        throw new Error("VMF_MISMATCH");
+      }
+      
+      await apiRequest("PATCH", `/api/transactions/${data.transactionId}/status`, {
+        status: "completed",
+        verifiedAmount: data.cashierAmount,
+        verifiedVmfNumber: data.cashierVmfNumber
       });
     },
     onSuccess: () => {
       toast({
         title: "Success",
-        description: "Transfer approved successfully",
+        description: "Transfer approved - dual authentication passed",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/transactions/pending"] });
     },
@@ -85,25 +106,42 @@ export default function CashierDashboard() {
         }, 500);
         return;
       }
-      toast({
-        title: "Error",
-        description: "Failed to approve transfer",
-        variant: "destructive",
-      });
+      
+      const errorMessage = error.message;
+      if (errorMessage === "AMOUNT_MISMATCH") {
+        toast({
+          title: "Amount Mismatch",
+          description: "The cash amount doesn't match the merchant request",
+          variant: "destructive",
+        });
+      } else if (errorMessage === "VMF_MISMATCH") {
+        toast({
+          title: "VMF Number Mismatch", 
+          description: "The VMF number doesn't match the merchant request",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to approve transfer",
+          variant: "destructive",
+        });
+      }
     },
   });
 
-  // Reject transaction mutation
+  // Reject transaction mutation with reason
   const rejectTransaction = useMutation({
-    mutationFn: async (transactionId: number) => {
-      await apiRequest("PATCH", `/api/transactions/${transactionId}/status`, {
-        status: "rejected"
+    mutationFn: async (data: { transactionId: number; reason: string }) => {
+      await apiRequest("PATCH", `/api/transactions/${data.transactionId}/status`, {
+        status: "rejected",
+        rejectionReason: data.reason
       });
     },
     onSuccess: () => {
       toast({
-        title: "Success",
-        description: "Transfer rejected",
+        title: "Transaction Rejected",
+        description: "Transfer has been rejected with reason",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/transactions/pending"] });
     },
@@ -126,6 +164,49 @@ export default function CashierDashboard() {
       });
     },
   });
+
+  // Handle dual authentication verification
+  const handleApproveTransaction = (transaction: any) => {
+    // Check if cashier has completed the 3-step process
+    if (cashCountingStep < 4 || !cashAmount || !vmfNumber) {
+      toast({
+        title: "Incomplete Process",
+        description: "Please complete the 3-step cash counting process first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate amounts match exactly
+    const cashierAmountNum = parseFloat(cashAmount);
+    const originalAmountNum = parseFloat(transaction.amount);
+    
+    if (Math.abs(cashierAmountNum - originalAmountNum) > 0.01) {
+      rejectTransaction.mutate({
+        transactionId: transaction.id,
+        reason: "mismatched amount"
+      });
+      return;
+    }
+    
+    // Validate VMF numbers match exactly (case-insensitive)
+    if (vmfNumber.toUpperCase() !== (transaction.vmfNumber || "").toUpperCase()) {
+      rejectTransaction.mutate({
+        transactionId: transaction.id,
+        reason: "mismatched vmf number"
+      });
+      return;
+    }
+
+    // If both validations pass, approve the transaction
+    approveTransaction.mutate({
+      transactionId: transaction.id,
+      cashierAmount: cashAmount,
+      cashierVmfNumber: vmfNumber,
+      originalAmount: transaction.amount,
+      originalVmfNumber: transaction.vmfNumber || ""
+    });
+  };
 
   const formatCurrency = (amount: string | number) => {
     return `ZMW ${Math.round(parseFloat(amount.toString())).toLocaleString()}`;
@@ -333,18 +414,23 @@ export default function CashierDashboard() {
                     
                     <div className="flex space-x-3">
                       <Button 
-                        onClick={() => approveTransaction.mutate(transaction.id)}
-                        disabled={approveTransaction.isPending}
+                        onClick={() => handleApproveTransaction(transaction)}
+                        disabled={approveTransaction.isPending || rejectTransaction.isPending}
                         className="flex-1 bg-success hover:bg-success/90 text-white py-2 rounded-lg font-medium"
                       >
-                        <i className="fas fa-check mr-2"></i>Approve Transfer
+                        <i className="fas fa-check mr-2"></i>
+                        {approveTransaction.isPending ? "Verifying..." : "Approve Transfer"}
                       </Button>
                       <Button 
-                        onClick={() => rejectTransaction.mutate(transaction.id)}
-                        disabled={rejectTransaction.isPending}
+                        onClick={() => rejectTransaction.mutate({
+                          transactionId: transaction.id,
+                          reason: "manual rejection"
+                        })}
+                        disabled={rejectTransaction.isPending || approveTransaction.isPending}
                         className="flex-1 bg-destructive hover:bg-destructive/90 text-white py-2 rounded-lg font-medium"
                       >
-                        <i className="fas fa-times mr-2"></i>Reject
+                        <i className="fas fa-times mr-2"></i>
+                        {rejectTransaction.isPending ? "Rejecting..." : "Reject"}
                       </Button>
                     </div>
                   </div>
