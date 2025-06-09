@@ -213,6 +213,7 @@ export const insertBranchSchema = createInsertSchema(branches).omit({
 
 export const insertTransactionSchema = createInsertSchema(transactions).omit({
   id: true,
+  transactionId: true,
   createdAt: true,
   updatedAt: true,
 });
