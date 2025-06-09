@@ -30,10 +30,14 @@ export default function WalletLimitsDisplay({ wallet, userRole }: WalletLimitsDi
   const isCashier = userRole === 'cashier';
   
   const dailyLimit = isMerchant ? 1000000 : 2000000; // Merchants: 1M collection limit, Cashiers: 2M transfer limit
-  const dailyUsed = isMerchant 
-    ? Math.round(parseFloat(wallet.dailyCollected || '0')) 
-    : Math.round(parseFloat(wallet.dailyTransferred || '0'));
   const walletBalance = Math.round(parseFloat(wallet.balance || '0'));
+  
+  // For merchants: dailyUsed = wallet balance (today's collections)
+  // For cashiers: dailyUsed = daily transferred amount
+  const dailyUsed = isMerchant 
+    ? walletBalance // Use wallet balance as it represents today's collections for merchants
+    : Math.round(parseFloat(wallet.dailyTransferred || '0'));
+  
   const dailyRemaining = Math.max(dailyLimit - dailyUsed, 0);
   const dailyPercentage = Math.min((dailyUsed / dailyLimit) * 100, 100);
 
