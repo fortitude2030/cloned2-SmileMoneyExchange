@@ -126,14 +126,7 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
             </div>
           )}
           
-          <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 border border-green-200 dark:border-green-700">
-            <div className="text-center">
-              <p className="text-green-700 dark:text-green-400 font-medium mb-1">QR Code ID</p>
-              <p className="text-sm text-green-600 dark:text-green-400 font-mono">
-                {uniqueId}
-              </p>
-            </div>
-          </div>
+
           
           {!isExpired ? (
             <p className="text-gray-600 dark:text-gray-400 text-sm">
