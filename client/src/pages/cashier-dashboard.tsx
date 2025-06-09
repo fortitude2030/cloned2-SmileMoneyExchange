@@ -928,21 +928,53 @@ export default function CashierDashboard() {
                     if (Math.abs(cashierAmountNum - originalAmountNum) > 0.01) {
                       // Immediate transaction failure due to amount mismatch
                       showFailureNotification();
+                      
                       if (activeTransaction) {
                         rejectTransaction.mutate({
                           transactionId: activeTransaction.id,
                           reason: "mismatched amount"
+                        }, {
+                          onSuccess: () => {
+                            // Invalidate queries to refresh transaction lists
+                            queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
+                            queryClient.invalidateQueries({ queryKey: ['/api/transactions/pending'] });
+                            // Reset all RTP transaction states
+                            setCashCountingStep(1);
+                            setActiveSession({
+                              merchant: "Tech Store Plus",
+                              location: "Westlands Branch, Nairobi",
+                              amount: "0"
+                            });
+                          }
                         });
-                        setCashCountingStep(1);
                       } else if (activeQrTransaction) {
                         rejectTransaction.mutate({
                           transactionId: activeQrTransaction.id,
                           reason: "mismatched amount"
+                        }, {
+                          onSuccess: () => {
+                            // Invalidate queries to refresh transaction lists
+                            queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
+                            queryClient.invalidateQueries({ queryKey: ['/api/transactions/qr-verification'] });
+                            // Reset all QR transaction states
+                            setQrProcessingStep(1);
+                            setQrAmount("");
+                            setQrVmfNumber("");
+                            setActiveQrTransaction(null);
+                          }
                         });
-                        setQrProcessingStep(1);
                       }
+                      
+                      // Clear modal and amount
                       setShowAmountModal(false);
                       setCashAmount("");
+                      
+                      toast({
+                        title: "Amount Mismatch",
+                        description: `Expected ${formatCurrency(targetTransaction.amount)}, got ${formatCurrency(cashAmount)}. Transaction rejected.`,
+                        variant: "destructive",
+                      });
+                      
                       return;
                     }
                   }
