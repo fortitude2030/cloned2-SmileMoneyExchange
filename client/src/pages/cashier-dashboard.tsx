@@ -19,6 +19,69 @@ export default function CashierDashboard() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
   const { showSuccessNotification, showFailureNotification } = useTransactionNotifications();
+
+  // Utility functions for formatting
+  const formatCurrency = (amount: string) => {
+    const num = parseFloat(amount);
+    return `ZMW ${num.toFixed(2)}`;
+  };
+
+  const formatDateTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffHours = diffMs / (1000 * 60 * 60);
+    
+    if (diffHours < 24) {
+      return {
+        date: "Today",
+        time: date.toLocaleTimeString('en-US', { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: true 
+        })
+      };
+    } else if (diffHours < 48) {
+      return {
+        date: "Yesterday",
+        time: date.toLocaleTimeString('en-US', { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: true 
+        })
+      };
+    } else {
+      return {
+        date: date.toLocaleDateString('en-US', { 
+          month: 'short', 
+          day: 'numeric'
+        }),
+        time: date.toLocaleTimeString('en-US', { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: true 
+        })
+      };
+    }
+  };
+
+  const getStatusBadge = (status: string, rejectionReason?: string) => {
+    const statusColors = {
+      completed: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
+      pending: "bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200",
+      rejected: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200"
+    };
+    
+    const displayText = status === 'rejected' && rejectionReason 
+      ? rejectionReason 
+      : status.charAt(0).toUpperCase() + status.slice(1);
+    
+    return (
+      <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[status as keyof typeof statusColors] || 'bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200'}`}>
+        {displayText}
+      </span>
+    );
+  };
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showAmountModal, setShowAmountModal] = useState(false);
   const [showVMFModal, setShowVMFModal] = useState(false);
@@ -33,6 +96,7 @@ export default function CashierDashboard() {
   });
   const [requestCooldown, setRequestCooldown] = useState(0); // Start with no timer
   const [processedTransactionIds, setProcessedTransactionIds] = useState<Set<string>>(new Set());
+  const [showAllTransactions, setShowAllTransactions] = useState(false);
 
   // Timer effect for request cooldown - only runs when cooldown > 0
   useEffect(() => {
@@ -84,6 +148,23 @@ export default function CashierDashboard() {
     enabled: isAuthenticated,
     refetchInterval: 1000, // Poll every second for real-time updates
     refetchIntervalInBackground: true,
+  });
+
+  // Fetch all transactions for Recent Transactions section
+  const { data: transactions = [], isLoading: allTransactionsLoading } = useQuery<Array<{
+    id: number;
+    transactionId: string;
+    amount: string;
+    status: string;
+    vmfNumber?: string;
+    createdAt: string;
+    description?: string;
+    rejectionReason?: string;
+  }>>({
+    queryKey: ["/api/transactions"],
+    retry: false,
+    enabled: isAuthenticated,
+    refetchInterval: 5000, // Poll every 5 seconds for history updates
   });
 
   // Get the active transaction for validation
@@ -270,9 +351,7 @@ export default function CashierDashboard() {
     });
   };
 
-  const formatCurrency = (amount: string | number) => {
-    return `ZMW ${Math.round(parseFloat(amount.toString())).toLocaleString()}`;
-  };
+
 
   if (isLoading) {
     return (
@@ -512,6 +591,96 @@ export default function CashierDashboard() {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+        {/* Recent Transactions */}
+        <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-gray-800 dark:text-gray-200">Recent Transactions</h3>
+              <Button 
+                variant="ghost" 
+                className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                onClick={() => setShowAllTransactions(!showAllTransactions)}
+              >
+                {showAllTransactions ? 'Show Last 5' : 'Show Last 30'}
+              </Button>
+            </div>
+            
+            {allTransactionsLoading ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg animate-pulse">
+                    <div className="flex items-center">
+                      <div className="w-10 h-10 bg-gray-300 dark:bg-gray-700 rounded-lg mr-3"></div>
+                      <div>
+                        <div className="w-24 h-4 bg-gray-300 dark:bg-gray-700 rounded mb-1"></div>
+                        <div className="w-16 h-3 bg-gray-300 dark:bg-gray-700 rounded"></div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="w-20 h-4 bg-gray-300 dark:bg-gray-700 rounded mb-1"></div>
+                      <div className="w-16 h-3 bg-gray-300 dark:bg-gray-700 rounded"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : !Array.isArray(transactions) || transactions.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <i className="fas fa-history text-gray-400 text-xl"></i>
+                </div>
+                <p className="text-gray-600 dark:text-gray-400">No transactions yet</p>
+                <p className="text-gray-500 dark:text-gray-500 text-sm">Your transactions will appear here</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {(showAllTransactions ? (Array.isArray(transactions) ? transactions.slice(0, 30) : []) : (Array.isArray(transactions) ? transactions.slice(0, 5) : [])).map((transaction: any) => {
+                  const dateTime = formatDateTime(transaction.createdAt);
+                  return (
+                    <div key={transaction.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div className="flex items-center">
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center mr-3 ${
+                          transaction.status === 'completed' ? 'bg-green-200 dark:bg-green-800' :
+                          transaction.status === 'pending' ? 'bg-orange-200 dark:bg-orange-800' :
+                          transaction.status === 'rejected' ? 'bg-red-200 dark:bg-red-800' :
+                          'bg-gray-200 dark:bg-gray-700'
+                        }`}>
+                          <i className={`fas ${
+                            transaction.status === 'completed' ? 'fa-check text-green-500' :
+                            transaction.status === 'pending' ? 'fa-clock text-orange-500' :
+                            transaction.status === 'rejected' ? 'fa-times text-red-500' :
+                            'fa-times text-gray-400'
+                          }`}></i>
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-800 dark:text-gray-200 text-sm">
+                            {transaction.description || 'Cash Verification'}
+                          </p>
+                          <p className="text-gray-600 dark:text-gray-400 text-xs">
+                            {dateTime.date} at {dateTime.time}
+                          </p>
+                          <p className="text-gray-500 dark:text-gray-400 text-xs">
+                            ID: {transaction.transactionId}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className={`font-semibold text-sm ${
+                          transaction.status === 'completed' ? 'text-green-600' :
+                          transaction.status === 'pending' ? 'text-orange-600' :
+                          transaction.status === 'rejected' ? 'text-red-600' :
+                          'text-gray-600 dark:text-gray-400'
+                        }`}>
+                          {formatCurrency(transaction.amount)}
+                        </p>
+                        {getStatusBadge(transaction.status, transaction.rejectionReason)}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </CardContent>
