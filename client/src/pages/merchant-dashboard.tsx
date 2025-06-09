@@ -27,7 +27,7 @@ export default function MerchantDashboard() {
   const [requestCooldown, setRequestCooldown] = useState(0);
   const [isRequestDisabled, setIsRequestDisabled] = useState(false);
   const [showRequestCooldown, setShowRequestCooldown] = useState(false);
-  const [lastProcessedTransactionId, setLastProcessedTransactionId] = useState<string | null>(null);
+
 
   // Timer effect for request cooldown
   useEffect(() => {
@@ -152,16 +152,17 @@ export default function MerchantDashboard() {
     if (transactions && transactions.length > 0) {
       // Check all recent transactions (last 3) for any new rejections
       const recentTransactions = transactions.slice(0, 3);
-      const newlyRejectedTransaction = recentTransactions.find(tx => 
+      const newlyRejectedTransactions = recentTransactions.filter(tx => 
         tx.status === 'rejected' && 
-        tx.transactionId !== lastProcessedTransactionId
+        !processedTransactionIds.has(tx.transactionId)
       );
       
-      if (newlyRejectedTransaction) {
+      if (newlyRejectedTransactions.length > 0) {
+        const newlyRejectedTransaction = newlyRejectedTransactions[0];
         console.log('Detected failed transaction, resetting merchant screen:', newlyRejectedTransaction.transactionId);
         
         // Mark this transaction as processed to avoid repeated resets
-        setLastProcessedTransactionId(newlyRejectedTransaction.transactionId);
+        setProcessedTransactionIds(prev => new Set([...prev, newlyRejectedTransaction.transactionId]));
         
         // Immediately reset merchant screen
         setIsRequestDisabled(false);
@@ -179,7 +180,7 @@ export default function MerchantDashboard() {
         );
       }
     }
-  }, [transactions, lastProcessedTransactionId, showFailureNotification]);
+  }, [transactions]); // Only depend on transactions
 
   const handleRequestPayment = () => {
     if (!vmfNumber.trim()) {
