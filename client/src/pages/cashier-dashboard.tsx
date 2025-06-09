@@ -224,7 +224,7 @@ export default function CashierDashboard() {
       
       // Only start timer for truly new transactions that haven't been processed
       if (!processedTransactionIds.has(transactionId) && requestCooldown === 0) {
-        setRequestCooldown(120);
+        setRequestCooldown(30);
         setProcessedTransactionIds(prev => new Set(prev).add(transactionId));
       }
     } else if (!activeTransaction && requestCooldown > 0) {
@@ -441,8 +441,8 @@ export default function CashierDashboard() {
           <div className="flex justify-center mb-4">
             <div className={`
               w-24 h-24 rounded-full flex items-center justify-center transition-colors duration-1000 ease-in-out
-              ${requestCooldown > 100 ? 'bg-green-500' : 
-                requestCooldown > 60 ? 'bg-amber-500' : 'bg-red-500'}
+              ${requestCooldown > 20 ? 'bg-green-500' : 
+                requestCooldown > 10 ? 'bg-amber-500' : 'bg-red-500'}
             `}>
               <div className="text-2xl font-bold text-white">
                 {requestCooldown.toString().padStart(2, '0')}
