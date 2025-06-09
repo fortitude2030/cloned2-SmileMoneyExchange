@@ -58,7 +58,7 @@ export default function WalletLimitsDisplay({ wallet, userRole }: WalletLimitsDi
               {formatCurrency(walletBalance.toString())}
             </div>
             <div className="text-xs text-black/70 dark:text-white/70">
-              {isMerchant ? "Today's collections" : "Available balance"}
+              {isMerchant ? "Total digital money received today" : "Available balance"}
             </div>
           </div>
         </CardContent>
@@ -79,7 +79,7 @@ export default function WalletLimitsDisplay({ wallet, userRole }: WalletLimitsDi
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-gray-600 dark:text-gray-400">
-                {isMerchant ? 'Collected today' : 'Transferred today'}
+                {isMerchant ? 'All digital money received' : 'Transferred today'}
               </span>
               <span className="font-medium">
                 {isMerchant ? '+' : '-'}{formatCurrency(dailyUsed.toString())}

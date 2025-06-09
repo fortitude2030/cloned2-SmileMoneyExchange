@@ -275,9 +275,9 @@ export default function MerchantDashboard() {
               }
               
               const amount = Math.round(parseFloat(paymentAmount));
-              const dailySpent = Math.round(parseFloat(wallet?.dailySpent || "0"));
+              const dailyCollected = Math.round(parseFloat(wallet?.dailyCollected || "0"));
               const dailyLimit = 1000000;
-              const remainingLimit = dailyLimit - dailySpent;
+              const remainingLimit = dailyLimit - dailyCollected;
 
               if (amount > remainingLimit) {
                 toast({
