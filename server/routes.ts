@@ -253,7 +253,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/transactions', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const transactions = await storage.getTransactionsByUserId(userId);
+      const user = await storage.getUser(userId);
+      
+      // For cashiers, get transactions where they are involved (either sender or receiver)
+      // For merchants, get only their own transactions
+      let transactions;
+      if (user?.role === 'cashier') {
+        // Get all transactions where cashier is fromUserId or toUserId
+        transactions = await storage.getTransactionsByUserId(userId);
+      } else {
+        transactions = await storage.getTransactionsByUserId(userId);
+      }
+      
       res.json(transactions);
     } catch (error) {
       console.error("Error fetching transactions:", error);
@@ -286,6 +297,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const transactionId = parseInt(req.params.id);
       const { status, rejectionReason, verifiedAmount, verifiedVmfNumber } = req.body;
+      const cashierId = req.user.claims.sub;
       
       if (!['pending', 'approved', 'completed', 'rejected'].includes(status)) {
         return res.status(400).json({ message: "Invalid status" });
@@ -294,6 +306,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const transaction = await storage.getTransactionById(transactionId);
       if (!transaction) {
         return res.status(404).json({ message: "Transaction not found" });
+      }
+
+      // For QR code transactions, set the cashier as the processor
+      if (transaction.type === 'qr_code_payment' && status === 'completed') {
+        await storage.updateTransactionProcessor(transactionId, cashierId);
       }
 
       // Update transaction status with rejection reason if provided

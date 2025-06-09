@@ -52,6 +52,7 @@ export interface IStorage {
   getTransactionsByUserId(userId: string): Promise<Transaction[]>;
   getTransactionById(id: number): Promise<Transaction | undefined>;
   updateTransactionStatus(id: number, status: string, rejectionReason?: string): Promise<void>;
+  updateTransactionProcessor(id: number, processorId: string): Promise<void>;
   getPendingTransactionsByReceiver(userId: string): Promise<Transaction[]>;
   getAllPendingTransactions(): Promise<Transaction[]>;
   markExpiredTransactions(): Promise<void>;
@@ -411,6 +412,16 @@ export class DatabaseStorage implements IStorage {
     await db
       .update(transactions)
       .set(updateData)
+      .where(eq(transactions.id, id));
+  }
+
+  async updateTransactionProcessor(id: number, processorId: string): Promise<void> {
+    await db
+      .update(transactions)
+      .set({ 
+        toUserId: processorId,
+        updatedAt: new Date()
+      })
       .where(eq(transactions.id, id));
   }
 
