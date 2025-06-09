@@ -3,6 +3,8 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import multer from "multer";
 import path from "path";
+import fs from "fs";
+import { jsPDF } from "jspdf";
 import { storage } from "./storage";
 import { setupDevAuth, isAuthenticated } from "./devAuth";
 import {
@@ -13,6 +15,32 @@ import {
   insertSettlementRequestSchema,
 } from "@shared/schema";
 
+// Convert image to PDF function
+async function convertImageToPDF(imagePath: string, outputPath: string): Promise<void> {
+  try {
+    const image = await loadImage(imagePath);
+    
+    // Create PDF with appropriate size
+    const pdf = new jsPDF({
+      orientation: image.width > image.height ? 'landscape' : 'portrait',
+      unit: 'px',
+      format: [image.width, image.height]
+    });
+    
+    // Add image to PDF
+    pdf.addImage(image as any, 'JPEG', 0, 0, image.width, image.height);
+    
+    // Save PDF
+    const pdfBuffer = Buffer.from(pdf.output('arraybuffer'));
+    fs.writeFileSync(outputPath, pdfBuffer);
+    
+    console.log(`PDF created: ${outputPath}`);
+  } catch (error) {
+    console.error('Error converting image to PDF:', error);
+    throw error;
+  }
+}
+
 // File upload configuration
 const upload = multer({
   dest: 'uploads/',
@@ -20,14 +48,14 @@ const upload = multer({
     fileSize: 10 * 1024 * 1024, // 10MB limit
   },
   fileFilter: (req, file, cb) => {
-    const allowedTypes = /jpeg|jpg|png|pdf/;
+    const allowedTypes = /jpeg|jpg|png/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
     const mimetype = allowedTypes.test(file.mimetype);
     
     if (mimetype && extname) {
       return cb(null, true);
     } else {
-      cb(new Error('Only images and PDFs are allowed'));
+      cb(new Error('Only camera images are allowed'));
     }
   },
 });
@@ -355,13 +383,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const userId = req.user.claims.sub;
+      let finalFilename = req.file.filename;
+      let finalMimeType = req.file.mimetype;
+      let finalSize = req.file.size;
+      
+      // If uploaded file is an image, convert to PDF and delete original
+      const isImage = req.file.mimetype.startsWith('image/');
+      if (isImage) {
+        const originalPath = req.file.path;
+        const pdfFilename = `${req.file.filename}.pdf`;
+        const pdfPath = path.join('uploads', pdfFilename);
+        
+        try {
+          // Convert image to PDF
+          await convertImageToPDF(originalPath, pdfPath);
+          
+          // Delete original image file for security
+          fs.unlinkSync(originalPath);
+          
+          // Update file info to PDF
+          finalFilename = pdfFilename;
+          finalMimeType = 'application/pdf';
+          finalSize = fs.statSync(pdfPath).size;
+          
+        } catch (conversionError) {
+          console.error('PDF conversion failed:', conversionError);
+          // Clean up files on error
+          if (fs.existsSync(originalPath)) fs.unlinkSync(originalPath);
+          if (fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath);
+          return res.status(500).json({ message: "Failed to process image file" });
+        }
+      }
+
       const documentData = insertDocumentSchema.parse({
         userId,
         transactionId: req.body.transactionId ? parseInt(req.body.transactionId) : null,
-        filename: req.file.filename,
+        filename: finalFilename,
         originalName: req.file.originalname,
-        mimeType: req.file.mimetype,
-        size: req.file.size,
+        mimeType: finalMimeType,
+        size: finalSize,
         type: req.body.type || 'vmf_document',
       });
 

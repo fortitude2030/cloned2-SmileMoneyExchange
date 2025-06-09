@@ -104,12 +104,12 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
   const handleFileSelect = (documentId: string, file: File | null) => {
     if (!file) return;
 
-    // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+    // Validate file type - only images allowed for security
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
     if (!allowedTypes.includes(file.type)) {
       toast({
         title: "Invalid File Type",
-        description: "Please select a JPEG, PNG, or PDF file.",
+        description: "Please capture a photo using your camera.",
         variant: "destructive",
       });
       return;
@@ -209,7 +209,7 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
                   </div>
                 ) : (
                   <div className="text-center">
-                    <i className="fas fa-file-pdf text-3xl text-gray-400 mb-2"></i>
+                    <i className="fas fa-file-image text-3xl text-gray-400 mb-2"></i>
                     <p className="text-gray-600 dark:text-gray-400 text-sm font-medium">{document.name}</p>
                     <p className="text-gray-500 dark:text-gray-500 text-xs mb-3">Take a real-time photo of the document</p>
                     
