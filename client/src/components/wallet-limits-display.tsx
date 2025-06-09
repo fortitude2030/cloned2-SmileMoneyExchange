@@ -5,11 +5,13 @@ interface WalletLimitsDisplayProps {
   wallet: {
     balance: string;
     dailyLimit: string;
-    dailySpent: string;
+    dailyCollected: string;
+    dailyTransferred: string;
     isActive: boolean;
     todayCompleted?: string;
     todayTotal?: string;
   };
+  userRole: string;
 }
 
 export default function WalletLimitsDisplay({ wallet }: WalletLimitsDisplayProps) {

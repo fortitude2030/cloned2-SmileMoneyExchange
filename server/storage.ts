@@ -43,7 +43,7 @@ export interface IStorage {
   getOrCreateWallet(userId: string): Promise<Wallet>;
   updateWalletBalance(userId: string, balance: string): Promise<void>;
   checkTransferLimits(userId: string, amount: number): Promise<{ allowed: boolean; reason?: string }>;
-  updateDailySpending(userId: string, amount: number): Promise<void>;
+  updateDailyTransactionAmounts(userId: string, amount: number, role: string): Promise<void>;
   checkAndResetDailySpending(wallet: Wallet): Promise<void>;
   getTodayTransactionTotals(userId: string): Promise<{ completed: string; total: string }>;
   
@@ -185,13 +185,24 @@ export class DatabaseStorage implements IStorage {
     const isNewDay = now.toDateString() !== lastReset.toDateString();
     
     if (isNewDay) {
-      // Only reset daily spending for merchants
       const user = await this.getUser(wallet.userId);
+      
+      // Reset daily amounts for all users at midnight
       if (user?.role === 'merchant') {
         await db
           .update(wallets)
           .set({
-            dailySpent: "0",
+            dailyCollected: "0",
+            balance: "0", // Merchant balance resets to 0 at midnight
+            lastResetDate: now,
+            updatedAt: now,
+          })
+          .where(eq(wallets.userId, wallet.userId));
+      } else if (user?.role === 'cashier') {
+        await db
+          .update(wallets)
+          .set({
+            dailyTransferred: "0",
             lastResetDate: now,
             updatedAt: now,
           })

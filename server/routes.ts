@@ -191,15 +191,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         expiresAt,
       });
       
-      // Check transfer limits for the sender
       const amount = parseFloat(transactionData.amount);
-      const limitCheck = await storage.checkTransferLimits(transactionData.fromUserId || userId, amount);
       
-      if (!limitCheck.allowed) {
-        return res.status(400).json({ 
-          message: "Transfer limit exceeded", 
-          reason: limitCheck.reason 
-        });
+      // For completed transactions, check transfer limits and update balances
+      if (transactionData.status === 'completed') {
+        const fromUser = await storage.getUser(transactionData.fromUserId || userId);
+        const toUser = await storage.getUser(transactionData.toUserId);
+        
+        // Check limits for cashier (sender)
+        if (fromUser?.role === 'cashier') {
+          const limitCheck = await storage.checkTransferLimits(fromUser.id, amount);
+          if (!limitCheck.allowed) {
+            return res.status(400).json({ 
+              message: "Transfer limit exceeded", 
+              reason: limitCheck.reason 
+            });
+          }
+        }
+        
+        // Check collection limits for merchant (receiver)
+        if (toUser?.role === 'merchant') {
+          const limitCheck = await storage.checkTransferLimits(toUser.id, amount);
+          if (!limitCheck.allowed) {
+            return res.status(400).json({ 
+              message: "Collection limit exceeded", 
+              reason: limitCheck.reason 
+            });
+          }
+        }
       }
       
       // Mark expired transactions before creating new ones
@@ -207,8 +226,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const transaction = await storage.createTransaction(transactionData);
       
-      // Update daily spending for the sender
-      await storage.updateDailySpending(transactionData.fromUserId || userId, amount);
+      // Update balances only for completed transactions
+      if (transactionData.status === 'completed') {
+        const fromUser = await storage.getUser(transactionData.fromUserId || userId);
+        const toUser = await storage.getUser(transactionData.toUserId);
+        
+        if (fromUser) {
+          await storage.updateDailyTransactionAmounts(fromUser.id, amount, fromUser.role);
+        }
+        if (toUser) {
+          await storage.updateDailyTransactionAmounts(toUser.id, amount, toUser.role);
+        }
+      }
       
       res.json(transaction);
     } catch (error) {
