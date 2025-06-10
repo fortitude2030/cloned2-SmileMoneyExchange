@@ -542,12 +542,18 @@ export default function CashierDashboard() {
       if (activeTransaction) {
         setTimedOutTransactionIds(prev => new Set(prev).add(activeTransaction.transactionId));
       }
+      if (activeQrTransaction) {
+        setTimedOutTransactionIds(prev => new Set(prev).add(activeQrTransaction.transactionId));
+      }
       
       // Remove rejected transaction from processed set
       setProcessedTransactionIds(prev => {
         const newSet = new Set(prev);
         if (activeTransaction) {
           newSet.delete(activeTransaction.transactionId);
+        }
+        if (activeQrTransaction) {
+          newSet.delete(activeQrTransaction.transactionId);
         }
         return newSet;
       });
@@ -557,6 +563,13 @@ export default function CashierDashboard() {
       setCashAmount("");
       setVmfNumber("");
       setActiveSession(prev => ({ ...prev, amount: "0" }));
+      
+      // Reset QR transaction state
+      setQrProcessingStep(1);
+      setQrAmount("");
+      setQrVmfNumber("");
+      setActiveQrTransaction(null);
+      setShowQRScanner(false);
       
       // Comprehensive query invalidation to refresh all transaction data
       queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });

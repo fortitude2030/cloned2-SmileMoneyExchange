@@ -18,15 +18,31 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
   
   // Use global timer system
   const { timeLeft, isActive, startTimer, markInteraction, stopTimer } = useTimer();
+  const [isQrExpired, setIsQrExpired] = useState(false);
   const isExpired = !isActive && timeLeft === 0;
 
   // Auto-generate QR code when modal opens (timer controlled by cashier dashboard)
   useEffect(() => {
     if (isOpen && amount && vmfNumber) {
       handleGenerateQR();
+      setIsQrExpired(false); // Reset expiration state when opening
       // Don't start timer here - it's controlled by the cashier dashboard
     }
   }, [isOpen, amount, vmfNumber]);
+
+  // Expire QR code immediately when timer expires (30s or 120s)
+  useEffect(() => {
+    if (!isActive && timeLeft === 0) {
+      setIsQrExpired(true);
+    }
+  }, [isActive, timeLeft]);
+
+  // Expire QR code immediately when modal is closed
+  useEffect(() => {
+    if (!isOpen) {
+      setIsQrExpired(true);
+    }
+  }, [isOpen]);
 
   const handleGenerateQR = async () => {
     try {
@@ -98,7 +114,7 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
                 <p className="text-gray-600 dark:text-gray-400 text-sm">Generating QR Code...</p>
               </div>
             </div>
-          ) : isExpired ? (
+          ) : (isExpired || isQrExpired) ? (
             <div className="w-48 h-48 mx-auto bg-red-50 dark:bg-red-900/20 rounded-xl flex items-center justify-center border border-red-200 dark:border-red-700">
               <div className="text-center">
                 <i className="fas fa-times-circle text-6xl text-red-500 mb-3"></i>
@@ -118,7 +134,7 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
           
 
           
-          {!isExpired ? (
+          {!(isExpired || isQrExpired) ? (
             <p className="text-gray-600 dark:text-gray-400 text-sm">
               Show this QR code to the security cashier to complete the transaction
             </p>
@@ -129,9 +145,10 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
           )}
           
           <div className="flex gap-2">
-            {isExpired && (
+            {(isExpired || isQrExpired) && (
               <Button 
                 onClick={() => {
+                  setIsQrExpired(false);
                   startTimer();
                   markInteraction();
                   handleGenerateQR();
@@ -143,9 +160,12 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
               </Button>
             )}
             <Button 
-              onClick={onClose} 
-              className={`${isExpired ? 'flex-1' : 'w-full'} ${
-                isExpired 
+              onClick={() => {
+                setIsQrExpired(true); // Expire QR immediately when closing
+                onClose();
+              }} 
+              className={`${(isExpired || isQrExpired) ? 'flex-1' : 'w-full'} ${
+                (isExpired || isQrExpired) 
                   ? 'bg-gray-600 hover:bg-gray-700' 
                   : 'bg-green-600 hover:bg-green-700'
               } text-white`}

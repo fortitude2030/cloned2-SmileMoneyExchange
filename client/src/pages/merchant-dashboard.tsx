@@ -470,6 +470,7 @@ export default function MerchantDashboard() {
         isOpen={showQRModal}
         onClose={() => {
           setShowQRModal(false);
+          setLastQrTransactionId(null); // Clear tracking when modal closes
           // Create transaction request when QR modal closes
           if (paymentAmount && vmfNumber) {
             createPaymentRequest.mutate({ 
