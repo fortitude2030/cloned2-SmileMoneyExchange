@@ -276,14 +276,14 @@ export class DatabaseStorage implements IStorage {
     // This includes: QR code payments, RTP (Request to Pay), direct transfers, settlements, etc.
     if (role === 'merchant') {
       const wallet = await this.getOrCreateWallet(userId);
-      const currentDailyCollected = Math.round(parseFloat(wallet.dailyCollected || '0'));
-      const newDailyCollected = currentDailyCollected + Math.round(amount);
+      const currentDailyCollected = parseFloat(wallet.dailyCollected || '0');
+      const newDailyCollected = currentDailyCollected + amount;
 
       await db
         .update(wallets)
         .set({
-          dailyCollected: newDailyCollected.toString(),
-          balance: Math.round(parseFloat(wallet.balance || '0') + amount).toString(),
+          dailyCollected: newDailyCollected.toFixed(2),
+          balance: (parseFloat(wallet.balance || '0') + amount).toFixed(2),
           lastTransactionDate: new Date(),
           updatedAt: new Date(),
         })
@@ -293,14 +293,14 @@ export class DatabaseStorage implements IStorage {
     // For cashiers - track daily transfers (money sent)
     if (role === 'cashier') {
       const wallet = await this.getOrCreateWallet(userId);
-      const currentDailyTransferred = Math.round(parseFloat(wallet.dailyTransferred || '0'));
-      const newDailyTransferred = currentDailyTransferred + Math.round(amount);
+      const currentDailyTransferred = parseFloat(wallet.dailyTransferred || '0');
+      const newDailyTransferred = currentDailyTransferred + amount;
 
       await db
         .update(wallets)
         .set({
-          dailyTransferred: newDailyTransferred.toString(),
-          balance: Math.round(parseFloat(wallet.balance || '0') - amount).toString(),
+          dailyTransferred: newDailyTransferred.toFixed(2),
+          balance: (parseFloat(wallet.balance || '0') - amount).toFixed(2),
           lastTransactionDate: new Date(),
           updatedAt: new Date(),
         })
