@@ -374,11 +374,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update transaction status with rejection reason if provided
       await storage.updateTransactionStatus(transactionId, status, rejectionReason);
       
-      // If approved, update wallet balances
+      // If approved, update wallet balances and daily tracking
       if (status === 'completed' && transaction.toUserId) {
-        const wallet = await storage.getOrCreateWallet(transaction.toUserId);
-        const newBalance = (parseFloat(wallet.balance || "0") + parseFloat(transaction.amount)).toString();
-        await storage.updateWalletBalance(transaction.toUserId, newBalance);
+        const fromUser = await storage.getUser(transaction.fromUserId);
+        const toUser = await storage.getUser(transaction.toUserId);
+        const amount = parseFloat(transaction.amount);
+        
+        // Update daily amounts for both users if applicable
+        if (fromUser && fromUser.id !== toUser?.id) {
+          await storage.updateDailyTransactionAmounts(fromUser.id, amount, fromUser.role, transaction.type);
+        }
+        if (toUser) {
+          await storage.updateDailyTransactionAmounts(toUser.id, amount, toUser.role, transaction.type);
+        }
       }
 
       res.json({ message: "Transaction status updated" });
