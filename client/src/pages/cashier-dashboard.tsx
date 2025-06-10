@@ -217,105 +217,65 @@ export default function CashierDashboard() {
     }
   }, [qrTransactions, activeQrTransaction]);
 
-  // State to track if cashier has interacted within first 30 seconds
-  const [hasInteracted, setHasInteracted] = useState(false);
-  const [transactionStartTime, setTransactionStartTime] = useState<number | null>(null);
-
-  // Monitor for new payment requests and start 120-second timer
+  // Monitor for new payment requests and start inactivity timer
   useEffect(() => {
     if (activeTransaction) {
       const transactionId = activeTransaction.transactionId;
       
-      // Start 120-second timer for new transactions
+      // Start 30-second inactivity timer for new transactions (no action taken)
       if (!processedTransactionIds.has(transactionId) && requestCooldown === 0) {
-        setRequestCooldown(120);
-        setHasInteracted(false);
-        setTransactionStartTime(Date.now());
+        setRequestCooldown(30);
         setProcessedTransactionIds(prev => new Set(prev).add(transactionId));
       }
     } else if (!activeTransaction && requestCooldown > 0) {
       setRequestCooldown(0);
-      setHasInteracted(false);
-      setTransactionStartTime(null);
     }
   }, [activeTransaction, requestCooldown, processedTransactionIds]);
 
-  // Track cashier interaction (entering amount for RTP)
+  // Reset inactivity timer when cashier takes action (enters amount for RTP)
   useEffect(() => {
-    if (cashAmount && cashCountingStep >= 2 && !hasInteracted) {
-      setHasInteracted(true);
+    if (cashAmount && cashCountingStep >= 2) {
+      // Cashier has taken action, extend timer to 120 seconds for processing
+      setRequestCooldown(120);
     }
-  }, [cashAmount, cashCountingStep, hasInteracted]);
+  }, [cashAmount, cashCountingStep]);
 
-  // Track cashier interaction on QR transactions
+  // Reset inactivity timer when cashier takes action on QR transactions
   useEffect(() => {
-    if (qrAmount && qrProcessingStep >= 2 && !hasInteracted) {
-      setHasInteracted(true);
+    if (qrAmount && qrProcessingStep >= 2) {
+      // Cashier has entered QR amount, extend timer to 120 seconds for processing
+      setRequestCooldown(120);
     }
-  }, [qrAmount, qrProcessingStep, hasInteracted]);
+  }, [qrAmount, qrProcessingStep]);
 
-  // Handle timer expiration and 30-second inactivity rule
+  // Handle timer expiration to automatically reject transactions
   useEffect(() => {
     const checkTimerExpiry = async () => {
-      if (activeTransaction && transactionStartTime) {
-        const currentTime = Date.now();
-        const elapsedTime = (currentTime - transactionStartTime) / 1000; // seconds
-        
-        // Check 30-second inactivity rule: if no interaction after 30 seconds, reject
-        if (!hasInteracted && elapsedTime >= 30) {
-          try {
-            await apiRequest("PATCH", `/api/transactions/${activeTransaction.id}/status`, {
-              status: "rejected",
-              rejectionReason: "no action taken within 30 seconds"
-            });
-            
-            setProcessedTransactionIds(prev => {
-              const newSet = new Set(prev);
-              newSet.delete(activeTransaction.transactionId);
-              return newSet;
-            });
-            
-            setRequestCooldown(0);
-            setHasInteracted(false);
-            setTransactionStartTime(null);
-            showFailureNotification();
-            queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
-            queryClient.invalidateQueries({ queryKey: ['/api/transactions/pending'] });
-          } catch (error) {
-            console.error("Failed to reject inactive transaction:", error);
-          }
-        }
-        
-        // Check 120-second total timeout
-        else if (requestCooldown === 0) {
-          try {
-            await apiRequest("PATCH", `/api/transactions/${activeTransaction.id}/status`, {
-              status: "rejected",
-              rejectionReason: "timed out after 120 seconds"
-            });
-            
-            setProcessedTransactionIds(prev => {
-              const newSet = new Set(prev);
-              newSet.delete(activeTransaction.transactionId);
-              return newSet;
-            });
-            
-            setHasInteracted(false);
-            setTransactionStartTime(null);
-            showFailureNotification();
-            queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
-            queryClient.invalidateQueries({ queryKey: ['/api/transactions/pending'] });
-          } catch (error) {
-            console.error("Failed to reject timed out transaction:", error);
-          }
+      if (requestCooldown === 0 && activeTransaction) {
+        try {
+          await apiRequest("PATCH", `/api/transactions/${activeTransaction.id}/status`, {
+            status: "rejected",
+            rejectionReason: "timed out"
+          });
+          
+          // Remove timed out transaction from processed set
+          setProcessedTransactionIds(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(activeTransaction.transactionId);
+            return newSet;
+          });
+          
+          queryClient.invalidateQueries({ queryKey: ["/api/transactions/pending"] });
+        } catch (error) {
+          console.error("Failed to reject timed out transaction:", error);
         }
       }
     };
 
-    // Check every second for the 30-second inactivity rule
-    const interval = setInterval(checkTimerExpiry, 1000);
-    return () => clearInterval(interval);
-  }, [requestCooldown, activeTransaction, hasInteracted, transactionStartTime, queryClient, showFailureNotification]);
+    // Add a small delay to prevent immediate execution
+    const timer = setTimeout(checkTimerExpiry, 100);
+    return () => clearTimeout(timer);
+  }, [requestCooldown, activeTransaction]);
 
   // Approve transaction mutation with dual authentication
   const approveTransaction = useMutation({
@@ -492,16 +452,47 @@ export default function CashierDashboard() {
       />
 
       <div className="p-4">
+        {/* Test Timer Buttons (temporary) */}
+        {requestCooldown === 0 && (
+          <div className="flex justify-center gap-2 mb-4">
+            <Button 
+              onClick={() => setRequestCooldown(30)}
+              size="sm"
+              className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1"
+            >
+              Start 30s Timer
+            </Button>
+          </div>
+        )}
 
+        {requestCooldown > 0 && requestCooldown <= 30 && (
+          <div className="flex justify-center gap-2 mb-2">
+            <Button 
+              onClick={() => setRequestCooldown(120)}
+              size="sm"
+              className="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1"
+            >
+              Simulate Action (→120s)
+            </Button>
+            <Button 
+              onClick={() => setRequestCooldown(0)}
+              size="sm"
+              className="bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1"
+            >
+              Stop Timer
+            </Button>
+          </div>
+        )}
 
         {/* Request Cooldown Timer */}
         {requestCooldown > 0 && (
           <div className="flex justify-center mb-4">
             <div className={`
               w-24 h-24 rounded-full flex items-center justify-center transition-colors duration-1000 ease-in-out
-              ${requestCooldown > 90 ? 'bg-green-500' : 
+              ${requestCooldown > 100 ? 'bg-green-500' : 
                 requestCooldown > 60 ? 'bg-amber-500' : 
-                requestCooldown > 30 ? 'bg-orange-500' : 'bg-red-500'}
+                requestCooldown > 20 ? 'bg-green-500' : 
+                requestCooldown > 10 ? 'bg-amber-500' : 'bg-red-500'}
             `}>
               <div className="text-2xl font-bold text-white">
                 {requestCooldown.toString().padStart(2, '0')}
@@ -509,8 +500,6 @@ export default function CashierDashboard() {
             </div>
           </div>
         )}
-
-
 
 
 
