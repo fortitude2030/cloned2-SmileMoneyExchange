@@ -47,21 +47,21 @@ export default function QRScannerComponent({ isOpen, onClose, onScanSuccess, exp
               console.log("QR Code detected:", result.data);
               
               // Parse QR code data with detailed error messages
-              const parseResult = parsePaymentQR(result.data);
+              const qrData = parsePaymentQR(result.data);
               
-              if (!parseResult.data) {
-                setError(parseResult.error || "Invalid QR code format");
+              if (!qrData) {
+                setError(getQRParseError(result.data));
                 return;
               }
 
-              if (!validatePaymentQR(parseResult.data)) {
+              if (!validatePaymentQR(qrData)) {
                 setError("QR code validation failed - invalid data");
                 return;
               }
 
               setIsScanning(false);
               qrScanner.stop();
-              onScanSuccess(parseResult.data);
+              onScanSuccess(qrData);
             } catch (err) {
               console.error("QR scan error:", err);
               setError("Failed to process QR code");
@@ -172,13 +172,13 @@ export default function QRScannerComponent({ isOpen, onClose, onScanSuccess, exp
           videoRef.current,
           (result) => {
             try {
-              const parseResult = parsePaymentQR(result.data);
-              if (parseResult.data && validatePaymentQR(parseResult.data)) {
+              const qrData = parsePaymentQR(result.data);
+              if (qrData && validatePaymentQR(qrData)) {
                 setIsScanning(false);
                 qrScanner.stop();
-                onScanSuccess(parseResult.data);
+                onScanSuccess(qrData);
               } else {
-                setError(parseResult.error || "Invalid QR code");
+                setError(getQRParseError(result.data));
               }
             } catch (err) {
               setError("Failed to process QR code");
