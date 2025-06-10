@@ -510,16 +510,7 @@ export default function CashierDashboard() {
           </div>
         )}
 
-        {/* Inactivity Warning */}
-        {requestCooldown > 90 && !hasInteracted && (
-          <div className="flex justify-center mb-4">
-            <div className="bg-yellow-100 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded-lg p-3 text-center">
-              <p className="text-yellow-800 dark:text-yellow-200 text-sm font-medium">
-                Transaction will auto-cancel in {90 - (120 - requestCooldown)} seconds without action
-              </p>
-            </div>
-          </div>
-        )}
+
 
 
 
