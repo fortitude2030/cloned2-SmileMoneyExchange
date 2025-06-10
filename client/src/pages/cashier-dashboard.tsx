@@ -180,7 +180,7 @@ export default function CashierDashboard() {
 
 
   // Fetch all transactions for Recent Transactions section
-  const { data: transactions = [], isLoading: allTransactionsLoading, refetch: refetchTransactions } = useQuery<Array<{
+  const { data: transactions = [], isLoading: allTransactionsLoading } = useQuery<Array<{
     id: number;
     transactionId: string;
     amount: string;
@@ -193,15 +193,11 @@ export default function CashierDashboard() {
     queryKey: ["/api/transactions"],
     retry: false,
     enabled: isAuthenticated,
-    refetchInterval: 2000, // Poll every 2 seconds for faster updates
+    refetchInterval: 3000, // Poll every 3 seconds
     refetchIntervalInBackground: true,
-    staleTime: 0, // Always consider data stale
   });
 
-  // Debug: Log transaction data when it changes
-  useEffect(() => {
-    console.log('Cashier transactions updated:', transactions?.length || 0, transactions);
-  }, [transactions]);
+
 
   // Get the active transaction for validation
   // Filter out QR code transactions from pending queue - they should not show in pending requests
