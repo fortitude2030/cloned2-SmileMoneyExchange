@@ -459,50 +459,17 @@ export default function CashierDashboard() {
       />
 
       <div className="p-4">
-        {/* Test Timer Buttons (temporary) */}
-        {!isActive && (
-          <div className="flex justify-center gap-2 mb-4">
-            <Button 
-              onClick={startTimer}
-              size="sm"
-              className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1"
-            >
-              Start 120s Timer
-            </Button>
-          </div>
-        )}
-
-        {isActive && !hasInteraction && timeLeft > 90 && (
-          <div className="flex justify-center gap-2 mb-2">
-            <Button 
-              onClick={markInteraction}
-              size="sm"
-              className="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1"
-            >
-              Mark Interaction
-            </Button>
-            <Button 
-              onClick={stopTimer}
-              size="sm"
-              className="bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1"
-            >
-              Stop Timer
-            </Button>
-          </div>
-        )}
-
-        {/* Unified Timer Display */}
-        {isActive && timeLeft > 0 && (
+        {/* Transaction Timer - Only shows when there's an active transaction */}
+        {(activeTransaction || activeQrTransaction) && isActive && timeLeft > 0 && (
           <div className="flex justify-center mb-4">
             <div className={`
-              w-24 h-24 rounded-full flex items-center justify-center transition-colors duration-1000 ease-in-out
-              ${timeLeft > 100 ? 'bg-green-500' : 
-                timeLeft > 60 ? 'bg-amber-500' : 
-                timeLeft > 20 ? 'bg-green-500' : 
-                timeLeft > 10 ? 'bg-amber-500' : 'bg-red-500'}
+              w-20 h-20 rounded-full flex items-center justify-center transition-colors duration-500 ease-in-out shadow-lg
+              ${timeLeft > 90 ? 'bg-green-500' : 
+                timeLeft > 60 ? 'bg-yellow-500' : 
+                timeLeft > 30 ? 'bg-orange-500' : 'bg-red-500'}
             `}>
-              <div className="text-2xl font-bold text-white">
-                {timeLeft.toString().padStart(2, '0')}
+              <div className="text-xl font-mono font-bold text-white">
+                {timeLeft}
               </div>
             </div>
           </div>
