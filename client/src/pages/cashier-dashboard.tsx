@@ -230,15 +230,18 @@ export default function CashierDashboard() {
     if (activeTransaction) {
       const transactionId = activeTransaction.transactionId;
       
-      // Only start timer for truly new transactions (not already processed and not currently active)
-      if (!processedTransactionIds.has(transactionId) && !isActive && timeLeft === 0) {
+      // Only start timer for truly new transactions (not already processed or timed out)
+      if (!processedTransactionIds.has(transactionId) && 
+          !timedOutTransactionIds.has(transactionId) && 
+          !isActive && 
+          timeLeft === 0) {
         startTimer();
         setProcessedTransactionIds(prev => new Set(prev).add(transactionId));
       }
     } else if (!activeTransaction && isActive) {
       stopTimer();
     }
-  }, [activeTransaction, isActive, timeLeft, processedTransactionIds, startTimer, stopTimer]);
+  }, [activeTransaction, isActive, timeLeft, processedTransactionIds, timedOutTransactionIds, startTimer, stopTimer]);
 
   // Mark interaction when cashier takes action (enters amount for RTP)
   useEffect(() => {
@@ -260,18 +263,21 @@ export default function CashierDashboard() {
   useEffect(() => {
     const checkTimerExpiry = async () => {
       if (!isActive && timeLeft === 0 && activeTransaction) {
+        const transactionId = activeTransaction.transactionId;
+        
+        // Prevent multiple timeout attempts for the same transaction
+        if (timedOutTransactionIds.has(transactionId)) {
+          return;
+        }
+        
         try {
           await apiRequest("PATCH", `/api/transactions/${activeTransaction.id}/status`, {
             status: "rejected",
             rejectionReason: "timed out"
           });
           
-          // Remove timed out transaction from processed set
-          setProcessedTransactionIds(prev => {
-            const newSet = new Set(prev);
-            newSet.delete(activeTransaction.transactionId);
-            return newSet;
-          });
+          // Mark transaction as timed out to prevent timer restarts
+          setTimedOutTransactionIds(prev => new Set(prev).add(transactionId));
           
           queryClient.invalidateQueries({ queryKey: ["/api/transactions/pending"] });
         } catch (error) {
@@ -283,7 +289,7 @@ export default function CashierDashboard() {
     // Add a small delay to prevent immediate execution
     const timer = setTimeout(checkTimerExpiry, 100);
     return () => clearTimeout(timer);
-  }, [isActive, timeLeft, activeTransaction]);
+  }, [isActive, timeLeft, activeTransaction, timedOutTransactionIds]);
 
   // Approve transaction mutation with dual authentication
   const approveTransaction = useMutation({

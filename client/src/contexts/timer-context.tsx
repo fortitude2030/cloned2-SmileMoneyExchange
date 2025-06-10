@@ -5,6 +5,7 @@ interface TimerState {
   timeLeft: number;
   isActive: boolean;
   hasInteraction: boolean;
+  sessionId: string; // Unique session to prevent cross-session interference
 }
 
 interface TimerContextType {
@@ -73,11 +74,17 @@ export function TimerProvider({ children }: { children: ReactNode }) {
   // Start 120-second timer
   const startTimer = useCallback(() => {
     setTimerState(prev => {
-      // Prevent restarting if already active or if just finished
-      if (prev.isActive || (prev.timeLeft === 0 && Date.now() - lastFinishTime < 2000)) {
+      // Prevent restarting if already active or if just finished (5 second cooldown)
+      if (prev.isActive || (prev.timeLeft === 0 && Date.now() - lastFinishTime < 5000)) {
+        console.log('Timer start blocked:', { 
+          isActive: prev.isActive, 
+          timeLeft: prev.timeLeft, 
+          timeSinceFinish: Date.now() - lastFinishTime 
+        });
         return prev;
       }
       
+      console.log('Starting new timer');
       return {
         timeLeft: 120,
         isActive: true,
@@ -103,15 +110,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  // Force refresh data when timer changes state
-  useEffect(() => {
-    if (!timerState.isActive && timerState.timeLeft === 0) {
-      // Timer expired or stopped - refresh transaction data
-      queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/transactions/pending"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/transactions/qr-verification"] });
-    }
-  }, [timerState.isActive, timerState.timeLeft]);
+  // Don't automatically refresh queries on timer expiry to prevent flashing
 
   const value: TimerContextType = {
     timeLeft: timerState.timeLeft,
