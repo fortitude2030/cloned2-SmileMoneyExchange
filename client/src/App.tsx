@@ -51,9 +51,13 @@ function Router() {
                 return <Landing />;
             }
           }} />
+          <Route path="/merchant-dashboard" component={MerchantDashboard} />
           <Route path="/merchant" component={MerchantDashboard} />
+          <Route path="/cashier-dashboard" component={CashierDashboard} />
           <Route path="/cashier" component={CashierDashboard} />
+          <Route path="/finance-portal" component={FinancePortal} />
           <Route path="/finance" component={FinancePortal} />
+          <Route path="/admin-dashboard" component={AdminDashboard} />
           <Route path="/admin" component={AdminDashboard} />
         </>
       )}
