@@ -148,7 +148,7 @@ export default function CashierDashboard() {
     }
   }, [isAuthenticated, isLoading, toast]);
 
-  // Fetch pending transactions (only RTP)
+  // Fetch pending transactions (only RTP) - reduced polling
   const { data: pendingTransactions = [], isLoading: transactionsLoading } = useQuery<Array<{
     id: number;
     transactionId: string;
@@ -162,11 +162,11 @@ export default function CashierDashboard() {
     queryKey: ["/api/transactions/pending"],
     retry: false,
     enabled: isAuthenticated,
-    refetchInterval: 1000, // Poll every second for real-time updates
-    refetchIntervalInBackground: true,
+    refetchInterval: 10000, // Poll every 10 seconds
+    refetchOnWindowFocus: true,
   });
 
-  // Fetch QR transactions separately for direct processing
+  // Fetch QR transactions separately for direct processing - reduced polling
   const { data: qrTransactions = [], isLoading: qrTransactionsLoading } = useQuery<Array<{
     id: number;
     transactionId: string;
@@ -180,13 +180,11 @@ export default function CashierDashboard() {
     queryKey: ["/api/transactions/qr-verification"],
     retry: false,
     enabled: isAuthenticated,
-    refetchInterval: 1000, // Poll every second for real-time updates
-    refetchIntervalInBackground: true,
+    refetchInterval: 10000, // Poll every 10 seconds
+    refetchOnWindowFocus: true,
   });
 
-
-
-  // Fetch all transactions for Recent Transactions section
+  // Fetch all transactions for Recent Transactions section - less frequent polling
   const { data: transactions = [], isLoading: allTransactionsLoading } = useQuery<Array<{
     id: number;
     transactionId: string;
@@ -200,7 +198,8 @@ export default function CashierDashboard() {
     queryKey: ["/api/transactions"],
     retry: false,
     enabled: isAuthenticated,
-    refetchInterval: 5000, // Poll every 5 seconds for history updates
+    refetchInterval: 30000, // Poll every 30 seconds for history updates
+    refetchOnWindowFocus: true,
   });
 
   // Debug logging for transaction data

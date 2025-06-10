@@ -59,7 +59,7 @@ export default function MerchantDashboard() {
     enabled: isAuthenticated,
   });
 
-  // Fetch transactions with frequent polling for real-time updates
+  // Fetch transactions with reasonable polling for updates
   const { data: transactions = [], isLoading: transactionsLoading, refetch } = useQuery<Array<{
     id: number;
     transactionId: string;
@@ -73,23 +73,10 @@ export default function MerchantDashboard() {
     queryKey: ["/api/transactions"],
     retry: false,
     enabled: isAuthenticated,
-    refetchInterval: 1000, // Poll every 1 second for real-time updates
-    refetchIntervalInBackground: true, // Continue polling when tab is in background
-    refetchOnWindowFocus: true, // Refetch when window gains focus
-    refetchOnMount: true, // Refetch when component mounts
-    gcTime: 0, // Don't cache data (replaces cacheTime in v5)
-    staleTime: 0, // Always consider data stale
+    refetchInterval: 30000, // Poll every 30 seconds for updates
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
-
-  // Force refresh every few seconds to ensure UI updates
-  useEffect(() => {
-    if (isAuthenticated) {
-      const interval = setInterval(() => {
-        refetch();
-      }, 3000);
-      return () => clearInterval(interval);
-    }
-  }, [isAuthenticated, refetch]);
 
   // Create payment request mutation
   const createPaymentRequest = useMutation({
