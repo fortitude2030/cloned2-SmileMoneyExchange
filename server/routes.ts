@@ -215,18 +215,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? new Date(Date.now() + 120 * 1000) 
         : null;
       
-      // Round the amount to ensure no decimals
-      const roundedAmount = Math.round(parseFloat(req.body.amount || "0"));
+      // Parse amount as decimal for accurate currency handling
+      const parsedAmount = parseFloat(req.body.amount || "0");
       
       const transactionData = insertTransactionSchema.parse({
         ...req.body,
         status: finalStatus,
-        amount: roundedAmount.toString(),
+        amount: parsedAmount.toFixed(2),
         fromUserId: req.body.fromUserId || userId,
         expiresAt,
       });
       
-      const amount = roundedAmount;
+      const amount = parsedAmount;
       
       // For completed transactions, check transfer limits and update balances
       if (transactionData.status === 'completed') {
