@@ -136,7 +136,7 @@ export default function CashierDashboard() {
     }
   }, [isAuthenticated, isLoading, toast]);
 
-  // Fetch pending transactions (only RTP) - reduced polling
+  // Fetch pending transactions (only RTP) - high frequency polling for immediate updates
   const { data: pendingTransactions = [], isLoading: transactionsLoading } = useQuery<Array<{
     id: number;
     transactionId: string;
@@ -150,11 +150,12 @@ export default function CashierDashboard() {
     queryKey: ["/api/transactions/pending"],
     retry: false,
     enabled: isAuthenticated,
-    refetchInterval: 5000, // Poll every 5 seconds
+    refetchInterval: 2000, // Poll every 2 seconds for immediate new requests
     refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 
-  // Fetch QR transactions separately for direct processing - reduced polling
+  // Fetch QR transactions separately for direct processing - high frequency polling
   const { data: qrTransactions = [], isLoading: qrTransactionsLoading } = useQuery<Array<{
     id: number;
     transactionId: string;
@@ -168,11 +169,12 @@ export default function CashierDashboard() {
     queryKey: ["/api/transactions/qr-verification"],
     retry: false,
     enabled: isAuthenticated,
-    refetchInterval: 5000, // Poll every 5 seconds
+    refetchInterval: 2000, // Poll every 2 seconds for immediate QR updates
     refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 
-  // Fetch all transactions for Recent Transactions section - less frequent polling
+  // Fetch all transactions for Recent Transactions section - faster polling for real-time updates
   const { data: transactions = [], isLoading: allTransactionsLoading } = useQuery<Array<{
     id: number;
     transactionId: string;
@@ -186,8 +188,9 @@ export default function CashierDashboard() {
     queryKey: ["/api/transactions"],
     retry: false,
     enabled: isAuthenticated,
-    refetchInterval: 30000, // Poll every 30 seconds for history updates
+    refetchInterval: 3000, // Poll every 3 seconds for faster updates
     refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 
   // Debug logging for transaction data
