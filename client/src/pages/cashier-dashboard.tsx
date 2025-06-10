@@ -193,11 +193,8 @@ export default function CashierDashboard() {
     queryKey: ["/api/transactions"],
     retry: false,
     enabled: isAuthenticated,
-    refetchInterval: 3000, // Poll every 3 seconds
-    refetchIntervalInBackground: true,
+    refetchInterval: 5000, // Poll every 5 seconds for history updates
   });
-
-
 
   // Get the active transaction for validation
   // Filter out QR code transactions from pending queue - they should not show in pending requests
@@ -455,7 +452,37 @@ export default function CashierDashboard() {
       />
 
       <div className="p-4">
+        {/* Test Timer Buttons (temporary) */}
+        {requestCooldown === 0 && (
+          <div className="flex justify-center gap-2 mb-4">
+            <Button 
+              onClick={() => setRequestCooldown(30)}
+              size="sm"
+              className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1"
+            >
+              Start 30s Timer
+            </Button>
+          </div>
+        )}
 
+        {requestCooldown > 0 && requestCooldown <= 30 && (
+          <div className="flex justify-center gap-2 mb-2">
+            <Button 
+              onClick={() => setRequestCooldown(120)}
+              size="sm"
+              className="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1"
+            >
+              Simulate Action (→120s)
+            </Button>
+            <Button 
+              onClick={() => setRequestCooldown(0)}
+              size="sm"
+              className="bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1"
+            >
+              Stop Timer
+            </Button>
+          </div>
+        )}
 
         {/* Request Cooldown Timer */}
         {requestCooldown > 0 && (
@@ -843,7 +870,7 @@ export default function CashierDashboard() {
                   </div>
                 ))}
               </div>
-            ) : (!transactions || !Array.isArray(transactions) || transactions.length === 0) ? (
+            ) : !Array.isArray(transactions) || transactions.length === 0 ? (
               <div className="text-center py-8">
                 <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
                   <i className="fas fa-history text-gray-400 text-xl"></i>
