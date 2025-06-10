@@ -16,20 +16,17 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
   const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
   const [uniqueId] = useState(() => `QR${Date.now()}${Math.random().toString(36).substr(2, 9)}`);
   
-  // Use unified timer system
-  const { timeLeft, isActive, startTimer, markInteraction, stopTimer } = useUnifiedTimer();
+  // Use global timer system
+  const { timeLeft, isActive, startTimer, markInteraction, stopTimer } = useTimer();
   const isExpired = !isActive && timeLeft === 0;
 
-  // Auto-generate QR code and start timer when modal opens
+  // Auto-generate QR code when modal opens (timer controlled by cashier dashboard)
   useEffect(() => {
     if (isOpen && amount && vmfNumber) {
       handleGenerateQR();
-      startTimer(); // Start 120-second timer
-      markInteraction(); // Mark interaction so timer continues past 30 seconds
-    } else if (!isOpen) {
-      stopTimer(); // Stop timer when modal closes
+      // Don't start timer here - it's controlled by the cashier dashboard
     }
-  }, [isOpen, amount, vmfNumber, startTimer, markInteraction, stopTimer]);
+  }, [isOpen, amount, vmfNumber]);
 
   const handleGenerateQR = async () => {
     try {
