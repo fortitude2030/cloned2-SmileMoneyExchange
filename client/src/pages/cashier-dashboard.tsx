@@ -326,6 +326,7 @@ export default function CashierDashboard() {
   // Handle timer expiration to automatically reject transactions
   useEffect(() => {
     const checkTimerExpiry = async () => {
+      // Handle RTP transaction timeout
       if (!isActive && timeLeft === 0 && activeTransaction) {
         const transactionId = activeTransaction.transactionId;
         
@@ -372,12 +373,59 @@ export default function CashierDashboard() {
           console.error("Failed to reject timed out transaction:", error);
         }
       }
+
+      // Handle QR transaction timeout
+      if (!isActive && timeLeft === 0 && activeQrTransaction) {
+        const transactionId = activeQrTransaction.transactionId;
+        
+        // Prevent multiple timeout attempts for the same transaction
+        if (timedOutTransactionIds.has(transactionId) || processedTransactionIds.has(transactionId)) {
+          return;
+        }
+        
+        // Check if transaction was already completed or rejected in database
+        try {
+          const response = await fetch(`/api/transactions/${activeQrTransaction.id}`, {
+            credentials: 'include'
+          });
+          if (response.ok) {
+            const transaction = await response.json();
+            if (transaction.status === 'completed' || transaction.status === 'rejected') {
+              // Transaction already completed/rejected, don't timeout
+              return;
+            }
+          }
+        } catch (error) {
+          console.error("Failed to check QR transaction status:", error);
+        }
+        
+        try {
+          await apiRequest("PATCH", `/api/transactions/${activeQrTransaction.id}/status`, {
+            status: "rejected",
+            rejectionReason: "timed out"
+          });
+          
+          // Mark transaction as timed out to prevent timer restarts
+          setTimedOutTransactionIds(prev => new Set(prev).add(transactionId));
+          
+          // Reset QR UI state when transaction times out
+          setQrProcessingStep(1);
+          setQrAmount("");
+          setQrVmfNumber("");
+          setShowQRScanner(false);
+          setActiveQrTransaction(null);
+          
+          queryClient.invalidateQueries({ queryKey: ["/api/transactions/qr-verification"] });
+        } catch (error) {
+          console.error("Failed to reject timed out QR transaction:", error);
+        }
+      }
     };
 
     // Add a small delay to prevent immediate execution
     const timer = setTimeout(checkTimerExpiry, 100);
     return () => clearTimeout(timer);
-  }, [isActive, timeLeft, activeTransaction, timedOutTransactionIds, processedTransactionIds]);
+  }, [isActive, timeLeft, activeTransaction, activeQrTransaction, timedOutTransactionIds, processedTransactionIds]);
 
   // Approve transaction mutation with dual authentication
   const approveTransaction = useMutation({
@@ -418,17 +466,30 @@ export default function CashierDashboard() {
       if (activeTransaction) {
         setProcessedTransactionIds(prev => new Set(prev).add(activeTransaction.transactionId));
       }
+      if (activeQrTransaction) {
+        setProcessedTransactionIds(prev => new Set(prev).add(activeQrTransaction.transactionId));
+      }
       
       // Reset UI state for completed transaction
       setCashCountingStep(1);
       setCashAmount("");
       setVmfNumber("");
       
+      // Reset QR transaction state
+      setQrProcessingStep(1);
+      setQrAmount("");
+      setQrVmfNumber("");
+      setActiveQrTransaction(null);
+      setShowQRScanner(false);
+      
       // Remove completed transaction from processed set
       setProcessedTransactionIds(prev => {
         const newSet = new Set(prev);
         if (activeTransaction) {
           newSet.delete(activeTransaction.transactionId);
+        }
+        if (activeQrTransaction) {
+          newSet.delete(activeQrTransaction.transactionId);
         }
         return newSet;
       });
