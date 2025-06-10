@@ -53,44 +53,10 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber, qrData
 
   const handleGenerateQR = async () => {
     try {
-      // Get the latest transaction for this user to generate QR
-      const response = await fetch('/api/transactions', {
-        credentials: 'include'
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch transactions');
-      }
-      
-      const transactions = await response.json();
-      const latestQRTransaction = transactions
-        .filter((t: any) => t.type === 'qr_code_payment' && t.status === 'pending')
-        .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-      
-      if (!latestQRTransaction) {
-        throw new Error('No pending QR transaction found');
-      }
-
-      // Generate secure QR code via server API
-      const qrResponse = await fetch('/api/qr-codes/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          transactionId: latestQRTransaction.id
-        })
-      });
-
-      if (!qrResponse.ok) {
-        const errorData = await qrResponse.json();
-        throw new Error(errorData.message || 'Failed to generate QR code');
-      }
-
-      const qrData = await qrResponse.json();
-      setQrCodeUrl(qrData.qrImageUrl);
-      
+      // This is the old cashier-initiated flow - now deprecated
+      // Merchants now generate payment request QR codes directly
+      console.warn("Old QR generation method called - this should not happen in the new flow");
+      setQrCodeUrl("");
     } catch (error) {
       console.error("Error generating QR code:", error);
       setQrCodeUrl("");
