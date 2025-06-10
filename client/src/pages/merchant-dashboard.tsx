@@ -91,8 +91,6 @@ export default function MerchantDashboard() {
     }
   }, [isAuthenticated, refetch]);
 
-  // TODO: Re-implement transaction status monitoring without infinite loops
-
   // Create payment request mutation
   const createPaymentRequest = useMutation({
     mutationFn: async ({ amount, vmfNumber, type = "cash_digitization" }: { amount: string; vmfNumber: string; type?: string }) => {

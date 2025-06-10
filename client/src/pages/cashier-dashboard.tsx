@@ -1037,6 +1037,12 @@ export default function CashierDashboard() {
                       setShowAmountModal(false);
                       setCashAmount("");
                       
+                      toast({
+                        title: "Amount Mismatch",
+                        description: `Expected ${formatCurrency(targetTransaction.amount)}, got ${formatCurrency(cashAmount)}. Transaction rejected.`,
+                        variant: "destructive",
+                      });
+                      
                       return;
                     }
                   }
