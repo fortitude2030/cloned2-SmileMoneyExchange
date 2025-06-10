@@ -24,7 +24,6 @@ export default function MerchantDashboard() {
   const [paymentAmount, setPaymentAmount] = useState("");
   const [vmfNumber, setVmfNumber] = useState("");
   const [showAllTransactions, setShowAllTransactions] = useState(false);
-  const [lastTransactionStatuses, setLastTransactionStatuses] = useState<Record<string, string>>({});
 
 
 
@@ -92,33 +91,7 @@ export default function MerchantDashboard() {
     }
   }, [isAuthenticated, refetch]);
 
-  // Monitor transaction status changes for notifications
-  useEffect(() => {
-    if (transactions && transactions.length > 0) {
-      transactions.forEach(transaction => {
-        const previousStatus = lastTransactionStatuses[transaction.transactionId];
-        const currentStatus = transaction.status;
-        
-        // Only show notifications for status changes, not initial loads
-        if (previousStatus && previousStatus !== currentStatus) {
-          if (currentStatus === 'completed') {
-            showSuccessNotification();
-            // Invalidate wallet query to refresh balance after completed transaction
-            queryClient.invalidateQueries({ queryKey: ["/api/wallet"] });
-          } else if (currentStatus === 'rejected') {
-            showFailureNotification();
-          }
-        }
-      });
-
-      // Update status tracking
-      const newStatuses: Record<string, string> = {};
-      transactions.forEach(transaction => {
-        newStatuses[transaction.transactionId] = transaction.status;
-      });
-      setLastTransactionStatuses(newStatuses);
-    }
-  }, [transactions, lastTransactionStatuses, showSuccessNotification, showFailureNotification, queryClient]);
+  // TODO: Re-implement transaction status monitoring without infinite loops
 
   // Create payment request mutation
   const createPaymentRequest = useMutation({
