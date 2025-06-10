@@ -132,8 +132,8 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
             {isExpired && (
               <Button 
                 onClick={() => {
-                  setTimeLeft(120);
-                  setIsExpired(false);
+                  startTimer();
+                  markInteraction();
                   handleGenerateQR();
                 }} 
                 className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
