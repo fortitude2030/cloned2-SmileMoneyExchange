@@ -46,7 +46,7 @@ export default function QRScannerComponent({ isOpen, onClose, onScanSuccess, exp
             try {
               console.log("QR Code detected:", result.data);
               
-              // Parse and validate QR code data
+              // Parse QR code data without amount validation
               const qrData = parsePaymentQR(result.data);
               
               if (!qrData) {
@@ -56,12 +56,6 @@ export default function QRScannerComponent({ isOpen, onClose, onScanSuccess, exp
 
               if (!validatePaymentQR(qrData)) {
                 setError("QR code validation failed");
-                return;
-              }
-
-              // Check amount if expected
-              if (expectedAmount && Math.round(qrData.amount) !== Math.round(parseFloat(expectedAmount))) {
-                setError(`Amount mismatch: Expected ${expectedAmount}, got ${qrData.amount}`);
                 return;
               }
 
@@ -75,9 +69,19 @@ export default function QRScannerComponent({ isOpen, onClose, onScanSuccess, exp
           },
           {
             preferredCamera: 'environment',
-            highlightScanRegion: false,
-            highlightCodeOutline: false,
-            maxScansPerSecond: 3,
+            highlightScanRegion: true,
+            highlightCodeOutline: true,
+            maxScansPerSecond: 5,
+            calculateScanRegion: (video) => {
+              const smallestDimension = Math.min(video.videoWidth, video.videoHeight);
+              const scanRegionSize = Math.round(0.7 * smallestDimension);
+              return {
+                x: Math.round((video.videoWidth - scanRegionSize) / 2),
+                y: Math.round((video.videoHeight - scanRegionSize) / 2),
+                width: scanRegionSize,
+                height: scanRegionSize,
+              };
+            },
           }
         );
 
@@ -150,6 +154,10 @@ export default function QRScannerComponent({ isOpen, onClose, onScanSuccess, exp
     setIsScanning(false);
     setError("");
     setHasPermission(null);
+    
+    // Log cancellation as failed transaction
+    console.log("QR scan cancelled by user - logging as failed transaction");
+    onScanSuccess({ cancelled: true, reason: "User cancelled QR scan" });
     onClose();
   };
 

@@ -51,7 +51,10 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
   const progressPercentage = ((60 - timeLeft) / 60) * 100;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={() => {
+      // Prevent closing QR modal - must remain open for cashier scanning
+      console.log("QR modal must remain open for scanning");
+    }}>
       <DialogContent className="w-full max-w-sm mx-4">
         <DialogHeader>
           <DialogTitle className="text-center">
