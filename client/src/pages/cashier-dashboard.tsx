@@ -489,14 +489,14 @@ export default function CashierDashboard() {
 
         {/* Transaction Timer - Only shows when there's an active transaction */}
         {(activeTransaction || activeQrTransaction) && isActive && timeLeft > 0 && (
-          <div className="flex justify-center mb-4">
+          <div className="flex justify-center mb-3">
             <div className={`
-              w-20 h-20 rounded-full flex items-center justify-center transition-colors duration-500 ease-in-out shadow-lg
+              w-16 h-16 rounded-full flex items-center justify-center transition-colors duration-500 ease-in-out shadow-md
               ${timeLeft > 90 ? 'bg-green-500' : 
                 timeLeft > 60 ? 'bg-yellow-500' : 
                 timeLeft > 30 ? 'bg-orange-500' : 'bg-red-500'}
             `}>
-              <div className="text-xl font-mono font-bold text-white">
+              <div className="text-lg font-mono font-bold text-white">
                 {timeLeft}
               </div>
             </div>
