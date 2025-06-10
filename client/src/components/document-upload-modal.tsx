@@ -182,8 +182,7 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
       uploadDocument.mutate({ file, type: document.type });
     }
 
-    // Clear the capturing state
-    setCurrentCapturingDoc(null);
+    // File selection completed
   }, [documents, uploadDocument, toast]);
 
   const handleCameraCapture = useCallback((documentId: string) => {
