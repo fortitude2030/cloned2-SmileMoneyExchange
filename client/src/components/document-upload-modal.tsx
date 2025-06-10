@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -39,8 +39,6 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
   };
   
   const [documents, setDocuments] = useState<UploadedDocument[]>(getDocumentsByRole());
-  
-  const fileRef = useRef<HTMLInputElement>(null);
 
   // Upload document mutation
   const uploadDocument = useMutation({
@@ -145,7 +143,7 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
     },
   });
 
-  const handleFileSelect = (documentId: string, file: File | null) => {
+  const handleFileSelect = useCallback((documentId: string, file: File | null) => {
     if (!file) return;
 
     // Validate file type - only images allowed for security
@@ -183,16 +181,17 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
     if (document) {
       uploadDocument.mutate({ file, type: document.type });
     }
-  };
 
-  const handleCameraCapture = (documentId: string) => {
-    // For mobile devices, this will open the camera
-    if (fileRef.current) {
-      fileRef.current.accept = "image/*";
-      fileRef.current.capture = "environment" as any; // Use back camera
-      fileRef.current.click();
+    // Clear the capturing state
+    setCurrentCapturingDoc(null);
+  }, [documents, uploadDocument, toast]);
+
+  const handleCameraCapture = useCallback((documentId: string) => {
+    const fileInput = document.getElementById(`file-input-${documentId}`) as HTMLInputElement;
+    if (fileInput) {
+      fileInput.click();
     }
-  };
+  }, []);
 
 
 
@@ -295,12 +294,18 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
                 )}
               </div>
               
-              {/* Hidden file input */}
+              {/* Hidden file input for camera capture */}
               <input
-                ref={fileRef}
                 type="file"
                 className="hidden"
-                onChange={(e) => handleFileSelect(document.id, e.target.files?.[0] || null)}
+                accept="image/*"
+                capture="environment"
+                id={`file-input-${document.id}`}
+                onChange={(e) => {
+                  handleFileSelect(document.id, e.target.files?.[0] || null);
+                  // Reset the input value to allow capturing the same file again
+                  e.target.value = '';
+                }}
               />
             </div>
           ))}
