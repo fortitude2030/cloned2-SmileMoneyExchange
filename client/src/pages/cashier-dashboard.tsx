@@ -230,11 +230,15 @@ export default function CashierDashboard() {
     if (activeTransaction) {
       const transactionId = activeTransaction.transactionId;
       
-      // Only start timer for truly new transactions (not already processed or timed out)
-      if (!processedTransactionIds.has(transactionId) && 
-          !timedOutTransactionIds.has(transactionId) && 
-          !isActive && 
-          timeLeft === 0) {
+      // Only start timer for truly new transactions with strict conditions
+      const canStartTimer = !processedTransactionIds.has(transactionId) && 
+                           !timedOutTransactionIds.has(transactionId) && 
+                           !isActive && 
+                           timeLeft === 0 &&
+                           activeTransaction.status === 'pending';
+      
+      if (canStartTimer) {
+        console.log('Starting timer for transaction:', transactionId);
         startTimer();
         setProcessedTransactionIds(prev => new Set(prev).add(transactionId));
       }
