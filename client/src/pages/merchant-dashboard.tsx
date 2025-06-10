@@ -73,7 +73,7 @@ export default function MerchantDashboard() {
     queryKey: ["/api/transactions"],
     retry: false,
     enabled: isAuthenticated,
-    refetchInterval: 30000, // Poll every 30 seconds for updates
+    refetchInterval: 5000, // Poll every 5 seconds for updates
     refetchOnWindowFocus: true,
     refetchOnMount: true,
   });

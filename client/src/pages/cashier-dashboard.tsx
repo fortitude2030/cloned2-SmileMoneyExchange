@@ -150,7 +150,7 @@ export default function CashierDashboard() {
     queryKey: ["/api/transactions/pending"],
     retry: false,
     enabled: isAuthenticated,
-    refetchInterval: 10000, // Poll every 10 seconds
+    refetchInterval: 5000, // Poll every 5 seconds
     refetchOnWindowFocus: true,
   });
 
@@ -168,7 +168,7 @@ export default function CashierDashboard() {
     queryKey: ["/api/transactions/qr-verification"],
     retry: false,
     enabled: isAuthenticated,
-    refetchInterval: 10000, // Poll every 10 seconds
+    refetchInterval: 5000, // Poll every 5 seconds
     refetchOnWindowFocus: true,
   });
 
