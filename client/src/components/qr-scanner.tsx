@@ -42,29 +42,36 @@ export default function QRScannerComponent({ isOpen, onClose, onScanSuccess, exp
 
         const qrScanner = new QrScanner(
           videoRef.current!,
-          (result) => {
+          async (result) => {
             try {
               console.log("QR Code detected:", result.data);
               
-              // Parse QR code data with detailed error messages
-              const qrData = parsePaymentQR(result.data);
+              // Verify QR code with secure server-side validation
+              const response = await fetch('/api/qr-codes/verify', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                credentials: 'include',
+                body: JSON.stringify({
+                  qrData: result.data
+                })
+              });
+
+              if (!response.ok) {
+                const errorData = await response.json();
+                setError(errorData.message || "QR code verification failed");
+                return;
+              }
+
+              const verificationResult = await response.json();
               
-              if (!qrData) {
-                setError(getQRParseError(result.data));
-                return;
-              }
-
-              if (!validatePaymentQR(qrData)) {
-                setError("QR code validation failed - invalid data");
-                return;
-              }
-
               setIsScanning(false);
               qrScanner.stop();
-              onScanSuccess(qrData);
+              onScanSuccess(verificationResult.transaction);
             } catch (err) {
               console.error("QR scan error:", err);
-              setError("Failed to process QR code");
+              setError("Failed to verify QR code");
             }
           },
           {
@@ -171,18 +178,34 @@ export default function QRScannerComponent({ isOpen, onClose, onScanSuccess, exp
         const qrScanner = new QrScanner(
           videoRef.current,
           (result) => {
-            try {
-              const qrData = parsePaymentQR(result.data);
-              if (qrData && validatePaymentQR(qrData)) {
+            (async () => {
+              try {
+                // Use same server-side verification for fallback scanner
+                const response = await fetch('/api/qr-codes/verify', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  credentials: 'include',
+                  body: JSON.stringify({
+                    qrData: result.data
+                  })
+                });
+
+                if (!response.ok) {
+                  const errorData = await response.json();
+                  setError(errorData.message || "QR code verification failed");
+                  return;
+                }
+
+                const verificationResult = await response.json();
                 setIsScanning(false);
                 qrScanner.stop();
-                onScanSuccess(qrData);
-              } else {
-                setError(getQRParseError(result.data));
+                onScanSuccess(verificationResult.transaction);
+              } catch (err) {
+                setError("Failed to verify QR code");
               }
-            } catch (err) {
-              setError("Failed to process QR code");
-            }
+            })();
           },
           {
             preferredCamera: 'environment',
