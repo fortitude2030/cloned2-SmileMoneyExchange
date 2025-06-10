@@ -470,24 +470,6 @@ export default function CashierDashboard() {
       />
 
       <div className="p-4">
-        {/* Transaction Timer - Only shows when there's an active transaction */}
-        {(activeTransaction || activeQrTransaction) && isActive && timeLeft > 0 && (
-          <div className="flex justify-center mb-4">
-            <div className={`
-              w-20 h-20 rounded-full flex items-center justify-center transition-colors duration-500 ease-in-out shadow-lg
-              ${timeLeft > 90 ? 'bg-green-500' : 
-                timeLeft > 60 ? 'bg-yellow-500' : 
-                timeLeft > 30 ? 'bg-orange-500' : 'bg-red-500'}
-            `}>
-              <div className="text-xl font-mono font-bold text-white">
-                {timeLeft}
-              </div>
-            </div>
-          </div>
-        )}
-
-
-
         {/* Active Session Card */}
         <div className="gradient-accent rounded-2xl p-6 text-white mb-6 animate-fade-in">
           <div className="flex items-center justify-between mb-4">
@@ -504,6 +486,22 @@ export default function CashierDashboard() {
             <span>{activeSession.location}</span>
           </div>
         </div>
+
+        {/* Transaction Timer - Only shows when there's an active transaction */}
+        {(activeTransaction || activeQrTransaction) && isActive && timeLeft > 0 && (
+          <div className="flex justify-center mb-4">
+            <div className={`
+              w-20 h-20 rounded-full flex items-center justify-center transition-colors duration-500 ease-in-out shadow-lg
+              ${timeLeft > 90 ? 'bg-green-500' : 
+                timeLeft > 60 ? 'bg-yellow-500' : 
+                timeLeft > 30 ? 'bg-orange-500' : 'bg-red-500'}
+            `}>
+              <div className="text-xl font-mono font-bold text-white">
+                {timeLeft}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Cash Counting Workflow - Only show when there are pending transactions */}
         {activeTransaction && (
