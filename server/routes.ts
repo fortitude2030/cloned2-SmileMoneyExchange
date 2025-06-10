@@ -534,40 +534,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // QR Code generation and management endpoints
+  // QR Code generation for merchant payment requests
   app.post('/api/qr-codes/generate', isAuthenticated, async (req: any, res) => {
     try {
-      const { transactionId } = req.body;
+      const { amount, description, vmfNumber } = req.body;
       const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
       
-      if (!transactionId) {
-        return res.status(400).json({ message: "Transaction ID is required" });
+      // Only merchants can generate payment request QR codes
+      if (user?.role !== 'merchant') {
+        return res.status(403).json({ message: "Only merchants can generate payment request QR codes" });
       }
 
-      // Verify transaction exists and belongs to user
-      const transaction = await storage.getTransactionById(transactionId);
-      if (!transaction) {
-        return res.status(404).json({ message: "Transaction not found" });
+      if (!amount || parseFloat(amount) <= 0) {
+        return res.status(400).json({ message: "Valid amount is required" });
       }
 
-      if (transaction.fromUserId !== userId) {
-        return res.status(403).json({ message: "Access denied" });
-      }
+      // Create a payment request transaction (merchant as recipient)
+      const transaction = await storage.createTransaction({
+        fromUserId: "", // Will be filled when cashier scans
+        toUserId: userId, // Merchant is the recipient
+        amount: amount.toString(),
+        type: "qr_code_payment",
+        status: "qr_pending", // Special status for QR payment requests
+        description: description || "QR Payment Request",
+        vmfNumber: vmfNumber || null
+      });
 
       // Check if active QR code already exists for this transaction
-      const existingQR = await storage.getActiveQrCodeByTransactionId(transactionId);
+      const existingQR = await storage.getActiveQrCodeByTransactionId(transaction.id);
       if (existingQR) {
         return res.status(409).json({ message: "Active QR code already exists for this transaction" });
       }
 
-      // Generate unique QR data with strong cryptographic security
+      // Generate unique QR data for payment request
       const qrPayload = {
         transactionId: transaction.transactionId,
         amount: parseFloat(transaction.amount),
-        type: "qr_code_payment",
+        type: "payment_request",
+        merchantId: userId,
+        description: transaction.description,
         timestamp: Date.now(),
-        nonce: crypto.randomBytes(16).toString('hex'),
-        userId: userId
+        nonce: crypto.randomBytes(16).toString('hex')
       };
 
       const qrDataString = JSON.stringify(qrPayload);
@@ -624,9 +632,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
 
-      // Allow both cashiers and merchants to verify QR codes
-      if (user?.role !== 'cashier' && user?.role !== 'merchant') {
-        return res.status(403).json({ message: "Only cashiers and merchants can verify QR codes" });
+      // Only cashiers can scan merchant payment request QR codes
+      if (user?.role !== 'cashier') {
+        return res.status(403).json({ message: "Only cashiers can scan payment request QR codes" });
       }
 
       if (!qrData) {
@@ -649,22 +657,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "QR code not found, expired, or already used" });
       }
 
-      // Verify transaction exists and is still pending
+      // Verify transaction exists and is in qr_pending status
       const transaction = await storage.getTransactionById(qrCode.transactionId);
-      if (!transaction || transaction.status !== 'pending') {
-        return res.status(400).json({ message: "Transaction is no longer valid" });
+      if (!transaction || transaction.status !== 'qr_pending') {
+        return res.status(400).json({ message: "Payment request is no longer valid" });
       }
 
-      // Mark QR code as used immediately to prevent reuse
+      // Validate parsed QR data matches expected format
+      if (parsedQR.type !== 'payment_request') {
+        return res.status(400).json({ message: "Invalid QR code type" });
+      }
+
+      // Check cashier wallet balance
+      const cashierWallet = await storage.getOrCreateWallet(userId);
+      const amount = parseFloat(transaction.amount);
+      
+      if (parseFloat(cashierWallet.balance) < amount) {
+        return res.status(400).json({ message: "Insufficient funds" });
+      }
+
+      // Check transfer limits
+      const transferCheck = await storage.checkTransferLimits(userId, amount);
+      if (!transferCheck.allowed) {
+        return res.status(400).json({ message: transferCheck.reason || "Transfer limit exceeded" });
+      }
+
+      // Complete the payment by updating transaction with cashier as sender
+      await storage.updateTransactionStatus(transaction.id, 'completed');
+      
+      // Update transaction with fromUserId (cashier who scanned)
+      const { db } = await import('./db.js');
+      const { transactions } = await import('../shared/schema.js');
+      await db.update(transactions)
+        .set({ fromUserId: userId })
+        .where(transactions.id.eq(transaction.id));
+
+      // Process wallet updates
+      const newCashierBalance = (parseFloat(cashierWallet.balance) - amount).toFixed(2);
+      await storage.updateWalletBalance(userId, newCashierBalance);
+
+      const merchantWallet = await storage.getOrCreateWallet(transaction.toUserId);
+      const newMerchantBalance = (parseFloat(merchantWallet.balance) + amount).toFixed(2);
+      await storage.updateWalletBalance(transaction.toUserId, newMerchantBalance);
+
+      // Update daily transaction amounts
+      await storage.updateDailyTransactionAmounts(userId, amount, 'cashier', 'sent');
+      await storage.updateDailyTransactionAmounts(transaction.toUserId, amount, 'merchant', 'received');
+
+      // Mark QR code as used
       await storage.markQrCodeAsUsed(qrCode.id);
 
       res.json({
         valid: true,
+        completed: true,
         transaction: {
           id: transaction.id,
           transactionId: transaction.transactionId,
           amount: transaction.amount,
-          vmfNumber: transaction.vmfNumber,
+          description: transaction.description,
           type: transaction.type
         }
       });
