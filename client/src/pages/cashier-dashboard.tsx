@@ -73,9 +73,18 @@ export default function CashierDashboard() {
       rejected: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200"
     };
     
-    const displayText = status === 'rejected' && rejectionReason 
-      ? rejectionReason 
-      : status.charAt(0).toUpperCase() + status.slice(1);
+    if (status === 'rejected' && rejectionReason) {
+      return (
+        <div className="text-right">
+          <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors.rejected}`}>
+            Rejected
+          </span>
+          <p className="text-xs text-red-600 dark:text-red-400 mt-1">due to {rejectionReason}</p>
+        </div>
+      );
+    }
+    
+    const displayText = status.charAt(0).toUpperCase() + status.slice(1);
     
     return (
       <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[status as keyof typeof statusColors] || 'bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200'}`}>
