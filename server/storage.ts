@@ -6,6 +6,7 @@ import {
   transactions,
   documents,
   settlementRequests,
+  qrCodes,
   type User,
   type UpsertUser,
   type Organization,
@@ -19,6 +20,8 @@ import {
   type InsertDocument,
   type SettlementRequest,
   type InsertSettlementRequest,
+  type QrCode,
+  type InsertQrCode,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte, lt, sql, or, isNull, gt, not, inArray } from "drizzle-orm";
@@ -588,6 +591,59 @@ export class DatabaseStorage implements IStorage {
       .update(settlementRequests)
       .set(updateData)
       .where(eq(settlementRequests.id, id));
+  }
+
+  // QR Code operations
+  async createQrCode(qrCodeData: InsertQrCode): Promise<QrCode> {
+    const [qrCode] = await db
+      .insert(qrCodes)
+      .values(qrCodeData)
+      .returning();
+    return qrCode;
+  }
+
+  async getQrCodeByHash(hash: string): Promise<QrCode | undefined> {
+    const [qrCode] = await db
+      .select()
+      .from(qrCodes)
+      .where(and(
+        eq(qrCodes.qrCodeHash, hash),
+        eq(qrCodes.isUsed, false),
+        gt(qrCodes.expiresAt, new Date())
+      ));
+    return qrCode;
+  }
+
+  async markQrCodeAsUsed(id: number): Promise<void> {
+    await db
+      .update(qrCodes)
+      .set({ 
+        isUsed: true, 
+        usedAt: new Date() 
+      })
+      .where(eq(qrCodes.id, id));
+  }
+
+  async expungeExpiredQrCodes(): Promise<void> {
+    // Delete all expired or used QR codes from the database
+    await db
+      .delete(qrCodes)
+      .where(or(
+        eq(qrCodes.isUsed, true),
+        lt(qrCodes.expiresAt, new Date())
+      ));
+  }
+
+  async getActiveQrCodeByTransactionId(transactionId: number): Promise<QrCode | undefined> {
+    const [qrCode] = await db
+      .select()
+      .from(qrCodes)
+      .where(and(
+        eq(qrCodes.transactionId, transactionId),
+        eq(qrCodes.isUsed, false),
+        gt(qrCodes.expiresAt, new Date())
+      ));
+    return qrCode;
   }
 }
 

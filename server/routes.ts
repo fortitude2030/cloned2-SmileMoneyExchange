@@ -13,7 +13,9 @@ import {
   insertTransactionSchema,
   insertDocumentSchema,
   insertSettlementRequestSchema,
+  insertQrCodeSchema,
 } from "@shared/schema";
+import crypto from "crypto";
 
 // Convert image to PDF function using base64 encoding
 async function convertImageToPDF(imagePath: string, outputPath: string): Promise<void> {
@@ -528,6 +530,130 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating settlement request status:", error);
       res.status(500).json({ message: "Failed to update settlement request status" });
+    }
+  });
+
+  // QR Code generation and management endpoints
+  app.post('/api/qr-codes/generate', isAuthenticated, async (req: any, res) => {
+    try {
+      const { transactionId } = req.body;
+      const userId = req.user.claims.sub;
+      
+      if (!transactionId) {
+        return res.status(400).json({ message: "Transaction ID is required" });
+      }
+
+      // Verify transaction exists and belongs to user
+      const transaction = await storage.getTransactionById(transactionId);
+      if (!transaction) {
+        return res.status(404).json({ message: "Transaction not found" });
+      }
+
+      if (transaction.fromUserId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Check if active QR code already exists for this transaction
+      const existingQR = await storage.getActiveQrCodeByTransactionId(transactionId);
+      if (existingQR) {
+        return res.status(409).json({ message: "Active QR code already exists for this transaction" });
+      }
+
+      // Generate unique QR data with strong cryptographic security
+      const qrPayload = {
+        transactionId: transaction.transactionId,
+        amount: parseFloat(transaction.amount),
+        type: "qr_code_payment",
+        timestamp: Date.now(),
+        nonce: crypto.randomBytes(16).toString('hex'),
+        userId: userId
+      };
+
+      const qrDataString = JSON.stringify(qrPayload);
+      const qrCodeHash = crypto.createHash('sha256').update(qrDataString).digest('hex');
+      
+      // Set expiration to 2 minutes from now
+      const expiresAt = new Date(Date.now() + 2 * 60 * 1000);
+
+      // Store QR code in database
+      const qrCode = await storage.createQrCode({
+        transactionId: transaction.id,
+        qrCodeHash,
+        qrData: qrDataString,
+        expiresAt
+      });
+
+      // Generate QR code image URL
+      const encodedData = encodeURIComponent(qrDataString);
+      const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodedData}&format=png&margin=10`;
+
+      res.json({
+        qrId: qrCode.id,
+        qrImageUrl,
+        expiresAt: qrCode.expiresAt,
+        transactionId: transaction.transactionId
+      });
+
+    } catch (error) {
+      console.error("Error generating QR code:", error);
+      res.status(500).json({ message: "Failed to generate QR code" });
+    }
+  });
+
+  app.post('/api/qr-codes/verify', isAuthenticated, async (req: any, res) => {
+    try {
+      const { qrData } = req.body;
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+
+      // Only cashiers can verify QR codes
+      if (user?.role !== 'cashier') {
+        return res.status(403).json({ message: "Only cashiers can verify QR codes" });
+      }
+
+      if (!qrData) {
+        return res.status(400).json({ message: "QR data is required" });
+      }
+
+      // Parse and validate QR data
+      let parsedQR;
+      try {
+        parsedQR = JSON.parse(qrData);
+      } catch (parseError) {
+        return res.status(400).json({ message: "Invalid QR code format" });
+      }
+
+      // Generate hash and look up in database
+      const qrCodeHash = crypto.createHash('sha256').update(qrData).digest('hex');
+      const qrCode = await storage.getQrCodeByHash(qrCodeHash);
+
+      if (!qrCode) {
+        return res.status(404).json({ message: "QR code not found, expired, or already used" });
+      }
+
+      // Verify transaction exists and is still pending
+      const transaction = await storage.getTransactionById(qrCode.transactionId);
+      if (!transaction || transaction.status !== 'pending') {
+        return res.status(400).json({ message: "Transaction is no longer valid" });
+      }
+
+      // Mark QR code as used immediately to prevent reuse
+      await storage.markQrCodeAsUsed(qrCode.id);
+
+      res.json({
+        valid: true,
+        transaction: {
+          id: transaction.id,
+          transactionId: transaction.transactionId,
+          amount: transaction.amount,
+          vmfNumber: transaction.vmfNumber,
+          type: transaction.type
+        }
+      });
+
+    } catch (error) {
+      console.error("Error verifying QR code:", error);
+      res.status(500).json({ message: "Failed to verify QR code" });
     }
   });
 

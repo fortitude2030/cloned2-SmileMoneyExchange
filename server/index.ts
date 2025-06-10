@@ -18,8 +18,9 @@ setInterval(() => {
 setInterval(async () => {
   try {
     await storage.markExpiredTransactions();
+    await storage.expungeExpiredQrCodes();
   } catch (error) {
-    log(`Error cleaning up expired transactions: ${error}`);
+    log(`Error cleaning up expired transactions/QR codes: ${error}`);
   }
 }, 30 * 1000); // Check every 30 seconds
 app.use(express.json());
