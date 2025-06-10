@@ -85,8 +85,16 @@ export default function MerchantDashboard() {
   // Create payment request mutation
   const createPaymentRequest = useMutation({
     mutationFn: async ({ amount, vmfNumber, type = "cash_digitization" }: { amount: string; vmfNumber: string; type?: string }) => {
+      // For QR code payments, we need to route to a cashier
+      let targetUserId = (user as any)?.id || "";
+      
+      if (type === "qr_code_payment") {
+        // QR payments should go to the cashier for processing
+        targetUserId = "test-cashier-user"; // Route QR payments to cashier
+      }
+      
       await apiRequest("POST", "/api/transactions", {
-        toUserId: (user as any)?.id || "",
+        toUserId: targetUserId,
         amount,
         vmfNumber,
         type,
