@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useTransactionNotifications } from "@/hooks/use-transaction-notifications";
+import { useUnifiedTimer } from "@/hooks/use-unified-timer";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import MobileHeader from "@/components/mobile-header";
@@ -102,8 +103,10 @@ export default function CashierDashboard() {
     location: "Westlands Branch, Nairobi",
     amount: "0"
   });
-  const [requestCooldown, setRequestCooldown] = useState(0); // Start with no timer
   const [processedTransactionIds, setProcessedTransactionIds] = useState<Set<string>>(new Set());
+  
+  // Use unified timer system
+  const { timeLeft, isActive, stage, startNoInteractionTimer, extendToProcessingTimer, stopTimer } = useUnifiedTimer();
   const [showAllTransactions, setShowAllTransactions] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
   
@@ -113,23 +116,7 @@ export default function CashierDashboard() {
   const [qrVmfNumber, setQrVmfNumber] = useState("");
   const [activeQrTransaction, setActiveQrTransaction] = useState<any>(null);
 
-  // Timer effect for request cooldown - only runs when cooldown > 0
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (requestCooldown > 0) {
-      interval = setInterval(() => {
-        setRequestCooldown(prev => {
-          if (prev <= 1) {
-            return 0; // Stop timer
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [requestCooldown]);
+
 
 
 
@@ -242,36 +229,36 @@ export default function CashierDashboard() {
     if (activeTransaction) {
       const transactionId = activeTransaction.transactionId;
       
-      // Start 30-second inactivity timer for new transactions (no action taken)
-      if (!processedTransactionIds.has(transactionId) && requestCooldown === 0) {
-        setRequestCooldown(30);
+      // Start 30-second no-interaction timer for new transactions
+      if (!processedTransactionIds.has(transactionId) && !isActive) {
+        startNoInteractionTimer();
         setProcessedTransactionIds(prev => new Set(prev).add(transactionId));
       }
-    } else if (!activeTransaction && requestCooldown > 0) {
-      setRequestCooldown(0);
+    } else if (!activeTransaction && isActive) {
+      stopTimer();
     }
-  }, [activeTransaction, requestCooldown, processedTransactionIds]);
+  }, [activeTransaction, isActive, processedTransactionIds, startNoInteractionTimer, stopTimer]);
 
-  // Reset inactivity timer when cashier takes action (enters amount for RTP)
+  // Extend timer when cashier takes action (enters amount for RTP)
   useEffect(() => {
     if (cashAmount && cashCountingStep >= 2) {
       // Cashier has taken action, extend timer to 120 seconds for processing
-      setRequestCooldown(120);
+      extendToProcessingTimer();
     }
-  }, [cashAmount, cashCountingStep]);
+  }, [cashAmount, cashCountingStep, extendToProcessingTimer]);
 
-  // Reset inactivity timer when cashier takes action on QR transactions
+  // Extend timer when cashier takes action on QR transactions
   useEffect(() => {
     if (qrAmount && qrProcessingStep >= 2) {
       // Cashier has entered QR amount, extend timer to 120 seconds for processing
-      setRequestCooldown(120);
+      extendToProcessingTimer();
     }
-  }, [qrAmount, qrProcessingStep]);
+  }, [qrAmount, qrProcessingStep, extendToProcessingTimer]);
 
   // Handle timer expiration to automatically reject transactions
   useEffect(() => {
     const checkTimerExpiry = async () => {
-      if (requestCooldown === 0 && activeTransaction) {
+      if (!isActive && timeLeft === 0 && activeTransaction) {
         try {
           await apiRequest("PATCH", `/api/transactions/${activeTransaction.id}/status`, {
             status: "rejected",
@@ -295,7 +282,7 @@ export default function CashierDashboard() {
     // Add a small delay to prevent immediate execution
     const timer = setTimeout(checkTimerExpiry, 100);
     return () => clearTimeout(timer);
-  }, [requestCooldown, activeTransaction]);
+  }, [isActive, timeLeft, activeTransaction]);
 
   // Approve transaction mutation with dual authentication
   const approveTransaction = useMutation({
@@ -327,7 +314,7 @@ export default function CashierDashboard() {
     },
     onSuccess: (_, variables) => {
       showSuccessNotification();
-      setRequestCooldown(0); // Stop timer since transaction is completed
+      stopTimer(); // Stop timer since transaction is completed
       // Remove completed transaction from processed set
       setProcessedTransactionIds(prev => {
         const newSet = new Set(prev);
@@ -373,7 +360,7 @@ export default function CashierDashboard() {
     },
     onSuccess: (_, variables) => {
       showFailureNotification();
-      setRequestCooldown(0); // Stop timer since transaction is rejected
+      stopTimer(); // Stop timer since transaction is rejected
       
       // Remove rejected transaction from processed set
       setProcessedTransactionIds(prev => {
@@ -420,7 +407,7 @@ export default function CashierDashboard() {
       setCurrentTransaction(transaction);
       setShowQRScanner(true);
       // Start countdown timer for QR processing
-      setRequestCooldown(120); // 2 minutes for QR scanning
+      extendToProcessingTimer(); // 2 minutes for QR scanning
       return;
     }
 
