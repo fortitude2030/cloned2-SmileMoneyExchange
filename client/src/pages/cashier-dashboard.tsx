@@ -24,7 +24,7 @@ export default function CashierDashboard() {
 
   // Utility functions for formatting
   const formatCurrency = (amount: string) => {
-    const num = Math.round(parseFloat(amount));
+    const num = parseFloat(amount);
     return `ZMW ${num.toLocaleString()}`;
   };
 
@@ -1010,9 +1010,9 @@ export default function CashierDashboard() {
                 placeholder="0"
                 value={cashAmount}
                 onChange={(e) => {
-                  // Round any input to whole numbers only
-                  const rounded = Math.round(parseFloat(e.target.value) || 0);
-                  setCashAmount(rounded > 0 ? rounded.toString() : "");
+                  // Keep original amount without rounding
+                  const value = e.target.value;
+                  setCashAmount(value);
                 }}
                 className="text-lg text-center font-bold"
               />

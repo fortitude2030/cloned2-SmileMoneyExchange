@@ -216,10 +216,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateWalletBalance(userId: string, balance: string): Promise<void> {
-    const roundedBalance = Math.round(parseFloat(balance)).toString();
+    const preciseBalance = parseFloat(balance).toFixed(2);
     await db
       .update(wallets)
-      .set({ balance: roundedBalance, updatedAt: new Date() })
+      .set({ balance: preciseBalance, updatedAt: new Date() })
       .where(eq(wallets.userId, userId));
   }
 
@@ -234,7 +234,7 @@ export class DatabaseStorage implements IStorage {
 
     // For cashiers - check their balance and daily transfer limits
     if (user?.role === 'cashier') {
-      const currentBalance = Math.round(parseFloat(wallet.balance || '0'));
+      const currentBalance = parseFloat(wallet.balance || '0');
       if (amount > currentBalance) {
         return { 
           allowed: false, 
@@ -242,7 +242,7 @@ export class DatabaseStorage implements IStorage {
         };
       }
 
-      const currentDailyTransferred = Math.round(parseFloat(wallet.dailyTransferred || '0'));
+      const currentDailyTransferred = parseFloat(wallet.dailyTransferred || '0');
       const dailyTransferLimit = 2000000; // ZMW 2,000,000 daily transfer limit for cashiers
 
       if (currentDailyTransferred + amount > dailyTransferLimit) {
@@ -256,7 +256,7 @@ export class DatabaseStorage implements IStorage {
 
     // For merchants - check their daily collection limit
     if (user?.role === 'merchant') {
-      const currentDailyCollected = Math.round(parseFloat(wallet.dailyCollected || '0'));
+      const currentDailyCollected = parseFloat(wallet.dailyCollected || '0');
       const dailyCollectionLimit = 1000000; // ZMW 1,000,000 daily collection limit for merchants
 
       if (currentDailyCollected + amount > dailyCollectionLimit) {
