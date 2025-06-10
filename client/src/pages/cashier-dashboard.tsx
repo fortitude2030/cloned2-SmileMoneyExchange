@@ -422,7 +422,7 @@ export default function CashierDashboard() {
     }
 
     // Start countdown timer for processing
-    setRequestCooldown(90); // 1.5 minutes for cash processing
+    extendToProcessingTimer(); // 2 minutes for cash processing
 
     // Since validation already happened during steps 1 & 2, just approve
     approveTransaction.mutate({
@@ -460,10 +460,10 @@ export default function CashierDashboard() {
 
       <div className="p-4">
         {/* Test Timer Buttons (temporary) */}
-        {requestCooldown === 0 && (
+        {!isActive && (
           <div className="flex justify-center gap-2 mb-4">
             <Button 
-              onClick={() => setRequestCooldown(30)}
+              onClick={startNoInteractionTimer}
               size="sm"
               className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1"
             >
@@ -472,17 +472,17 @@ export default function CashierDashboard() {
           </div>
         )}
 
-        {requestCooldown > 0 && requestCooldown <= 30 && (
+        {isActive && stage === 'no_interaction' && (
           <div className="flex justify-center gap-2 mb-2">
             <Button 
-              onClick={() => setRequestCooldown(120)}
+              onClick={extendToProcessingTimer}
               size="sm"
               className="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1"
             >
               Simulate Action (→120s)
             </Button>
             <Button 
-              onClick={() => setRequestCooldown(0)}
+              onClick={stopTimer}
               size="sm"
               className="bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1"
             >
@@ -491,18 +491,18 @@ export default function CashierDashboard() {
           </div>
         )}
 
-        {/* Request Cooldown Timer */}
-        {requestCooldown > 0 && (
+        {/* Unified Timer Display */}
+        {isActive && timeLeft > 0 && (
           <div className="flex justify-center mb-4">
             <div className={`
               w-24 h-24 rounded-full flex items-center justify-center transition-colors duration-1000 ease-in-out
-              ${requestCooldown > 100 ? 'bg-green-500' : 
-                requestCooldown > 60 ? 'bg-amber-500' : 
-                requestCooldown > 20 ? 'bg-green-500' : 
-                requestCooldown > 10 ? 'bg-amber-500' : 'bg-red-500'}
+              ${timeLeft > 100 ? 'bg-green-500' : 
+                timeLeft > 60 ? 'bg-amber-500' : 
+                timeLeft > 20 ? 'bg-green-500' : 
+                timeLeft > 10 ? 'bg-amber-500' : 'bg-red-500'}
             `}>
               <div className="text-2xl font-bold text-white">
-                {requestCooldown.toString().padStart(2, '0')}
+                {timeLeft.toString().padStart(2, '0')}
               </div>
             </div>
           </div>
@@ -1048,13 +1048,13 @@ export default function CashierDashboard() {
                     setQrAmount(cashAmount);
                     setQrProcessingStep(2);
                     // Start countdown timer for QR processing workflow
-                    console.log("Setting QR countdown timer to 180");
-                    setRequestCooldown(180); // 3 minutes for QR workflow
+                    console.log("Setting QR countdown timer to 120");
+                    extendToProcessingTimer(); // 2 minutes for QR workflow
                   } else {
                     setCashCountingStep(2);
                     // Start countdown timer for cash counting workflow
-                    console.log("Setting cash countdown timer to 180");
-                    setRequestCooldown(180); // 3 minutes for cash workflow
+                    console.log("Setting cash countdown timer to 120");
+                    extendToProcessingTimer(); // 2 minutes for cash workflow
                   }
                   setActiveSession(prev => ({ ...prev, amount: cashAmount }));
                   setShowAmountModal(false);

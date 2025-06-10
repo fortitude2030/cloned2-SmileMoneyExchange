@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { generateQRCode } from "@/lib/qr-utils";
+import { useUnifiedTimer } from "@/hooks/use-unified-timer";
 
 interface QRCodeModalProps {
   isOpen: boolean;
@@ -14,34 +15,20 @@ interface QRCodeModalProps {
 export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCodeModalProps) {
   const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
   const [uniqueId] = useState(() => `QR${Date.now()}${Math.random().toString(36).substr(2, 9)}`);
-  const [timeLeft, setTimeLeft] = useState(120);
-  const [isExpired, setIsExpired] = useState(false);
+  
+  // Use unified timer system
+  const { timeLeft, isActive, extendToProcessingTimer, stopTimer } = useUnifiedTimer();
+  const isExpired = !isActive && timeLeft === 0;
 
-  // Auto-generate QR code when modal opens
+  // Auto-generate QR code and start timer when modal opens
   useEffect(() => {
     if (isOpen && amount && vmfNumber) {
-      setTimeLeft(120);
-      setIsExpired(false);
       handleGenerateQR();
+      extendToProcessingTimer(); // Start 120-second processing timer
+    } else if (!isOpen) {
+      stopTimer(); // Stop timer when modal closes
     }
-  }, [isOpen, amount, vmfNumber]);
-
-  // Countdown timer
-  useEffect(() => {
-    if (!isOpen || isExpired) return;
-
-    const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          setIsExpired(true);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [isOpen, isExpired]);
+  }, [isOpen, amount, vmfNumber, extendToProcessingTimer, stopTimer]);
 
   const handleGenerateQR = async () => {
     try {
