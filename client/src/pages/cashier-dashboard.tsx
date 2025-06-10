@@ -78,12 +78,7 @@ export default function CashierDashboard() {
       ? rejectionReason 
       : status.charAt(0).toUpperCase() + status.slice(1);
     
-    // Debug logging for timed out transactions
-    if (rejectionReason === 'timed out') {
-      console.log(`=== CASHIER DEBUG: Badge Rendering ===`);
-      console.log(`Status: "${status}", Reason: "${rejectionReason}", Display: "${displayText}"`);
-      console.log(`Color class: ${statusColors[status as keyof typeof statusColors]}`);
-    }
+
     
     return (
       <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[status as keyof typeof statusColors] || 'bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200'}`}>
@@ -193,16 +188,32 @@ export default function CashierDashboard() {
     refetchOnMount: true,
   });
 
-  // Debug logging for transaction data
+  // Clean up state for completed transactions to prevent UI confusion
   useEffect(() => {
     if (transactions.length > 0) {
-      const timedOutTransactions = transactions.filter((t: any) => t.rejectionReason === 'timed out');
-      if (timedOutTransactions.length > 0) {
-        console.log('=== CASHIER DEBUG: Timed Out Transactions ===');
-        timedOutTransactions.forEach((t: any) => {
-          console.log(`Transaction ${t.transactionId}: status="${t.status}", rejectionReason="${t.rejectionReason}"`);
+      // Remove completed/rejected transactions from processing sets to prevent conflicts
+      const completedTransactionIds = transactions
+        .filter((t: any) => t.status === 'completed' || t.status === 'rejected')
+        .map((t: any) => t.transactionId);
+      
+      if (completedTransactionIds.length > 0) {
+        setProcessedTransactionIds(prev => {
+          const newSet = new Set(prev);
+          completedTransactionIds.forEach(id => newSet.delete(id));
+          return newSet;
         });
-        console.log('===============================================');
+        
+        setTimedOutTransactionIds(prev => {
+          const newSet = new Set(prev);
+          completedTransactionIds.forEach(id => {
+            // Only remove from timeout set if transaction was actually completed successfully
+            const transaction = transactions.find((t: any) => t.transactionId === id);
+            if (transaction && transaction.status === 'completed') {
+              newSet.delete(id);
+            }
+          });
+          return newSet;
+        });
       }
     }
   }, [transactions]);
@@ -335,7 +346,7 @@ export default function CashierDashboard() {
       
       // Mark transaction as completed to prevent timer restart
       if (activeTransaction) {
-        setTimedOutTransactionIds(prev => new Set(prev).add(activeTransaction.transactionId));
+        setProcessedTransactionIds(prev => new Set(prev).add(activeTransaction.transactionId));
       }
       
       // Reset UI state for completed transaction
