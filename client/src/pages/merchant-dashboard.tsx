@@ -135,9 +135,9 @@ export default function MerchantDashboard() {
           : `Cash digitization request - VMF: ${vmfNumber}`,
       });
     },
-    onSuccess: (data, variables) => {
+    onSuccess: (data: any, variables) => {
       // For QR code payments, track the transaction ID for auto-closing
-      if (variables.type === "qr_code_payment" && data?.transactionId) {
+      if (variables.type === "qr_code_payment" && data && typeof data === 'object' && 'transactionId' in data) {
         setLastQrTransactionId(data.transactionId);
       }
       
