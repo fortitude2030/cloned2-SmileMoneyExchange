@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { generateQRCode } from "@/lib/qr-utils";
-import { useUnifiedTimer } from "@/hooks/use-unified-timer";
+import { useTimer } from "@/contexts/timer-context";
 
 interface QRCodeModalProps {
   isOpen: boolean;

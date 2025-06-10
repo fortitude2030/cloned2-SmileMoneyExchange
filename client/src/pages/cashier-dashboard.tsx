@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useTransactionNotifications } from "@/hooks/use-transaction-notifications";
-import { useUnifiedTimer } from "@/hooks/use-unified-timer";
+import { useTimer } from "@/contexts/timer-context";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import MobileHeader from "@/components/mobile-header";
@@ -105,8 +105,8 @@ export default function CashierDashboard() {
   });
   const [processedTransactionIds, setProcessedTransactionIds] = useState<Set<string>>(new Set());
   
-  // Use unified timer system
-  const { timeLeft, isActive, hasInteraction, startTimer, markInteraction, stopTimer } = useUnifiedTimer();
+  // Use global timer system
+  const { timeLeft, isActive, hasInteraction, startTimer, markInteraction, stopTimer } = useTimer();
   const [showAllTransactions, setShowAllTransactions] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
   
