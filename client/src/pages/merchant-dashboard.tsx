@@ -86,32 +86,32 @@ export default function MerchantDashboard() {
 
   // Monitor QR transactions for auto-closing modal
   useEffect(() => {
-    if (!lastQrTransactionId || !transactions) return;
+    if (!showQRModal || !transactions) return;
 
-    const qrTransaction = transactions.find(t => 
-      t.transactionId === lastQrTransactionId && 
-      t.type === "qr_code_payment"
-    );
+    // Find the most recent QR transaction for this user
+    const recentQrTransaction = transactions
+      .filter(t => t.type === "qr_code_payment")
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
 
-    if (qrTransaction && (qrTransaction.status === "completed" || qrTransaction.status === "rejected")) {
-      // QR transaction completed or rejected - close modal
+    if (recentQrTransaction && (recentQrTransaction.status === "completed" || recentQrTransaction.status === "rejected")) {
+      // QR transaction completed or rejected - close modal immediately
       setShowQRModal(false);
       setLastQrTransactionId(null);
       
-      if (qrTransaction.status === "completed") {
+      if (recentQrTransaction.status === "completed") {
         toast({
           title: "QR Payment Completed",
-          description: `Payment of ZMW ${Math.round(parseFloat(qrTransaction.amount)).toLocaleString()} has been processed successfully`,
+          description: `Payment of ZMW ${Math.round(parseFloat(recentQrTransaction.amount)).toLocaleString()} has been processed successfully`,
         });
-      } else if (qrTransaction.status === "rejected") {
+      } else if (recentQrTransaction.status === "rejected") {
         toast({
           title: "QR Payment Rejected",
-          description: qrTransaction.rejectionReason || "QR payment was rejected by the cashier",
+          description: recentQrTransaction.rejectionReason || "QR payment was rejected by the cashier",
           variant: "destructive",
         });
       }
     }
-  }, [transactions, lastQrTransactionId, toast]);
+  }, [transactions, showQRModal, toast]);
 
   // Create payment request mutation
   const createPaymentRequest = useMutation({
