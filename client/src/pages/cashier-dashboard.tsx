@@ -197,12 +197,14 @@ export default function CashierDashboard() {
     dailyTransferred: string;
     isActive: boolean;
   }>({
-    queryKey: ["/api/wallet"],
+    queryKey: ["/api/wallet", Date.now()], // Force fresh data with timestamp
     retry: false,
     enabled: isAuthenticated,
     refetchInterval: 1000, // Poll every 1 second for real-time balance updates
     refetchOnWindowFocus: true,
     refetchOnMount: true,
+    staleTime: 0, // Data is immediately stale
+    gcTime: 0, // Don't cache (v5 syntax)
   });
 
   // Clean up state for completed transactions to prevent UI confusion

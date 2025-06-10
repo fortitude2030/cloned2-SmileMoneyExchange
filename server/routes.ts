@@ -177,10 +177,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get today's transaction totals
       const todayTotals = await storage.getTodayTransactionTotals(userId);
       
+      // Disable caching for real-time balance updates
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.set('Pragma', 'no-cache');
+      res.set('Expires', '0');
+      res.set('Surrogate-Control', 'no-store');
+      
       res.json({
         ...wallet,
         todayCompleted: todayTotals.completed,
-        todayTotal: todayTotals.total
+        todayTotal: todayTotals.total,
+        timestamp: new Date().getTime() // Force cache busting
       });
     } catch (error) {
       console.error("Error fetching wallet:", error);

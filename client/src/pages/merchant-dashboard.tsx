@@ -60,6 +60,7 @@ export default function MerchantDashboard() {
     refetchInterval: 1000, // Poll every 1 second for real-time balance updates
     refetchOnWindowFocus: true,
     refetchOnMount: true,
+    staleTime: 0, // Data is immediately stale
   });
 
   // Fetch transactions with reasonable polling for updates
