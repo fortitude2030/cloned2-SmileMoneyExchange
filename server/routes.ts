@@ -668,11 +668,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid QR code type" });
       }
 
+      // Ensure transaction has valid recipient
+      if (!transaction.toUserId) {
+        return res.status(400).json({ message: "Invalid payment request" });
+      }
+
       // Check cashier wallet balance
       const cashierWallet = await storage.getOrCreateWallet(userId);
       const amount = parseFloat(transaction.amount);
       
-      if (parseFloat(cashierWallet.balance) < amount) {
+      if (parseFloat(cashierWallet.balance || "0") < amount) {
         return res.status(400).json({ message: "Insufficient funds" });
       }
 
@@ -682,22 +687,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: transferCheck.reason || "Transfer limit exceeded" });
       }
 
-      // Complete the payment by updating transaction with cashier as sender
-      await storage.updateTransactionStatus(transaction.id, 'completed');
-      
-      // Update transaction with fromUserId (cashier who scanned)
+      // Update transaction with fromUserId (cashier who scanned) and complete it
       const { db } = await import('./db.js');
       const { transactions } = await import('../shared/schema.js');
+      const { eq } = await import('drizzle-orm');
       await db.update(transactions)
-        .set({ fromUserId: userId })
-        .where(transactions.id.eq(transaction.id));
+        .set({ 
+          fromUserId: userId,
+          status: 'completed'
+        })
+        .where(eq(transactions.id, transaction.id));
 
-      // Process wallet updates
-      const newCashierBalance = (parseFloat(cashierWallet.balance) - amount).toFixed(2);
+      // Process wallet updates with null safety checks
+      const cashierBalance = cashierWallet.balance || "0";
+      const newCashierBalance = (parseFloat(cashierBalance) - amount).toFixed(2);
       await storage.updateWalletBalance(userId, newCashierBalance);
 
       const merchantWallet = await storage.getOrCreateWallet(transaction.toUserId);
-      const newMerchantBalance = (parseFloat(merchantWallet.balance) + amount).toFixed(2);
+      const merchantBalance = merchantWallet.balance || "0";
+      const newMerchantBalance = (parseFloat(merchantBalance) + amount).toFixed(2);
       await storage.updateWalletBalance(transaction.toUserId, newMerchantBalance);
 
       // Update daily transaction amounts
