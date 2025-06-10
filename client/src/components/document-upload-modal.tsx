@@ -80,35 +80,41 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
         
         // Check if all documents are now uploaded and complete transaction automatically
         if (updated.every(doc => doc.uploaded)) {
-          stopTimer();
           console.log("All documents uploaded - completing transaction automatically");
           
-          // Automatically mark transaction as completed
+          // Stop timer first to prevent timeout interference
+          setTimeout(() => {
+            stopTimer();
+          }, 0);
+          
+          // Automatically mark transaction as completed with slight delay to prevent race conditions
           if (transactionId) {
-            apiRequest("PATCH", `/api/transactions/${transactionId}/status`, {
-              status: "completed"
-            }).then(() => {
-              // Invalidate queries to refresh transaction lists
-              queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
-              queryClient.invalidateQueries({ queryKey: ["/api/transactions/pending"] });
-              
-              toast({
-                title: "Transaction Completed",
-                description: "All VMF documents uploaded and transaction completed successfully",
+            setTimeout(() => {
+              apiRequest("PATCH", `/api/transactions/${transactionId}/status`, {
+                status: "completed"
+              }).then(() => {
+                // Invalidate queries to refresh transaction lists
+                queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
+                queryClient.invalidateQueries({ queryKey: ["/api/transactions/pending"] });
+                
+                toast({
+                  title: "Transaction Completed",
+                  description: "All VMF documents uploaded and transaction completed successfully",
+                });
+                
+                // Close modal after completion
+                setTimeout(() => {
+                  onClose();
+                }, 1500);
+              }).catch((error) => {
+                console.error("Failed to complete transaction:", error);
+                toast({
+                  title: "Error",
+                  description: "Failed to complete transaction. Please try the Complete button.",
+                  variant: "destructive",
+                });
               });
-              
-              // Close modal after completion
-              setTimeout(() => {
-                onClose();
-              }, 1500);
-            }).catch((error) => {
-              console.error("Failed to complete transaction:", error);
-              toast({
-                title: "Error",
-                description: "Failed to complete transaction. Please try the Complete button.",
-                variant: "destructive",
-              });
-            });
+            }, 100);
           }
         }
         

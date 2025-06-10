@@ -297,8 +297,24 @@ export default function CashierDashboard() {
         const transactionId = activeTransaction.transactionId;
         
         // Prevent multiple timeout attempts for the same transaction
-        if (timedOutTransactionIds.has(transactionId)) {
+        if (timedOutTransactionIds.has(transactionId) || processedTransactionIds.has(transactionId)) {
           return;
+        }
+        
+        // Check if transaction was already completed or rejected in database
+        try {
+          const response = await fetch(`/api/transactions/${activeTransaction.id}`, {
+            credentials: 'include'
+          });
+          if (response.ok) {
+            const transaction = await response.json();
+            if (transaction.status === 'completed' || transaction.status === 'rejected') {
+              // Transaction already completed/rejected, don't timeout
+              return;
+            }
+          }
+        } catch (error) {
+          console.error("Failed to check transaction status:", error);
         }
         
         try {
@@ -328,7 +344,7 @@ export default function CashierDashboard() {
     // Add a small delay to prevent immediate execution
     const timer = setTimeout(checkTimerExpiry, 100);
     return () => clearTimeout(timer);
-  }, [isActive, timeLeft, activeTransaction, timedOutTransactionIds]);
+  }, [isActive, timeLeft, activeTransaction, timedOutTransactionIds, processedTransactionIds]);
 
   // Approve transaction mutation with dual authentication
   const approveTransaction = useMutation({

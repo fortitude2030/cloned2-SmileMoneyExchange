@@ -340,30 +340,36 @@ export class DatabaseStorage implements IStorage {
   async markExpiredTransactions(): Promise<void> {
     const now = new Date();
     
-    // First, get the transactions that will be expired
+    // First, get the transactions that will be expired, but exclude those with document uploads
     const expiredTransactions = await db
       .select()
       .from(transactions)
+      .leftJoin(documents, eq(documents.transactionId, transactions.id))
       .where(
         and(
           eq(transactions.status, 'pending'),
-          sql`expires_at IS NOT NULL AND expires_at <= NOW()`
+          sql`expires_at IS NOT NULL AND expires_at <= NOW()`,
+          isNull(documents.id) // Only expire transactions with no document uploads
         )
       );
     
     if (expiredTransactions.length > 0) {
-      console.log(`Expiring ${expiredTransactions.length} transactions`);
+      console.log(`Expiring ${expiredTransactions.length} transactions (without documents)`);
+      
+      // Get the transaction IDs to expire
+      const transactionIds = expiredTransactions.map(row => row.transactions.id);
       
       await db
         .update(transactions)
         .set({ 
-          status: 'expired',
+          status: 'rejected',
+          rejectionReason: 'timed out',
           updatedAt: now
         })
         .where(
           and(
-            eq(transactions.status, 'pending'),
-            sql`expires_at IS NOT NULL AND expires_at <= NOW()`
+            inArray(transactions.id, transactionIds),
+            eq(transactions.status, 'pending')
           )
         );
     }
