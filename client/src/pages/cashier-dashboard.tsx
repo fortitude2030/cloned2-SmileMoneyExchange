@@ -97,7 +97,6 @@ export default function CashierDashboard() {
   });
   const [requestCooldown, setRequestCooldown] = useState(0); // Start with no timer
   const [processedTransactionIds, setProcessedTransactionIds] = useState<Set<string>>(new Set());
-  const [lastInteractionTime, setLastInteractionTime] = useState<number>(0); // Track last interaction timestamp
   const [showAllTransactions, setShowAllTransactions] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
   
@@ -107,7 +106,7 @@ export default function CashierDashboard() {
   const [qrVmfNumber, setQrVmfNumber] = useState("");
   const [activeQrTransaction, setActiveQrTransaction] = useState<any>(null);
 
-  // Timer effect for request cooldown with 30-second inactivity rule
+  // Timer effect for request cooldown - only runs when cooldown > 0
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (requestCooldown > 0) {
@@ -116,17 +115,6 @@ export default function CashierDashboard() {
           if (prev <= 1) {
             return 0; // Stop timer
           }
-          
-          // Check for 30-second inactivity rule
-          const now = Date.now();
-          const timeSinceLastInteraction = now - lastInteractionTime;
-          const secondsSinceInteraction = Math.floor(timeSinceLastInteraction / 1000);
-          
-          // If 30 seconds have passed since last interaction, cancel transaction
-          if (secondsSinceInteraction >= 30 && lastInteractionTime > 0) {
-            return 0; // This will trigger the timeout handler
-          }
-          
           return prev - 1;
         });
       }, 1000);
@@ -134,7 +122,7 @@ export default function CashierDashboard() {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [requestCooldown, lastInteractionTime]);
+  }, [requestCooldown]);
 
 
 
@@ -205,8 +193,7 @@ export default function CashierDashboard() {
     queryKey: ["/api/transactions"],
     retry: false,
     enabled: isAuthenticated,
-    refetchInterval: 1000, // Poll every second for real-time updates
-    refetchIntervalInBackground: true,
+    refetchInterval: 5000, // Poll every 5 seconds for history updates
   });
 
   // Get the active transaction for validation
@@ -230,36 +217,34 @@ export default function CashierDashboard() {
     }
   }, [qrTransactions, activeQrTransaction]);
 
-  // Monitor for new payment requests and start 120-second timer
+  // Monitor for new payment requests and start inactivity timer
   useEffect(() => {
     if (activeTransaction) {
       const transactionId = activeTransaction.transactionId;
       
-      // Start 120-second timer for new transactions
+      // Start 30-second inactivity timer for new transactions (no action taken)
       if (!processedTransactionIds.has(transactionId) && requestCooldown === 0) {
-        setRequestCooldown(120);
-        setLastInteractionTime(Date.now()); // Set initial interaction time
+        setRequestCooldown(30);
         setProcessedTransactionIds(prev => new Set(prev).add(transactionId));
       }
     } else if (!activeTransaction && requestCooldown > 0) {
       setRequestCooldown(0);
-      setLastInteractionTime(0);
     }
   }, [activeTransaction, requestCooldown, processedTransactionIds]);
 
-  // Track user interactions when cashier takes action (enters amount for RTP)
+  // Reset inactivity timer when cashier takes action (enters amount for RTP)
   useEffect(() => {
     if (cashAmount && cashCountingStep >= 2) {
-      // Cashier has taken action, update interaction timestamp
-      setLastInteractionTime(Date.now());
+      // Cashier has taken action, extend timer to 120 seconds for processing
+      setRequestCooldown(120);
     }
   }, [cashAmount, cashCountingStep]);
 
-  // Track user interactions when cashier takes action on QR transactions
+  // Reset inactivity timer when cashier takes action on QR transactions
   useEffect(() => {
     if (qrAmount && qrProcessingStep >= 2) {
-      // Cashier has entered QR amount, update interaction timestamp
-      setLastInteractionTime(Date.now());
+      // Cashier has entered QR amount, extend timer to 120 seconds for processing
+      setRequestCooldown(120);
     }
   }, [qrAmount, qrProcessingStep]);
 
@@ -268,18 +253,9 @@ export default function CashierDashboard() {
     const checkTimerExpiry = async () => {
       if (requestCooldown === 0 && activeTransaction) {
         try {
-          // Determine reason for timeout
-          const now = Date.now();
-          const timeSinceLastInteraction = now - lastInteractionTime;
-          const secondsSinceInteraction = Math.floor(timeSinceLastInteraction / 1000);
-          
-          const rejectionReason = secondsSinceInteraction >= 30 && lastInteractionTime > 0 
-            ? "inactivity timeout" 
-            : "timed out";
-          
           await apiRequest("PATCH", `/api/transactions/${activeTransaction.id}/status`, {
             status: "rejected",
-            rejectionReason: rejectionReason
+            rejectionReason: "timed out"
           });
           
           // Remove timed out transaction from processed set
@@ -289,11 +265,7 @@ export default function CashierDashboard() {
             return newSet;
           });
           
-          // Reset interaction tracking
-          setLastInteractionTime(0);
-          
           queryClient.invalidateQueries({ queryKey: ["/api/transactions/pending"] });
-          queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
         } catch (error) {
           console.error("Failed to reject timed out transaction:", error);
         }
@@ -303,7 +275,7 @@ export default function CashierDashboard() {
     // Add a small delay to prevent immediate execution
     const timer = setTimeout(checkTimerExpiry, 100);
     return () => clearTimeout(timer);
-  }, [requestCooldown, activeTransaction, lastInteractionTime]);
+  }, [requestCooldown, activeTransaction]);
 
   // Approve transaction mutation with dual authentication
   const approveTransaction = useMutation({
@@ -422,14 +394,13 @@ export default function CashierDashboard() {
 
   // Handle final transaction approval (validations already completed)
   const handleApproveTransaction = (transaction: any) => {
-    // Track user interaction
-    setLastInteractionTime(Date.now());
-    
     // Check if this is a QR code transaction
     if (transaction.type === 'qr_code_payment') {
       // For QR code transactions, open the QR scanner directly
       setCurrentTransaction(transaction);
       setShowQRScanner(true);
+      // Start countdown timer for QR processing
+      setRequestCooldown(120); // 2 minutes for QR scanning
       return;
     }
 
@@ -442,6 +413,9 @@ export default function CashierDashboard() {
       });
       return;
     }
+
+    // Start countdown timer for processing
+    setRequestCooldown(90); // 1.5 minutes for cash processing
 
     // Since validation already happened during steps 1 & 2, just approve
     approveTransaction.mutate({
@@ -482,34 +456,26 @@ export default function CashierDashboard() {
         {requestCooldown === 0 && (
           <div className="flex justify-center gap-2 mb-4">
             <Button 
-              onClick={() => {
-                setRequestCooldown(120);
-                setLastInteractionTime(Date.now());
-              }}
+              onClick={() => setRequestCooldown(30)}
               size="sm"
               className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1"
             >
-              Start 120s Timer
+              Start 30s Timer
             </Button>
           </div>
         )}
 
-        {requestCooldown > 0 && (
+        {requestCooldown > 0 && requestCooldown <= 30 && (
           <div className="flex justify-center gap-2 mb-2">
             <Button 
-              onClick={() => {
-                setLastInteractionTime(Date.now());
-              }}
+              onClick={() => setRequestCooldown(120)}
               size="sm"
               className="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1"
             >
-              Reset 30s Inactivity
+              Simulate Action (→120s)
             </Button>
             <Button 
-              onClick={() => {
-                setRequestCooldown(0);
-                setLastInteractionTime(0);
-              }}
+              onClick={() => setRequestCooldown(0)}
               size="sm"
               className="bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1"
             >
@@ -579,10 +545,7 @@ export default function CashierDashboard() {
                   )}
                   {cashCountingStep === 1 && (
                     <Button 
-                      onClick={() => {
-                        setLastInteractionTime(Date.now());
-                        setShowAmountModal(true);
-                      }}
+                      onClick={() => setShowAmountModal(true)}
                       className="mt-2 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium"
                     >
                       <i className="fas fa-calculator mr-2"></i>Enter Amount
@@ -613,10 +576,7 @@ export default function CashierDashboard() {
                   )}
                   {cashCountingStep === 2 && (
                     <Button 
-                      onClick={() => {
-                        setLastInteractionTime(Date.now());
-                        setShowVMFModal(true);
-                      }}
+                      onClick={() => setShowVMFModal(true)}
                       className="mt-2 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium"
                     >
                       <i className="fas fa-hashtag mr-2"></i>Enter VMF Number
@@ -647,10 +607,7 @@ export default function CashierDashboard() {
                   )}
                   {cashCountingStep === 3 && (
                     <Button 
-                      onClick={() => {
-                        setLastInteractionTime(Date.now());
-                        setShowUploadModal(true);
-                      }}
+                      onClick={() => setShowUploadModal(true)}
                       className="mt-2 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium"
                     >
                       <i className="fas fa-camera mr-2"></i>Take Photo
@@ -685,10 +642,7 @@ export default function CashierDashboard() {
                     )}
                     {qrProcessingStep <= 1 && (
                       <Button 
-                        onClick={qrProcessingStep === 1 ? () => {
-                          setLastInteractionTime(Date.now());
-                          setShowAmountModal(true);
-                        } : undefined}
+                        onClick={qrProcessingStep === 1 ? () => setShowAmountModal(true) : undefined}
                         disabled={qrProcessingStep < 1}
                         className={`mt-2 px-4 py-2 rounded-lg text-sm font-medium ${
                           qrProcessingStep === 1 
@@ -717,10 +671,7 @@ export default function CashierDashboard() {
                     )}
                     {qrProcessingStep <= 2 && (
                       <Button 
-                        onClick={qrProcessingStep === 2 ? () => {
-                          setLastInteractionTime(Date.now());
-                          setShowVMFModal(true);
-                        } : undefined}
+                        onClick={qrProcessingStep === 2 ? () => setShowVMFModal(true) : undefined}
                         disabled={qrProcessingStep < 2}
                         className={`mt-2 px-4 py-2 rounded-lg text-sm font-medium ${
                           qrProcessingStep === 2 
@@ -749,10 +700,7 @@ export default function CashierDashboard() {
                     )}
                     {qrProcessingStep <= 3 && (
                       <Button 
-                        onClick={qrProcessingStep === 3 ? () => {
-                          setLastInteractionTime(Date.now());
-                          setShowUploadModal(true);
-                        } : undefined}
+                        onClick={qrProcessingStep === 3 ? () => setShowUploadModal(true) : undefined}
                         disabled={qrProcessingStep < 3}
                         className={`mt-2 px-4 py-2 rounded-lg text-sm font-medium ${
                           qrProcessingStep === 3 
@@ -1000,8 +948,6 @@ export default function CashierDashboard() {
                 placeholder="0"
                 value={cashAmount}
                 onChange={(e) => {
-                  // Track user interaction when typing
-                  setLastInteractionTime(Date.now());
                   // Round any input to whole numbers only
                   const rounded = Math.round(parseFloat(e.target.value) || 0);
                   setCashAmount(rounded > 0 ? rounded.toString() : "");
@@ -1090,17 +1036,19 @@ export default function CashierDashboard() {
                     }
                   }
 
-                  // Track user interaction
-                  setLastInteractionTime(Date.now());
-                  
                   // If validation passes, proceed to next step
                   if (activeQrTransaction) {
                     setQrAmount(cashAmount);
                     setQrProcessingStep(2);
+                    // Start countdown timer for QR processing workflow
+                    console.log("Setting QR countdown timer to 180");
+                    setRequestCooldown(180); // 3 minutes for QR workflow
                   } else {
                     setCashCountingStep(2);
+                    // Start countdown timer for cash counting workflow
+                    console.log("Setting cash countdown timer to 180");
+                    setRequestCooldown(180); // 3 minutes for cash workflow
                   }
-                  
                   setActiveSession(prev => ({ ...prev, amount: cashAmount }));
                   setShowAmountModal(false);
                   toast({
@@ -1134,11 +1082,7 @@ export default function CashierDashboard() {
                 type="text"
                 placeholder="VMF-XXXXXX"
                 value={vmfNumber}
-                onChange={(e) => {
-                  // Track user interaction when typing
-                  setLastInteractionTime(Date.now());
-                  setVmfNumber(e.target.value.toUpperCase());
-                }}
+                onChange={(e) => setVmfNumber(e.target.value.toUpperCase())}
                 className="text-lg text-center font-bold"
               />
 
@@ -1175,10 +1119,10 @@ export default function CashierDashboard() {
                       });
                       setShowVMFModal(false);
                       if (activeTransaction) {
-                        // Don't reset step, just clear form data
+                        setCashCountingStep(1);
                         setCashAmount("");
                       } else if (activeQrTransaction) {
-                        // Don't reset step, just clear form data
+                        setQrProcessingStep(1);
                         setQrAmount("");
                         setQrVmfNumber("");
                       }
