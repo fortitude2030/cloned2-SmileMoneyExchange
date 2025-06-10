@@ -106,7 +106,7 @@ export default function CashierDashboard() {
   const [processedTransactionIds, setProcessedTransactionIds] = useState<Set<string>>(new Set());
   
   // Use unified timer system
-  const { timeLeft, isActive, stage, startNoInteractionTimer, extendToProcessingTimer, stopTimer } = useUnifiedTimer();
+  const { timeLeft, isActive, hasInteraction, startTimer, markInteraction, stopTimer } = useUnifiedTimer();
   const [showAllTransactions, setShowAllTransactions] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
   
@@ -224,36 +224,36 @@ export default function CashierDashboard() {
     }
   }, [qrTransactions, activeQrTransaction]);
 
-  // Monitor for new payment requests and start inactivity timer
+  // Monitor for new payment requests and start timer
   useEffect(() => {
     if (activeTransaction) {
       const transactionId = activeTransaction.transactionId;
       
-      // Start 30-second no-interaction timer for new transactions
+      // Start 120-second timer for new transactions
       if (!processedTransactionIds.has(transactionId) && !isActive) {
-        startNoInteractionTimer();
+        startTimer();
         setProcessedTransactionIds(prev => new Set(prev).add(transactionId));
       }
     } else if (!activeTransaction && isActive) {
       stopTimer();
     }
-  }, [activeTransaction, isActive, processedTransactionIds, startNoInteractionTimer, stopTimer]);
+  }, [activeTransaction, isActive, processedTransactionIds, startTimer, stopTimer]);
 
-  // Extend timer when cashier takes action (enters amount for RTP)
+  // Mark interaction when cashier takes action (enters amount for RTP)
   useEffect(() => {
     if (cashAmount && cashCountingStep >= 2) {
-      // Cashier has taken action, extend timer to 120 seconds for processing
-      extendToProcessingTimer();
+      // Cashier has taken action, mark interaction so timer continues past 30 seconds
+      markInteraction();
     }
-  }, [cashAmount, cashCountingStep, extendToProcessingTimer]);
+  }, [cashAmount, cashCountingStep, markInteraction]);
 
-  // Extend timer when cashier takes action on QR transactions
+  // Mark interaction when cashier takes action on QR transactions
   useEffect(() => {
     if (qrAmount && qrProcessingStep >= 2) {
-      // Cashier has entered QR amount, extend timer to 120 seconds for processing
-      extendToProcessingTimer();
+      // Cashier has entered QR amount, mark interaction so timer continues
+      markInteraction();
     }
-  }, [qrAmount, qrProcessingStep, extendToProcessingTimer]);
+  }, [qrAmount, qrProcessingStep, markInteraction]);
 
   // Handle timer expiration to automatically reject transactions
   useEffect(() => {
@@ -406,8 +406,8 @@ export default function CashierDashboard() {
       // For QR code transactions, open the QR scanner directly
       setCurrentTransaction(transaction);
       setShowQRScanner(true);
-      // Start countdown timer for QR processing
-      extendToProcessingTimer(); // 2 minutes for QR scanning
+      // Mark interaction for QR processing
+      markInteraction(); // Allow timer to continue for QR scanning
       return;
     }
 
@@ -421,8 +421,8 @@ export default function CashierDashboard() {
       return;
     }
 
-    // Start countdown timer for processing
-    extendToProcessingTimer(); // 2 minutes for cash processing
+    // Mark interaction for processing
+    markInteraction(); // Allow timer to continue for cash processing
 
     // Since validation already happened during steps 1 & 2, just approve
     approveTransaction.mutate({
@@ -463,23 +463,23 @@ export default function CashierDashboard() {
         {!isActive && (
           <div className="flex justify-center gap-2 mb-4">
             <Button 
-              onClick={startNoInteractionTimer}
+              onClick={startTimer}
               size="sm"
               className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1"
             >
-              Start 30s Timer
+              Start 120s Timer
             </Button>
           </div>
         )}
 
-        {isActive && stage === 'no_interaction' && (
+        {isActive && !hasInteraction && timeLeft > 90 && (
           <div className="flex justify-center gap-2 mb-2">
             <Button 
-              onClick={extendToProcessingTimer}
+              onClick={markInteraction}
               size="sm"
               className="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1"
             >
-              Simulate Action (→120s)
+              Mark Interaction
             </Button>
             <Button 
               onClick={stopTimer}
@@ -1047,14 +1047,14 @@ export default function CashierDashboard() {
                   if (activeQrTransaction) {
                     setQrAmount(cashAmount);
                     setQrProcessingStep(2);
-                    // Start countdown timer for QR processing workflow
-                    console.log("Setting QR countdown timer to 120");
-                    extendToProcessingTimer(); // 2 minutes for QR workflow
+                    // Mark interaction for QR processing workflow
+                    console.log("Marking interaction for QR workflow");
+                    markInteraction(); // Allow timer to continue for QR workflow
                   } else {
                     setCashCountingStep(2);
-                    // Start countdown timer for cash counting workflow
-                    console.log("Setting cash countdown timer to 120");
-                    extendToProcessingTimer(); // 2 minutes for cash workflow
+                    // Mark interaction for cash counting workflow
+                    console.log("Marking interaction for cash workflow");
+                    markInteraction(); // Allow timer to continue for cash workflow
                   }
                   setActiveSession(prev => ({ ...prev, amount: cashAmount }));
                   setShowAmountModal(false);

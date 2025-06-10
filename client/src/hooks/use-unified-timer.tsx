@@ -4,34 +4,46 @@ import { queryClient } from "@/lib/queryClient";
 interface UnifiedTimerState {
   timeLeft: number;
   isActive: boolean;
-  stage: "inactive" | "no_interaction" | "processing";
+  hasInteraction: boolean;
 }
 
 export function useUnifiedTimer() {
   const [timerState, setTimerState] = useState<UnifiedTimerState>({
     timeLeft: 0,
     isActive: false,
-    stage: "inactive"
+    hasInteraction: false
   });
 
-  // Main timer effect
+  // Main timer effect - single 120-second countdown
   useEffect(() => {
     let interval: NodeJS.Timeout;
     
     if (timerState.isActive && timerState.timeLeft > 0) {
       interval = setInterval(() => {
         setTimerState(prev => {
-          if (prev.timeLeft <= 1) {
-            // Timer expired
+          const newTimeLeft = prev.timeLeft - 1;
+          
+          // If no interaction and reached 30-second mark, stop timer
+          if (!prev.hasInteraction && newTimeLeft === 90) {
             return {
               timeLeft: 0,
               isActive: false,
-              stage: "inactive"
+              hasInteraction: false
             };
           }
+          
+          // If timer reaches 0, stop
+          if (newTimeLeft <= 0) {
+            return {
+              timeLeft: 0,
+              isActive: false,
+              hasInteraction: false
+            };
+          }
+          
           return {
             ...prev,
-            timeLeft: prev.timeLeft - 1
+            timeLeft: newTimeLeft
           };
         });
       }, 1000);
@@ -40,24 +52,23 @@ export function useUnifiedTimer() {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [timerState.isActive, timerState.timeLeft]);
+  }, [timerState.isActive, timerState.timeLeft, timerState.hasInteraction]);
 
-  // Start 30-second no-interaction timer
-  const startNoInteractionTimer = useCallback(() => {
-    setTimerState({
-      timeLeft: 30,
-      isActive: true,
-      stage: "no_interaction"
-    });
-  }, []);
-
-  // Extend to 120-second processing timer when action is taken
-  const extendToProcessingTimer = useCallback(() => {
+  // Start 120-second timer
+  const startTimer = useCallback(() => {
     setTimerState({
       timeLeft: 120,
       isActive: true,
-      stage: "processing"
+      hasInteraction: false
     });
+  }, []);
+
+  // Mark interaction (allows timer to continue past 30 seconds)
+  const markInteraction = useCallback(() => {
+    setTimerState(prev => ({
+      ...prev,
+      hasInteraction: true
+    }));
   }, []);
 
   // Stop timer
@@ -65,7 +76,7 @@ export function useUnifiedTimer() {
     setTimerState({
       timeLeft: 0,
       isActive: false,
-      stage: "inactive"
+      hasInteraction: false
     });
   }, []);
 
@@ -82,9 +93,9 @@ export function useUnifiedTimer() {
   return {
     timeLeft: timerState.timeLeft,
     isActive: timerState.isActive,
-    stage: timerState.stage,
-    startNoInteractionTimer,
-    extendToProcessingTimer,
+    hasInteraction: timerState.hasInteraction,
+    startTimer,
+    markInteraction,
     stopTimer
   };
 }
