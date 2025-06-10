@@ -420,13 +420,14 @@ export default function CashierDashboard() {
 
   // Handle final transaction approval (validations already completed)
   const handleApproveTransaction = (transaction: any) => {
+    // Track user interaction
+    setLastInteractionTime(Date.now());
+    
     // Check if this is a QR code transaction
     if (transaction.type === 'qr_code_payment') {
       // For QR code transactions, open the QR scanner directly
       setCurrentTransaction(transaction);
       setShowQRScanner(true);
-      // Start countdown timer for QR processing
-      setRequestCooldown(120); // 2 minutes for QR scanning
       return;
     }
 
@@ -439,9 +440,6 @@ export default function CashierDashboard() {
       });
       return;
     }
-
-    // Start countdown timer for processing
-    setRequestCooldown(90); // 1.5 minutes for cash processing
 
     // Since validation already happened during steps 1 & 2, just approve
     approveTransaction.mutate({
@@ -579,7 +577,10 @@ export default function CashierDashboard() {
                   )}
                   {cashCountingStep === 1 && (
                     <Button 
-                      onClick={() => setShowAmountModal(true)}
+                      onClick={() => {
+                        setLastInteractionTime(Date.now());
+                        setShowAmountModal(true);
+                      }}
                       className="mt-2 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium"
                     >
                       <i className="fas fa-calculator mr-2"></i>Enter Amount
@@ -610,7 +611,10 @@ export default function CashierDashboard() {
                   )}
                   {cashCountingStep === 2 && (
                     <Button 
-                      onClick={() => setShowVMFModal(true)}
+                      onClick={() => {
+                        setLastInteractionTime(Date.now());
+                        setShowVMFModal(true);
+                      }}
                       className="mt-2 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium"
                     >
                       <i className="fas fa-hashtag mr-2"></i>Enter VMF Number
@@ -641,7 +645,10 @@ export default function CashierDashboard() {
                   )}
                   {cashCountingStep === 3 && (
                     <Button 
-                      onClick={() => setShowUploadModal(true)}
+                      onClick={() => {
+                        setLastInteractionTime(Date.now());
+                        setShowUploadModal(true);
+                      }}
                       className="mt-2 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium"
                     >
                       <i className="fas fa-camera mr-2"></i>Take Photo
@@ -676,7 +683,10 @@ export default function CashierDashboard() {
                     )}
                     {qrProcessingStep <= 1 && (
                       <Button 
-                        onClick={qrProcessingStep === 1 ? () => setShowAmountModal(true) : undefined}
+                        onClick={qrProcessingStep === 1 ? () => {
+                          setLastInteractionTime(Date.now());
+                          setShowAmountModal(true);
+                        } : undefined}
                         disabled={qrProcessingStep < 1}
                         className={`mt-2 px-4 py-2 rounded-lg text-sm font-medium ${
                           qrProcessingStep === 1 
@@ -705,7 +715,10 @@ export default function CashierDashboard() {
                     )}
                     {qrProcessingStep <= 2 && (
                       <Button 
-                        onClick={qrProcessingStep === 2 ? () => setShowVMFModal(true) : undefined}
+                        onClick={qrProcessingStep === 2 ? () => {
+                          setLastInteractionTime(Date.now());
+                          setShowVMFModal(true);
+                        } : undefined}
                         disabled={qrProcessingStep < 2}
                         className={`mt-2 px-4 py-2 rounded-lg text-sm font-medium ${
                           qrProcessingStep === 2 
@@ -734,7 +747,10 @@ export default function CashierDashboard() {
                     )}
                     {qrProcessingStep <= 3 && (
                       <Button 
-                        onClick={qrProcessingStep === 3 ? () => setShowUploadModal(true) : undefined}
+                        onClick={qrProcessingStep === 3 ? () => {
+                          setLastInteractionTime(Date.now());
+                          setShowUploadModal(true);
+                        } : undefined}
                         disabled={qrProcessingStep < 3}
                         className={`mt-2 px-4 py-2 rounded-lg text-sm font-medium ${
                           qrProcessingStep === 3 
@@ -982,6 +998,8 @@ export default function CashierDashboard() {
                 placeholder="0"
                 value={cashAmount}
                 onChange={(e) => {
+                  // Track user interaction when typing
+                  setLastInteractionTime(Date.now());
                   // Round any input to whole numbers only
                   const rounded = Math.round(parseFloat(e.target.value) || 0);
                   setCashAmount(rounded > 0 ? rounded.toString() : "");
