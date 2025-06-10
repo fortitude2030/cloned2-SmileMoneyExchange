@@ -324,18 +324,35 @@ export default function CashierDashboard() {
       });
     },
     onSuccess: (_, variables) => {
+      console.log('Transaction approved successfully - stopping timer');
       showSuccessNotification();
-      stopTimer(); // Stop timer since transaction is completed
+      
+      // Stop timer immediately and mark transaction as processed
+      stopTimer();
+      
+      // Mark transaction as completed to prevent timer restart
+      if (activeTransaction) {
+        setTimedOutTransactionIds(prev => new Set(prev).add(activeTransaction.transactionId));
+      }
+      
+      // Reset UI state for completed transaction
+      setCashCountingStep(1);
+      setCashAmount("");
+      setVmfNumber("");
+      
       // Remove completed transaction from processed set
       setProcessedTransactionIds(prev => {
         const newSet = new Set(prev);
-        // Find the transaction ID from the variables if available
         if (activeTransaction) {
           newSet.delete(activeTransaction.transactionId);
         }
         return newSet;
       });
+      
+      // Comprehensive query invalidation to refresh all transaction data
+      queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
       queryClient.invalidateQueries({ queryKey: ["/api/transactions/pending"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/transactions/qr-verification"] });
     },
     onError: (error) => {
       if (isUnauthorizedError(error)) {
@@ -370,8 +387,16 @@ export default function CashierDashboard() {
       });
     },
     onSuccess: (_, variables) => {
+      console.log('Transaction rejected successfully - stopping timer');
       showFailureNotification();
-      stopTimer(); // Stop timer since transaction is rejected
+      
+      // Stop timer immediately
+      stopTimer();
+      
+      // Mark transaction as completed to prevent timer restart
+      if (activeTransaction) {
+        setTimedOutTransactionIds(prev => new Set(prev).add(activeTransaction.transactionId));
+      }
       
       // Remove rejected transaction from processed set
       setProcessedTransactionIds(prev => {
@@ -388,7 +413,10 @@ export default function CashierDashboard() {
       setVmfNumber("");
       setActiveSession(prev => ({ ...prev, amount: "0" }));
       
+      // Comprehensive query invalidation to refresh all transaction data
+      queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
       queryClient.invalidateQueries({ queryKey: ["/api/transactions/pending"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/transactions/qr-verification"] });
     },
     onError: (error) => {
       if (isUnauthorizedError(error)) {
