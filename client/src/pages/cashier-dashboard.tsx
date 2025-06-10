@@ -104,6 +104,7 @@ export default function CashierDashboard() {
     amount: "0"
   });
   const [processedTransactionIds, setProcessedTransactionIds] = useState<Set<string>>(new Set());
+  const [timedOutTransactionIds, setTimedOutTransactionIds] = useState<Set<string>>(new Set());
   
   // Use global timer system
   const { timeLeft, isActive, hasInteraction, startTimer, markInteraction, stopTimer } = useTimer();
@@ -229,15 +230,15 @@ export default function CashierDashboard() {
     if (activeTransaction) {
       const transactionId = activeTransaction.transactionId;
       
-      // Start 120-second timer for new transactions
-      if (!processedTransactionIds.has(transactionId) && !isActive) {
+      // Only start timer for truly new transactions (not already processed and not currently active)
+      if (!processedTransactionIds.has(transactionId) && !isActive && timeLeft === 0) {
         startTimer();
         setProcessedTransactionIds(prev => new Set(prev).add(transactionId));
       }
     } else if (!activeTransaction && isActive) {
       stopTimer();
     }
-  }, [activeTransaction, isActive, processedTransactionIds, startTimer, stopTimer]);
+  }, [activeTransaction, isActive, timeLeft, processedTransactionIds, startTimer, stopTimer]);
 
   // Mark interaction when cashier takes action (enters amount for RTP)
   useEffect(() => {

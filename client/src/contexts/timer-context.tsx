@@ -36,6 +36,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
           
           // If no interaction and reached 30-second mark, stop timer
           if (!prev.hasInteraction && newTimeLeft === 90) {
+            setLastFinishTime(Date.now());
             return {
               timeLeft: 0,
               isActive: false,
@@ -45,6 +46,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
           
           // If timer reaches 0, stop
           if (newTimeLeft <= 0) {
+            setLastFinishTime(Date.now());
             return {
               timeLeft: 0,
               isActive: false,
@@ -65,11 +67,16 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     };
   }, [timerState.isActive, timerState.timeLeft, timerState.hasInteraction]);
 
+  // Track when timer finishes to prevent immediate restart
+  const [lastFinishTime, setLastFinishTime] = React.useState(0);
+
   // Start 120-second timer
   const startTimer = useCallback(() => {
     setTimerState(prev => {
-      // Prevent restarting if already active
-      if (prev.isActive) return prev;
+      // Prevent restarting if already active or if just finished
+      if (prev.isActive || (prev.timeLeft === 0 && Date.now() - lastFinishTime < 2000)) {
+        return prev;
+      }
       
       return {
         timeLeft: 120,
@@ -77,7 +84,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
         hasInteraction: false
       };
     });
-  }, []);
+  }, [lastFinishTime]);
 
   // Mark interaction (allows timer to continue past 30 seconds)
   const markInteraction = useCallback(() => {
