@@ -10,9 +10,10 @@ interface QRCodeModalProps {
   onClose: () => void;
   amount: string;
   vmfNumber: string;
+  qrData?: any; // Optional QR data from backend
 }
 
-export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCodeModalProps) {
+export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber, qrData }: QRCodeModalProps) {
   const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
   const [uniqueId] = useState(() => `QR${Date.now()}${Math.random().toString(36).substr(2, 9)}`);
   
@@ -21,14 +22,20 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
   const [isQrExpired, setIsQrExpired] = useState(false);
   const isExpired = !isActive && timeLeft === 0;
 
-  // Auto-generate QR code when modal opens (timer controlled by cashier dashboard)
+  // Use provided QR data or generate QR code when modal opens
   useEffect(() => {
-    if (isOpen && amount && vmfNumber) {
-      handleGenerateQR();
-      setIsQrExpired(false); // Reset expiration state when opening
-      // Don't start timer here - it's controlled by the cashier dashboard
+    if (isOpen) {
+      if (qrData && qrData.qrImageUrl) {
+        // Use provided QR data from merchant payment request
+        setQrCodeUrl(qrData.qrImageUrl);
+        setIsQrExpired(false);
+      } else if (amount && vmfNumber) {
+        // Fallback to old generation method for cashier-initiated QR codes
+        handleGenerateQR();
+        setIsQrExpired(false);
+      }
     }
-  }, [isOpen, amount, vmfNumber]);
+  }, [isOpen, amount, vmfNumber, qrData]);
 
   // Expire QR code immediately when timer expires (30s or 120s)
   useEffect(() => {

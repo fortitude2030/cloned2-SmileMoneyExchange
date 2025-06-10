@@ -25,6 +25,7 @@ export default function MerchantDashboard() {
   const [vmfNumber, setVmfNumber] = useState("");
   const [showAllTransactions, setShowAllTransactions] = useState(false);
   const [lastQrTransactionId, setLastQrTransactionId] = useState<string | null>(null);
+  const [qrData, setQrData] = useState<any>(null);
 
 
 
@@ -140,6 +141,7 @@ export default function MerchantDashboard() {
         // Show QR code modal for payment request
         if (data && data.transactionId) {
           setLastQrTransactionId(data.transactionId);
+          setQrData(data); // Store QR data for modal
           setShowQRModal(true);
         }
         toast({
@@ -479,18 +481,12 @@ export default function MerchantDashboard() {
         isOpen={showQRModal}
         onClose={() => {
           setShowQRModal(false);
-          setLastQrTransactionId(null); // Clear tracking when modal closes
-          // Create transaction request when QR modal closes
-          if (paymentAmount && vmfNumber) {
-            createPaymentRequest.mutate({ 
-              amount: paymentAmount, 
-              vmfNumber,
-              type: "qr_code_payment"
-            } as any);
-          }
+          setLastQrTransactionId(null);
+          setQrData(null);
         }}
         amount={paymentAmount}
         vmfNumber={vmfNumber}
+        qrData={qrData}
       />
 
 
