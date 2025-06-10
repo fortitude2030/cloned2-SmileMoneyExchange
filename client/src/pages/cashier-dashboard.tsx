@@ -77,6 +77,13 @@ export default function CashierDashboard() {
       ? rejectionReason 
       : status.charAt(0).toUpperCase() + status.slice(1);
     
+    // Debug logging for timed out transactions
+    if (rejectionReason === 'timed out') {
+      console.log(`=== CASHIER DEBUG: Badge Rendering ===`);
+      console.log(`Status: "${status}", Reason: "${rejectionReason}", Display: "${displayText}"`);
+      console.log(`Color class: ${statusColors[status as keyof typeof statusColors]}`);
+    }
+    
     return (
       <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[status as keyof typeof statusColors] || 'bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200'}`}>
         {displayText}
@@ -195,6 +202,20 @@ export default function CashierDashboard() {
     enabled: isAuthenticated,
     refetchInterval: 5000, // Poll every 5 seconds for history updates
   });
+
+  // Debug logging for transaction data
+  useEffect(() => {
+    if (transactions.length > 0) {
+      const timedOutTransactions = transactions.filter((t: any) => t.rejectionReason === 'timed out');
+      if (timedOutTransactions.length > 0) {
+        console.log('=== CASHIER DEBUG: Timed Out Transactions ===');
+        timedOutTransactions.forEach((t: any) => {
+          console.log(`Transaction ${t.transactionId}: status="${t.status}", rejectionReason="${t.rejectionReason}"`);
+        });
+        console.log('===============================================');
+      }
+    }
+  }, [transactions]);
 
   // Get the active transaction for validation
   // Filter out QR code transactions from pending queue - they should not show in pending requests
