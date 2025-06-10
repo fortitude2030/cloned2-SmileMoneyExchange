@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { useAuth } from "@/hooks/useAuth";
+import { useTimer } from "@/contexts/timer-context";
 
 interface DocumentUploadModalProps {
   isOpen: boolean;
@@ -24,6 +25,7 @@ interface UploadedDocument {
 export default function DocumentUploadModal({ isOpen, onClose, transactionId }: DocumentUploadModalProps) {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { stopTimer } = useTimer();
   
   // Show only relevant VMF copy based on user role
   const getDocumentsByRole = () => {
@@ -69,13 +71,21 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
         description: "Document uploaded successfully",
       });
       
-      setDocuments(prev => 
-        prev.map(doc => 
+      setDocuments(prev => {
+        const updated = prev.map(doc => 
           doc.type === variables.type 
             ? { ...doc, uploaded: true }
             : doc
-        )
-      );
+        );
+        
+        // Check if all documents are now uploaded and stop timer
+        if (updated.every(doc => doc.uploaded)) {
+          stopTimer();
+          console.log("All documents uploaded - stopping timer");
+        }
+        
+        return updated;
+      });
       
       queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
     },
@@ -164,6 +174,9 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
       return;
     }
 
+    // Stop the timer since transaction is complete
+    stopTimer();
+    
     toast({
       title: "Success",
       description: "All VMF documents uploaded successfully",
