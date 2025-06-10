@@ -293,6 +293,7 @@ export default function CashierDashboard() {
           setLastInteractionTime(0);
           
           queryClient.invalidateQueries({ queryKey: ["/api/transactions/pending"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
         } catch (error) {
           console.error("Failed to reject timed out transaction:", error);
         }
