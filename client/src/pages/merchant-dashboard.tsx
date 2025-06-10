@@ -57,6 +57,9 @@ export default function MerchantDashboard() {
     queryKey: ["/api/wallet"],
     retry: false,
     enabled: isAuthenticated,
+    refetchInterval: 1000, // Poll every 1 second for real-time balance updates
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 
   // Fetch transactions with reasonable polling for updates
@@ -73,7 +76,7 @@ export default function MerchantDashboard() {
     queryKey: ["/api/transactions"],
     retry: false,
     enabled: isAuthenticated,
-    refetchInterval: 5000, // Poll every 5 seconds for updates
+    refetchInterval: 2000, // Poll every 2 seconds for updates
     refetchOnWindowFocus: true,
     refetchOnMount: true,
   });

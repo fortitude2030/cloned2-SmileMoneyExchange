@@ -188,6 +188,23 @@ export default function CashierDashboard() {
     refetchOnMount: true,
   });
 
+  // Fetch wallet data for real-time balance tracking
+  const { data: wallet, isLoading: walletLoading } = useQuery<{
+    id: number;
+    balance: string;
+    dailyLimit: string;
+    dailyCollected: string;
+    dailyTransferred: string;
+    isActive: boolean;
+  }>({
+    queryKey: ["/api/wallet"],
+    retry: false,
+    enabled: isAuthenticated,
+    refetchInterval: 1000, // Poll every 1 second for real-time balance updates
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+  });
+
   // Clean up state for completed transactions to prevent UI confusion
   useEffect(() => {
     if (transactions.length > 0) {
