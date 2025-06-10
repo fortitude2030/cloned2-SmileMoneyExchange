@@ -1088,19 +1088,17 @@ export default function CashierDashboard() {
                     }
                   }
 
+                  // Track user interaction
+                  setLastInteractionTime(Date.now());
+                  
                   // If validation passes, proceed to next step
                   if (activeQrTransaction) {
                     setQrAmount(cashAmount);
                     setQrProcessingStep(2);
-                    // Start countdown timer for QR processing workflow
-                    console.log("Setting QR countdown timer to 180");
-                    setRequestCooldown(180); // 3 minutes for QR workflow
                   } else {
                     setCashCountingStep(2);
-                    // Start countdown timer for cash counting workflow
-                    console.log("Setting cash countdown timer to 180");
-                    setRequestCooldown(180); // 3 minutes for cash workflow
                   }
+                  
                   setActiveSession(prev => ({ ...prev, amount: cashAmount }));
                   setShowAmountModal(false);
                   toast({
@@ -1134,7 +1132,11 @@ export default function CashierDashboard() {
                 type="text"
                 placeholder="VMF-XXXXXX"
                 value={vmfNumber}
-                onChange={(e) => setVmfNumber(e.target.value.toUpperCase())}
+                onChange={(e) => {
+                  // Track user interaction when typing
+                  setLastInteractionTime(Date.now());
+                  setVmfNumber(e.target.value.toUpperCase());
+                }}
                 className="text-lg text-center font-bold"
               />
 
