@@ -587,6 +587,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Generate QR code image as base64 data URL using local package
       let qrImageDataUrl;
       try {
+        console.log("Generating QR for data:", qrDataString);
         qrImageDataUrl = await QRCode.toDataURL(qrDataString, {
           width: 300,
           margin: 2,
@@ -594,12 +595,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             dark: '#000000',
             light: '#FFFFFF'
           },
-          errorCorrectionLevel: 'M'
+          errorCorrectionLevel: 'M',
+          type: 'image/png'
         });
-      } catch (qrError) {
+        console.log("QR generation successful, URL length:", qrImageDataUrl.length);
+      } catch (qrError: any) {
         console.error("QRCode generation failed:", qrError);
         console.error("QR data string:", qrDataString);
-        throw new Error("Failed to generate QR code image");
+        console.error("Full error:", JSON.stringify(qrError, null, 2));
+        const errorMessage = qrError instanceof Error ? qrError.message : 'Unknown error';
+        throw new Error("Failed to generate QR code image: " + errorMessage);
       }
 
       res.json({
@@ -621,28 +626,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
 
-      // Only cashiers can verify QR codes
-      if (user?.role !== 'cashier') {
-        return res.status(403).json({ message: "Only cashiers can verify QR codes" });
+      // Allow both cashiers and merchants to verify QR codes
+      if (user?.role !== 'cashier' && user?.role !== 'merchant') {
+        return res.status(403).json({ message: "Only cashiers and merchants can verify QR codes" });
       }
 
       if (!qrData) {
         return res.status(400).json({ message: "QR data is required" });
       }
 
+      console.log("QR verification attempt by user:", userId, "role:", user?.role);
+      console.log("QR data received:", qrData);
+
       // Parse and validate QR data
       let parsedQR;
       try {
         parsedQR = JSON.parse(qrData);
+        console.log("Parsed QR data:", parsedQR);
       } catch (parseError) {
+        console.log("QR parse error:", parseError);
         return res.status(400).json({ message: "Invalid QR code format" });
       }
 
       // Generate hash and look up in database
       const qrCodeHash = crypto.createHash('sha256').update(qrData).digest('hex');
+      console.log("Generated hash:", qrCodeHash);
+      
       const qrCode = await storage.getQrCodeByHash(qrCodeHash);
+      console.log("Found QR code in database:", qrCode ? "YES" : "NO");
 
       if (!qrCode) {
+        console.log("QR code lookup failed - hash not found in database");
         return res.status(404).json({ message: "QR code not found, expired, or already used" });
       }
 
