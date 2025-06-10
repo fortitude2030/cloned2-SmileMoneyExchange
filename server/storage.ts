@@ -69,6 +69,13 @@ export interface IStorage {
   getSettlementRequestsByOrganization(organizationId: number): Promise<SettlementRequest[]>;
   getPendingSettlementRequests(): Promise<SettlementRequest[]>;
   updateSettlementRequestStatus(id: number, status: string, reviewedBy?: string): Promise<void>;
+  
+  // QR Code operations
+  createQrCode(qrCodeData: InsertQrCode): Promise<QrCode>;
+  getQrCodeByHash(hash: string): Promise<QrCode | undefined>;
+  markQrCodeAsUsed(id: number): Promise<void>;
+  expungeExpiredQrCodes(): Promise<void>;
+  getActiveQrCodeByTransactionId(transactionId: number): Promise<QrCode | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {

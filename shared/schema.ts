@@ -119,6 +119,17 @@ export const settlementRequests = pgTable("settlement_requests", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const qrCodes = pgTable("qr_codes", {
+  id: serial("id").primaryKey(),
+  transactionId: integer("transaction_id").notNull().references(() => transactions.id),
+  qrCodeHash: varchar("qr_code_hash", { length: 64 }).notNull().unique(), // SHA-256 hash
+  qrData: text("qr_data").notNull(), // Encrypted QR code payload
+  expiresAt: timestamp("expires_at").notNull(), // 2 minutes from creation
+  isUsed: boolean("is_used").notNull().default(false),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Relations
 export const userRelations = relations(users, ({ one, many }) => ({
   organization: one(organizations, {
@@ -167,6 +178,14 @@ export const transactionRelations = relations(transactions, ({ one, many }) => (
     relationName: "receiver",
   }),
   documents: many(documents),
+  qrCodes: many(qrCodes),
+}));
+
+export const qrCodeRelations = relations(qrCodes, ({ one }) => ({
+  transaction: one(transactions, {
+    fields: [qrCodes.transactionId],
+    references: [transactions.id],
+  }),
 }));
 
 export const documentRelations = relations(documents, ({ one }) => ({
@@ -233,6 +252,13 @@ export const insertSettlementRequestSchema = createInsertSchema(settlementReques
   updatedAt: true,
 });
 
+export const insertQrCodeSchema = createInsertSchema(qrCodes).omit({
+  id: true,
+  isUsed: true,
+  usedAt: true,
+  createdAt: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -247,3 +273,5 @@ export type Document = typeof documents.$inferSelect;
 export type InsertDocument = z.infer<typeof insertDocumentSchema>;
 export type SettlementRequest = typeof settlementRequests.$inferSelect;
 export type InsertSettlementRequest = z.infer<typeof insertSettlementRequestSchema>;
+export type QrCode = typeof qrCodes.$inferSelect;
+export type InsertQrCode = z.infer<typeof insertQrCodeSchema>;
