@@ -585,14 +585,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Generate QR code image as base64 data URL using local package
-      const qrImageDataUrl = await QRCode.toDataURL(qrDataString, {
-        width: 300,
-        margin: 2,
-        color: {
-          dark: '#000000',
-          light: '#FFFFFF'
-        }
-      });
+      let qrImageDataUrl;
+      try {
+        qrImageDataUrl = await QRCode.toDataURL(qrDataString, {
+          width: 300,
+          margin: 2,
+          color: {
+            dark: '#000000',
+            light: '#FFFFFF'
+          },
+          errorCorrectionLevel: 'M'
+        });
+      } catch (qrError) {
+        console.error("QRCode generation failed:", qrError);
+        console.error("QR data string:", qrDataString);
+        throw new Error("Failed to generate QR code image");
+      }
 
       res.json({
         qrId: qrCode.id,
