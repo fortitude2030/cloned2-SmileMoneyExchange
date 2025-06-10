@@ -5,7 +5,6 @@ interface TimerState {
   timeLeft: number;
   isActive: boolean;
   hasInteraction: boolean;
-  sessionId: string; // Unique session to prevent cross-session interference
 }
 
 interface TimerContextType {
@@ -103,11 +102,12 @@ export function TimerProvider({ children }: { children: ReactNode }) {
 
   // Stop timer
   const stopTimer = useCallback(() => {
-    setTimerState({
+    setLastFinishTime(Date.now());
+    setTimerState(prev => ({
       timeLeft: 0,
       isActive: false,
       hasInteraction: false
-    });
+    }));
   }, []);
 
   // Don't automatically refresh queries on timer expiry to prevent flashing
