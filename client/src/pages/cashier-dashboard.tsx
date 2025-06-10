@@ -241,21 +241,36 @@ export default function CashierDashboard() {
   const rtpTransactions = pendingTransactions.filter(t => t.type !== 'qr_code_payment');
   const activeTransaction = rtpTransactions.length > 0 ? rtpTransactions[0] : null;
 
-  // Set the first QR transaction as active when available (only new pending ones)
+  // Set the first QR transaction as active when available and auto-launch timer
   useEffect(() => {
     const pendingQrTransactions = qrTransactions.filter(t => t.status === 'pending');
     if (pendingQrTransactions.length > 0 && !activeQrTransaction) {
-      setActiveQrTransaction(pendingQrTransactions[0]);
+      const newQrTransaction = pendingQrTransactions[0];
+      setActiveQrTransaction(newQrTransaction);
       setQrProcessingStep(1);
       setQrAmount("");
       setQrVmfNumber("");
+      
+      // Auto-launch timer for QR transactions like RTP transactions
+      const transactionId = newQrTransaction.transactionId;
+      const canStartTimer = !processedTransactionIds.has(transactionId) && 
+                           !timedOutTransactionIds.has(transactionId) && 
+                           !isActive && 
+                           timeLeft === 0 &&
+                           newQrTransaction.status === 'pending';
+      
+      if (canStartTimer) {
+        console.log('Auto-launching QR transaction timer:', transactionId);
+        startTimer();
+        setProcessedTransactionIds(prev => new Set(prev).add(transactionId));
+      }
     } else if (pendingQrTransactions.length === 0) {
       setActiveQrTransaction(null);
       setQrProcessingStep(1);
       setQrAmount("");
       setQrVmfNumber("");
     }
-  }, [qrTransactions, activeQrTransaction]);
+  }, [qrTransactions, activeQrTransaction, processedTransactionIds, timedOutTransactionIds, isActive, timeLeft, startTimer]);
 
   // Monitor for new payment requests and start timer
   useEffect(() => {
