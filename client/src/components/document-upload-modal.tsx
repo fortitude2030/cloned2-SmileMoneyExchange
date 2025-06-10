@@ -76,44 +76,14 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
             : doc
         );
         
-        // Check if all documents are now uploaded and complete transaction automatically
+        // Show completion notice but require manual confirmation
         if (updated.every(doc => doc.uploaded)) {
-          console.log("All documents uploaded - completing transaction automatically");
+          console.log("All documents uploaded - manual completion required");
           
-          // Stop timer first to prevent timeout interference
-          setTimeout(() => {
-            stopTimer();
-          }, 0);
-          
-          // Automatically mark transaction as completed with slight delay to prevent race conditions
-          if (transactionId) {
-            setTimeout(() => {
-              apiRequest("PATCH", `/api/transactions/${transactionId}/status`, {
-                status: "completed"
-              }).then(() => {
-                // Invalidate queries to refresh transaction lists
-                queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
-                queryClient.invalidateQueries({ queryKey: ["/api/transactions/pending"] });
-                
-                toast({
-                  title: "Transaction Completed",
-                  description: "All VMF documents uploaded and transaction completed successfully",
-                });
-                
-                // Close modal after completion
-                setTimeout(() => {
-                  onClose();
-                }, 1500);
-              }).catch((error) => {
-                console.error("Failed to complete transaction:", error);
-                toast({
-                  title: "Error",
-                  description: "Failed to complete transaction. Please try the Complete button.",
-                  variant: "destructive",
-                });
-              });
-            }, 100);
-          }
+          toast({
+            title: "Photos Captured",
+            description: "All VMF documents uploaded. Please verify photos and click Complete Transaction.",
+          });
         }
         
         return updated;
@@ -167,6 +137,34 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
       return;
     }
 
+    // Enhanced validation for fresh camera captures
+    const now = Date.now();
+    const fileDate = file.lastModified || now;
+    const timeDiff = now - fileDate;
+    
+    // Multiple validation criteria for camera capture
+    const isFreshPhoto = timeDiff < 60000; // Within last minute
+    const hasReasonableSize = file.size > 100000 && file.size < 15000000; // 100KB - 15MB
+    const hasCameraLikeName = /^(img_|image_|photo_|camera_|\d{8}_\d{6})/i.test(file.name);
+    
+    if (!isFreshPhoto) {
+      toast({
+        title: "Fresh Photo Required",
+        description: "Please capture a new photo now using your camera. Old photos are not accepted.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!hasReasonableSize) {
+      toast({
+        title: "Invalid Photo",
+        description: "Photo size appears unusual. Please capture a clear photo using your camera.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Update document state
     setDocuments(prev => 
       prev.map(doc => 
@@ -181,8 +179,6 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
     if (document) {
       uploadDocument.mutate({ file, type: document.type });
     }
-
-    // File selection completed
   }, [documents, uploadDocument, toast]);
 
   const handleCameraCapture = useCallback((documentId: string) => {
@@ -293,7 +289,7 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
                 )}
               </div>
               
-              {/* Hidden file input for camera capture */}
+              {/* Hidden file input for camera capture only */}
               <input
                 type="file"
                 className="hidden"
@@ -301,7 +297,27 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
                 capture="environment"
                 id={`file-input-${document.id}`}
                 onChange={(e) => {
-                  handleFileSelect(document.id, e.target.files?.[0] || null);
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    // Additional validation for camera capture
+                    const isLikelyFromCamera = 
+                      file.name.toLowerCase().includes('img_') || 
+                      file.name.toLowerCase().includes('image_') ||
+                      file.name.toLowerCase().includes('photo_') ||
+                      file.size > 500000; // Assume camera photos are larger than 500KB
+                    
+                    if (!isLikelyFromCamera) {
+                      toast({
+                        title: "Camera Required",
+                        description: "Please use your device camera to capture a new photo of the document.",
+                        variant: "destructive",
+                      });
+                      e.target.value = '';
+                      return;
+                    }
+                  }
+                  
+                  handleFileSelect(document.id, file || null);
                   // Reset the input value to allow capturing the same file again
                   e.target.value = '';
                 }}
