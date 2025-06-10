@@ -97,6 +97,7 @@ export default function CashierDashboard() {
   });
   const [requestCooldown, setRequestCooldown] = useState(0); // Start with no timer
   const [processedTransactionIds, setProcessedTransactionIds] = useState<Set<string>>(new Set());
+  const [lastInteractionTime, setLastInteractionTime] = useState<number>(0); // Track last interaction timestamp
   const [showAllTransactions, setShowAllTransactions] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
   
@@ -106,7 +107,7 @@ export default function CashierDashboard() {
   const [qrVmfNumber, setQrVmfNumber] = useState("");
   const [activeQrTransaction, setActiveQrTransaction] = useState<any>(null);
 
-  // Timer effect for request cooldown - only runs when cooldown > 0
+  // Timer effect for request cooldown with 30-second inactivity rule
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (requestCooldown > 0) {
@@ -115,6 +116,17 @@ export default function CashierDashboard() {
           if (prev <= 1) {
             return 0; // Stop timer
           }
+          
+          // Check for 30-second inactivity rule
+          const now = Date.now();
+          const timeSinceLastInteraction = now - lastInteractionTime;
+          const secondsSinceInteraction = Math.floor(timeSinceLastInteraction / 1000);
+          
+          // If 30 seconds have passed since last interaction, cancel transaction
+          if (secondsSinceInteraction >= 30 && lastInteractionTime > 0) {
+            return 0; // This will trigger the timeout handler
+          }
+          
           return prev - 1;
         });
       }, 1000);
@@ -122,7 +134,7 @@ export default function CashierDashboard() {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [requestCooldown]);
+  }, [requestCooldown, lastInteractionTime]);
 
 
 
@@ -217,34 +229,36 @@ export default function CashierDashboard() {
     }
   }, [qrTransactions, activeQrTransaction]);
 
-  // Monitor for new payment requests and start inactivity timer
+  // Monitor for new payment requests and start 120-second timer
   useEffect(() => {
     if (activeTransaction) {
       const transactionId = activeTransaction.transactionId;
       
-      // Start 30-second inactivity timer for new transactions (no action taken)
+      // Start 120-second timer for new transactions
       if (!processedTransactionIds.has(transactionId) && requestCooldown === 0) {
-        setRequestCooldown(30);
+        setRequestCooldown(120);
+        setLastInteractionTime(Date.now()); // Set initial interaction time
         setProcessedTransactionIds(prev => new Set(prev).add(transactionId));
       }
     } else if (!activeTransaction && requestCooldown > 0) {
       setRequestCooldown(0);
+      setLastInteractionTime(0);
     }
   }, [activeTransaction, requestCooldown, processedTransactionIds]);
 
-  // Reset inactivity timer when cashier takes action (enters amount for RTP)
+  // Track user interactions when cashier takes action (enters amount for RTP)
   useEffect(() => {
     if (cashAmount && cashCountingStep >= 2) {
-      // Cashier has taken action, extend timer to 120 seconds for processing
-      setRequestCooldown(120);
+      // Cashier has taken action, update interaction timestamp
+      setLastInteractionTime(Date.now());
     }
   }, [cashAmount, cashCountingStep]);
 
-  // Reset inactivity timer when cashier takes action on QR transactions
+  // Track user interactions when cashier takes action on QR transactions
   useEffect(() => {
     if (qrAmount && qrProcessingStep >= 2) {
-      // Cashier has entered QR amount, extend timer to 120 seconds for processing
-      setRequestCooldown(120);
+      // Cashier has entered QR amount, update interaction timestamp
+      setLastInteractionTime(Date.now());
     }
   }, [qrAmount, qrProcessingStep]);
 
@@ -253,9 +267,18 @@ export default function CashierDashboard() {
     const checkTimerExpiry = async () => {
       if (requestCooldown === 0 && activeTransaction) {
         try {
+          // Determine reason for timeout
+          const now = Date.now();
+          const timeSinceLastInteraction = now - lastInteractionTime;
+          const secondsSinceInteraction = Math.floor(timeSinceLastInteraction / 1000);
+          
+          const rejectionReason = secondsSinceInteraction >= 30 && lastInteractionTime > 0 
+            ? "inactivity timeout" 
+            : "timed out";
+          
           await apiRequest("PATCH", `/api/transactions/${activeTransaction.id}/status`, {
             status: "rejected",
-            rejectionReason: "timed out"
+            rejectionReason: rejectionReason
           });
           
           // Remove timed out transaction from processed set
@@ -264,6 +287,9 @@ export default function CashierDashboard() {
             newSet.delete(activeTransaction.transactionId);
             return newSet;
           });
+          
+          // Reset interaction tracking
+          setLastInteractionTime(0);
           
           queryClient.invalidateQueries({ queryKey: ["/api/transactions/pending"] });
         } catch (error) {
@@ -275,7 +301,7 @@ export default function CashierDashboard() {
     // Add a small delay to prevent immediate execution
     const timer = setTimeout(checkTimerExpiry, 100);
     return () => clearTimeout(timer);
-  }, [requestCooldown, activeTransaction]);
+  }, [requestCooldown, activeTransaction, lastInteractionTime]);
 
   // Approve transaction mutation with dual authentication
   const approveTransaction = useMutation({
@@ -456,26 +482,34 @@ export default function CashierDashboard() {
         {requestCooldown === 0 && (
           <div className="flex justify-center gap-2 mb-4">
             <Button 
-              onClick={() => setRequestCooldown(30)}
+              onClick={() => {
+                setRequestCooldown(120);
+                setLastInteractionTime(Date.now());
+              }}
               size="sm"
               className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1"
             >
-              Start 30s Timer
+              Start 120s Timer
             </Button>
           </div>
         )}
 
-        {requestCooldown > 0 && requestCooldown <= 30 && (
+        {requestCooldown > 0 && (
           <div className="flex justify-center gap-2 mb-2">
             <Button 
-              onClick={() => setRequestCooldown(120)}
+              onClick={() => {
+                setLastInteractionTime(Date.now());
+              }}
               size="sm"
               className="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1"
             >
-              Simulate Action (→120s)
+              Reset 30s Inactivity
             </Button>
             <Button 
-              onClick={() => setRequestCooldown(0)}
+              onClick={() => {
+                setRequestCooldown(0);
+                setLastInteractionTime(0);
+              }}
               size="sm"
               className="bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1"
             >
