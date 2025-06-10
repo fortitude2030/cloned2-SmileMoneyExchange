@@ -205,7 +205,8 @@ export default function CashierDashboard() {
     queryKey: ["/api/transactions"],
     retry: false,
     enabled: isAuthenticated,
-    refetchInterval: 5000, // Poll every 5 seconds for history updates
+    refetchInterval: 1000, // Poll every second for real-time updates
+    refetchIntervalInBackground: true,
   });
 
   // Get the active transaction for validation
@@ -1173,10 +1174,10 @@ export default function CashierDashboard() {
                       });
                       setShowVMFModal(false);
                       if (activeTransaction) {
-                        setCashCountingStep(1);
+                        // Don't reset step, just clear form data
                         setCashAmount("");
                       } else if (activeQrTransaction) {
-                        setQrProcessingStep(1);
+                        // Don't reset step, just clear form data
                         setQrAmount("");
                         setQrVmfNumber("");
                       }
