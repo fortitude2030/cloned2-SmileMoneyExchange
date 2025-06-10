@@ -280,13 +280,8 @@ export default function QRScannerComponent({ isOpen, onClose, onScanSuccess, exp
 
               <div className="text-center">
                 <p className="text-gray-600 dark:text-gray-400 text-sm">
-                  Position the QR code within the frame to scan
+                  Position the QR code within the frame to scan. Verify amount against VMF document only.
                 </p>
-                {expectedAmount && (
-                  <p className="text-blue-600 dark:text-blue-400 text-sm font-medium mt-1">
-                    Expected amount: ZMW {parseFloat(expectedAmount).toLocaleString()}
-                  </p>
-                )}
               </div>
             </>
           )}

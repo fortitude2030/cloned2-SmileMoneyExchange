@@ -1243,34 +1243,36 @@ export default function CashierDashboard() {
           setCurrentTransaction(null);
         }}
         onScanSuccess={(qrData) => {
-          // Process the scanned QR code data
-          if (currentTransaction && qrData) {
-            // Validate the QR data matches the current transaction
-            const expectedAmount = parseFloat(currentTransaction.amount);
-            const scannedAmount = qrData.amount;
-            
-            if (Math.abs(expectedAmount - scannedAmount) < 0.01) {
-              // Amounts match, approve the transaction
-              approveTransaction.mutate({
+          // Handle cancellation case
+          if (qrData && qrData.cancelled) {
+            if (currentTransaction) {
+              rejectTransaction.mutate({
                 transactionId: currentTransaction.id,
-                cashierAmount: currentTransaction.amount,
-                cashierVmfNumber: currentTransaction.vmfNumber || "",
-                originalAmount: currentTransaction.amount,
-                originalVmfNumber: currentTransaction.vmfNumber || ""
-              });
-              
-              toast({
-                title: "QR Code Verified",
-                description: `Payment of ${formatCurrency(currentTransaction.amount)} confirmed`,
-              });
-            } else {
-              toast({
-                title: "Amount Mismatch",
-                description: `Expected ${formatCurrency(currentTransaction.amount)}, got ZMW ${scannedAmount.toLocaleString()}`,
-                variant: "destructive",
+                reason: qrData.reason || "QR scan cancelled by user"
               });
             }
+            setShowQRScanner(false);
+            setCurrentTransaction(null);
+            return;
           }
+          
+          // Process the scanned QR code data without amount validation
+          if (currentTransaction && qrData) {
+            // Remove amount validation - cashier relies only on VMF verification
+            approveTransaction.mutate({
+              transactionId: currentTransaction.id,
+              cashierAmount: currentTransaction.amount,
+              cashierVmfNumber: currentTransaction.vmfNumber || "",
+              originalAmount: currentTransaction.amount,
+              originalVmfNumber: currentTransaction.vmfNumber || ""
+            });
+            
+            toast({
+              title: "QR Code Verified",
+              description: `Payment verified - completing transaction`,
+            });
+          }
+          
           setShowQRScanner(false);
           setCurrentTransaction(null);
         }}
