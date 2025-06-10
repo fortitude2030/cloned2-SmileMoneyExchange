@@ -253,11 +253,24 @@ export default function CashierDashboard() {
       
       if (canStartTimer) {
         console.log('Starting timer for transaction:', transactionId);
+        
+        // Reset all UI state for new transaction
+        setCashCountingStep(1);
+        setCashAmount("");
+        setVmfNumber("");
+        setShowAmountModal(false);
+        setShowVMFModal(false);
+        setShowUploadModal(false);
+        
         startTimer();
         setProcessedTransactionIds(prev => new Set(prev).add(transactionId));
       }
     } else if (!activeTransaction && isActive) {
       stopTimer();
+      // Reset UI state when no active transaction
+      setCashCountingStep(1);
+      setCashAmount("");
+      setVmfNumber("");
     }
   }, [activeTransaction, isActive, timeLeft, processedTransactionIds, timedOutTransactionIds, startTimer, stopTimer]);
 
@@ -296,6 +309,14 @@ export default function CashierDashboard() {
           
           // Mark transaction as timed out to prevent timer restarts
           setTimedOutTransactionIds(prev => new Set(prev).add(transactionId));
+          
+          // Reset UI state when transaction times out
+          setCashCountingStep(1);
+          setCashAmount("");
+          setVmfNumber("");
+          setShowAmountModal(false);
+          setShowVMFModal(false);
+          setShowUploadModal(false);
           
           queryClient.invalidateQueries({ queryKey: ["/api/transactions/pending"] });
         } catch (error) {
