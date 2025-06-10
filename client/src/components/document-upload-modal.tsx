@@ -162,7 +162,7 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
 
 
 
-  const handleCompleteUpload = () => {
+  const handleCompleteUpload = async () => {
     const allUploaded = documents.every(doc => doc.uploaded);
     
     if (!allUploaded) {
@@ -174,13 +174,34 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
       return;
     }
 
+    // Mark transaction as completed in the database
+    if (transactionId) {
+      try {
+        await apiRequest("PATCH", `/api/transactions/${transactionId}/status`, {
+          status: "completed"
+        });
+        
+        // Invalidate queries to refresh transaction lists
+        queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/transactions/pending"] });
+        
+        toast({
+          title: "Transaction Completed",
+          description: "All VMF documents uploaded and transaction completed successfully",
+        });
+      } catch (error) {
+        console.error("Failed to complete transaction:", error);
+        toast({
+          title: "Error",
+          description: "Failed to complete transaction. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     // Stop the timer since transaction is complete
     stopTimer();
-    
-    toast({
-      title: "Success",
-      description: "All VMF documents uploaded successfully",
-    });
     
     onClose();
   };

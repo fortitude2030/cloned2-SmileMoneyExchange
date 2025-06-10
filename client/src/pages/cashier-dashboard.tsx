@@ -1245,6 +1245,7 @@ export default function CashierDashboard() {
 
       <DocumentUploadModal
         isOpen={showUploadModal}
+        transactionId={activeTransaction?.id || activeQrTransaction?.id}
         onClose={() => {
           setShowUploadModal(false);
           
