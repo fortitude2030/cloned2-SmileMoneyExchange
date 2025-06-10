@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -27,8 +27,8 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
   const { user } = useAuth();
   const { stopTimer } = useTimer();
   
-  // Show only relevant VMF copy based on user role
-  const getDocumentsByRole = () => {
+  // Memoize documents based on user role to prevent re-renders
+  const initialDocuments = useMemo(() => {
     if ((user as any)?.role === 'merchant') {
       return [{ id: "merchant", type: "vmf_merchant", name: "Merchant Copy", uploaded: false }];
     } else if ((user as any)?.role === 'cashier') {
@@ -36,9 +36,16 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
     }
     // Fallback for other roles
     return [{ id: "merchant", type: "vmf_merchant", name: "Merchant Copy", uploaded: false }];
-  };
+  }, [(user as any)?.role]);
   
-  const [documents, setDocuments] = useState<UploadedDocument[]>(getDocumentsByRole());
+  const [documents, setDocuments] = useState<UploadedDocument[]>(initialDocuments);
+
+  // Reset documents when modal opens or user role changes
+  useEffect(() => {
+    if (isOpen) {
+      setDocuments(initialDocuments);
+    }
+  }, [isOpen, initialDocuments]);
 
   // Upload document mutation
   const uploadDocument = useMutation({
@@ -235,8 +242,8 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
   };
 
   const handleClose = () => {
-    // Reset state when closing - use role-based documents
-    setDocuments(getDocumentsByRole());
+    // Reset state when closing - use memoized initial documents
+    setDocuments(initialDocuments);
     onClose();
   };
 
