@@ -16,6 +16,7 @@ import {
   insertQrCodeSchema,
 } from "@shared/schema";
 import crypto from "crypto";
+import QRCode from "qrcode";
 
 // Convert image to PDF function using base64 encoding
 async function convertImageToPDF(imagePath: string, outputPath: string): Promise<void> {
@@ -583,13 +584,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         expiresAt
       });
 
-      // Generate QR code image URL
-      const encodedData = encodeURIComponent(qrDataString);
-      const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodedData}&format=png&margin=10`;
+      // Generate QR code image as base64 data URL using local package
+      const qrImageDataUrl = await QRCode.toDataURL(qrDataString, {
+        width: 300,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      });
 
       res.json({
         qrId: qrCode.id,
-        qrImageUrl,
+        qrImageUrl: qrImageDataUrl,
         expiresAt: qrCode.expiresAt,
         transactionId: transaction.transactionId
       });
