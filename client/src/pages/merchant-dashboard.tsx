@@ -24,6 +24,7 @@ export default function MerchantDashboard() {
   const [paymentAmount, setPaymentAmount] = useState("");
   const [vmfNumber, setVmfNumber] = useState("");
   const [showAllTransactions, setShowAllTransactions] = useState(false);
+  const [lastQrTransactionId, setLastQrTransactionId] = useState<string | null>(null);
 
 
 
@@ -73,6 +74,7 @@ export default function MerchantDashboard() {
     createdAt: string;
     description?: string;
     rejectionReason?: string;
+    type?: string;
   }>>({
     queryKey: ["/api/transactions"],
     retry: false,
@@ -81,6 +83,35 @@ export default function MerchantDashboard() {
     refetchOnWindowFocus: true,
     refetchOnMount: true,
   });
+
+  // Monitor QR transactions for auto-closing modal
+  useEffect(() => {
+    if (!lastQrTransactionId || !transactions) return;
+
+    const qrTransaction = transactions.find(t => 
+      t.transactionId === lastQrTransactionId && 
+      t.type === "qr_code_payment"
+    );
+
+    if (qrTransaction && (qrTransaction.status === "completed" || qrTransaction.status === "rejected")) {
+      // QR transaction completed or rejected - close modal
+      setShowQRModal(false);
+      setLastQrTransactionId(null);
+      
+      if (qrTransaction.status === "completed") {
+        toast({
+          title: "QR Payment Completed",
+          description: `Payment of ZMW ${Math.round(parseFloat(qrTransaction.amount)).toLocaleString()} has been processed successfully`,
+        });
+      } else if (qrTransaction.status === "rejected") {
+        toast({
+          title: "QR Payment Rejected",
+          description: qrTransaction.rejectionReason || "QR payment was rejected by the cashier",
+          variant: "destructive",
+        });
+      }
+    }
+  }, [transactions, lastQrTransactionId, toast]);
 
   // Create payment request mutation
   const createPaymentRequest = useMutation({
@@ -105,6 +136,11 @@ export default function MerchantDashboard() {
       });
     },
     onSuccess: (data, variables) => {
+      // For QR code payments, track the transaction ID for auto-closing
+      if (variables.type === "qr_code_payment" && data?.transactionId) {
+        setLastQrTransactionId(data.transactionId);
+      }
+      
       // Clear form and show success toast
       setPaymentAmount("");
       setVmfNumber("");

@@ -1273,6 +1273,10 @@ export default function CashierDashboard() {
           
           // Process the scanned QR code data without amount validation
           if (currentTransaction && qrData) {
+            // Immediately mark QR code as expired/used to prevent reuse
+            setCurrentTransaction(null);
+            setShowQRScanner(false);
+            
             // Remove amount validation - cashier relies only on VMF verification
             approveTransaction.mutate({
               transactionId: currentTransaction.id,
@@ -1286,6 +1290,8 @@ export default function CashierDashboard() {
               title: "QR Code Verified",
               description: `Payment verified - completing transaction`,
             });
+            
+            return;
           }
           
           setShowQRScanner(false);
