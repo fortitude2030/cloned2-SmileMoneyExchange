@@ -10,10 +10,9 @@ interface QRCodeModalProps {
   onClose: () => void;
   amount: string;
   vmfNumber: string;
-  qrData?: any; // Optional QR data from backend
 }
 
-export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber, qrData }: QRCodeModalProps) {
+export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCodeModalProps) {
   const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
   const [uniqueId] = useState(() => `QR${Date.now()}${Math.random().toString(36).substr(2, 9)}`);
   
@@ -22,20 +21,14 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber, qrData
   const [isQrExpired, setIsQrExpired] = useState(false);
   const isExpired = !isActive && timeLeft === 0;
 
-  // Use provided QR data or generate QR code when modal opens
+  // Auto-generate QR code when modal opens (timer controlled by cashier dashboard)
   useEffect(() => {
-    if (isOpen) {
-      if (qrData && qrData.qrImageUrl) {
-        // Use provided QR data from merchant payment request
-        setQrCodeUrl(qrData.qrImageUrl);
-        setIsQrExpired(false);
-      } else if (amount && vmfNumber) {
-        // Fallback to old generation method for cashier-initiated QR codes
-        handleGenerateQR();
-        setIsQrExpired(false);
-      }
+    if (isOpen && amount && vmfNumber) {
+      handleGenerateQR();
+      setIsQrExpired(false); // Reset expiration state when opening
+      // Don't start timer here - it's controlled by the cashier dashboard
     }
-  }, [isOpen, amount, vmfNumber, qrData]);
+  }, [isOpen, amount, vmfNumber]);
 
   // Expire QR code immediately when timer expires (30s or 120s)
   useEffect(() => {
@@ -53,10 +46,44 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber, qrData
 
   const handleGenerateQR = async () => {
     try {
-      // This is the old cashier-initiated flow - now deprecated
-      // Merchants now generate payment request QR codes directly
-      console.warn("Old QR generation method called - this should not happen in the new flow");
-      setQrCodeUrl("");
+      // Get the latest transaction for this user to generate QR
+      const response = await fetch('/api/transactions', {
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch transactions');
+      }
+      
+      const transactions = await response.json();
+      const latestQRTransaction = transactions
+        .filter((t: any) => t.type === 'qr_code_payment' && t.status === 'pending')
+        .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+      
+      if (!latestQRTransaction) {
+        throw new Error('No pending QR transaction found');
+      }
+
+      // Generate secure QR code via server API
+      const qrResponse = await fetch('/api/qr-codes/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          transactionId: latestQRTransaction.id
+        })
+      });
+
+      if (!qrResponse.ok) {
+        const errorData = await qrResponse.json();
+        throw new Error(errorData.message || 'Failed to generate QR code');
+      }
+
+      const qrData = await qrResponse.json();
+      setQrCodeUrl(qrData.qrImageUrl);
+      
     } catch (error) {
       console.error("Error generating QR code:", error);
       setQrCodeUrl("");

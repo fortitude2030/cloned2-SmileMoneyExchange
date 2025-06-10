@@ -16,7 +16,6 @@ import {
   insertQrCodeSchema,
 } from "@shared/schema";
 import crypto from "crypto";
-import QRCode from "qrcode";
 
 // Convert image to PDF function using base64 encoding
 async function convertImageToPDF(imagePath: string, outputPath: string): Promise<void> {
@@ -534,48 +533,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // QR Code generation for merchant payment requests
+  // QR Code generation and management endpoints
   app.post('/api/qr-codes/generate', isAuthenticated, async (req: any, res) => {
     try {
-      const { amount, description, vmfNumber } = req.body;
+      const { transactionId } = req.body;
       const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
       
-      // Only merchants can generate payment request QR codes
-      if (user?.role !== 'merchant') {
-        return res.status(403).json({ message: "Only merchants can generate payment request QR codes" });
+      if (!transactionId) {
+        return res.status(400).json({ message: "Transaction ID is required" });
       }
 
-      if (!amount || parseFloat(amount) <= 0) {
-        return res.status(400).json({ message: "Valid amount is required" });
+      // Verify transaction exists and belongs to user
+      const transaction = await storage.getTransactionById(transactionId);
+      if (!transaction) {
+        return res.status(404).json({ message: "Transaction not found" });
       }
 
-      // Create a payment request transaction (merchant as recipient)
-      const transaction = await storage.createTransaction({
-        fromUserId: "", // Will be filled when cashier scans
-        toUserId: userId, // Merchant is the recipient
-        amount: amount.toString(),
-        type: "qr_code_payment",
-        status: "qr_pending", // Special status for QR payment requests
-        description: description || "QR Payment Request",
-        vmfNumber: vmfNumber || null
-      });
+      if (transaction.fromUserId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
 
       // Check if active QR code already exists for this transaction
-      const existingQR = await storage.getActiveQrCodeByTransactionId(transaction.id);
+      const existingQR = await storage.getActiveQrCodeByTransactionId(transactionId);
       if (existingQR) {
         return res.status(409).json({ message: "Active QR code already exists for this transaction" });
       }
 
-      // Generate unique QR data for payment request
+      // Generate unique QR data with strong cryptographic security
       const qrPayload = {
         transactionId: transaction.transactionId,
         amount: parseFloat(transaction.amount),
-        type: "payment_request",
-        merchantId: userId,
-        description: transaction.description,
+        type: "qr_code_payment",
         timestamp: Date.now(),
-        nonce: crypto.randomBytes(16).toString('hex')
+        nonce: crypto.randomBytes(16).toString('hex'),
+        userId: userId
       };
 
       const qrDataString = JSON.stringify(qrPayload);
@@ -592,30 +583,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         expiresAt
       });
 
-      // Generate QR code image as base64 data URL using local package
-      let qrImageDataUrl;
-      try {
-        qrImageDataUrl = await QRCode.toDataURL(qrDataString, {
-          width: 300,
-          margin: 2,
-          color: {
-            dark: '#000000',
-            light: '#FFFFFF'
-          },
-          errorCorrectionLevel: 'M',
-          type: 'image/png'
-        });
-      } catch (qrError: any) {
-        console.error("QRCode generation failed:", qrError);
-        console.error("QR data string:", qrDataString);
-        console.error("Full error:", JSON.stringify(qrError, null, 2));
-        const errorMessage = qrError instanceof Error ? qrError.message : 'Unknown error';
-        throw new Error("Failed to generate QR code image: " + errorMessage);
-      }
+      // Generate QR code image URL
+      const encodedData = encodeURIComponent(qrDataString);
+      const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodedData}&format=png&margin=10`;
 
       res.json({
         qrId: qrCode.id,
-        qrImageUrl: qrImageDataUrl,
+        qrImageUrl,
         expiresAt: qrCode.expiresAt,
         transactionId: transaction.transactionId
       });
@@ -632,9 +606,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
 
-      // Only cashiers can scan merchant payment request QR codes
+      // Only cashiers can verify QR codes
       if (user?.role !== 'cashier') {
-        return res.status(403).json({ message: "Only cashiers can scan payment request QR codes" });
+        return res.status(403).json({ message: "Only cashiers can verify QR codes" });
       }
 
       if (!qrData) {
@@ -657,72 +631,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "QR code not found, expired, or already used" });
       }
 
-      // Verify transaction exists and is in qr_pending status
+      // Verify transaction exists and is still pending
       const transaction = await storage.getTransactionById(qrCode.transactionId);
-      if (!transaction || transaction.status !== 'qr_pending') {
-        return res.status(400).json({ message: "Payment request is no longer valid" });
+      if (!transaction || transaction.status !== 'pending') {
+        return res.status(400).json({ message: "Transaction is no longer valid" });
       }
 
-      // Validate parsed QR data matches expected format
-      if (parsedQR.type !== 'payment_request') {
-        return res.status(400).json({ message: "Invalid QR code type" });
-      }
-
-      // Ensure transaction has valid recipient
-      if (!transaction.toUserId) {
-        return res.status(400).json({ message: "Invalid payment request" });
-      }
-
-      // Check cashier wallet balance
-      const cashierWallet = await storage.getOrCreateWallet(userId);
-      const amount = parseFloat(transaction.amount);
-      
-      if (parseFloat(cashierWallet.balance || "0") < amount) {
-        return res.status(400).json({ message: "Insufficient funds" });
-      }
-
-      // Check transfer limits
-      const transferCheck = await storage.checkTransferLimits(userId, amount);
-      if (!transferCheck.allowed) {
-        return res.status(400).json({ message: transferCheck.reason || "Transfer limit exceeded" });
-      }
-
-      // Update transaction with fromUserId (cashier who scanned) and complete it
-      const { db } = await import('./db.js');
-      const { transactions } = await import('../shared/schema.js');
-      const { eq } = await import('drizzle-orm');
-      await db.update(transactions)
-        .set({ 
-          fromUserId: userId,
-          status: 'completed'
-        })
-        .where(eq(transactions.id, transaction.id));
-
-      // Process wallet updates with null safety checks
-      const cashierBalance = cashierWallet.balance || "0";
-      const newCashierBalance = (parseFloat(cashierBalance) - amount).toFixed(2);
-      await storage.updateWalletBalance(userId, newCashierBalance);
-
-      const merchantWallet = await storage.getOrCreateWallet(transaction.toUserId);
-      const merchantBalance = merchantWallet.balance || "0";
-      const newMerchantBalance = (parseFloat(merchantBalance) + amount).toFixed(2);
-      await storage.updateWalletBalance(transaction.toUserId, newMerchantBalance);
-
-      // Update daily transaction amounts
-      await storage.updateDailyTransactionAmounts(userId, amount, 'cashier', 'sent');
-      await storage.updateDailyTransactionAmounts(transaction.toUserId, amount, 'merchant', 'received');
-
-      // Mark QR code as used
+      // Mark QR code as used immediately to prevent reuse
       await storage.markQrCodeAsUsed(qrCode.id);
 
       res.json({
         valid: true,
-        completed: true,
         transaction: {
           id: transaction.id,
           transactionId: transaction.transactionId,
           amount: transaction.amount,
-          description: transaction.description,
+          vmfNumber: transaction.vmfNumber,
           type: transaction.type
         }
       });

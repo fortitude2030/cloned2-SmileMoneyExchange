@@ -25,7 +25,6 @@ export default function MerchantDashboard() {
   const [vmfNumber, setVmfNumber] = useState("");
   const [showAllTransactions, setShowAllTransactions] = useState(false);
   const [lastQrTransactionId, setLastQrTransactionId] = useState<string | null>(null);
-  const [qrData, setQrData] = useState<any>(null);
 
 
 
@@ -117,48 +116,38 @@ export default function MerchantDashboard() {
   // Create payment request mutation
   const createPaymentRequest = useMutation({
     mutationFn: async ({ amount, vmfNumber, type = "cash_digitization" }: { amount: string; vmfNumber: string; type?: string }) => {
+      // For QR code payments, we need to route to a cashier
+      let targetUserId = (user as any)?.id || "";
+      
       if (type === "qr_code_payment") {
-        // Generate QR code for payment request
-        return await apiRequest("POST", "/api/qr-codes/generate", {
-          amount,
-          description: `Payment request - VMF: ${vmfNumber}`,
-          vmfNumber
-        });
-      } else {
-        // Regular cash digitization request
-        await apiRequest("POST", "/api/transactions", {
-          toUserId: "test-cashier-user",
-          amount,
-          vmfNumber,
-          type,
-          status: "pending",
-          description: `Cash digitization request - VMF: ${vmfNumber}`,
-        });
-      }
-    },
-    onSuccess: (data: any, variables) => {
-      if (variables.type === "qr_code_payment") {
-        // Show QR code modal for payment request
-        if (data && data.transactionId) {
-          setLastQrTransactionId(data.transactionId);
-          setQrData(data); // Store QR data for modal
-          setShowQRModal(true);
-        }
-        toast({
-          title: "Payment QR Generated",
-          description: "Show QR code to cashier to complete payment",
-        });
-      } else {
-        // Regular cash digitization request
-        toast({
-          title: "Request Sent",
-          description: "Your cash digitization request has been sent to the security cashier",
-        });
+        // QR payments should go to the cashier for processing
+        targetUserId = "test-cashier-user"; // Route QR payments to cashier
       }
       
-      // Clear form
+      await apiRequest("POST", "/api/transactions", {
+        toUserId: targetUserId,
+        amount,
+        vmfNumber,
+        type,
+        status: "pending",
+        description: type === "qr_code_payment" 
+          ? `QR code payment request - VMF: ${vmfNumber}`
+          : `Cash digitization request - VMF: ${vmfNumber}`,
+      });
+    },
+    onSuccess: (data: any, variables) => {
+      // For QR code payments, track the transaction ID for auto-closing
+      if (variables.type === "qr_code_payment" && data && typeof data === 'object' && 'transactionId' in data) {
+        setLastQrTransactionId(data.transactionId);
+      }
+      
+      // Clear form and show success toast
       setPaymentAmount("");
       setVmfNumber("");
+      toast({
+        title: "Request Sent",
+        description: "Your payment request has been sent to the security cashier",
+      });
       
       queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
     },
@@ -481,12 +470,18 @@ export default function MerchantDashboard() {
         isOpen={showQRModal}
         onClose={() => {
           setShowQRModal(false);
-          setLastQrTransactionId(null);
-          setQrData(null);
+          setLastQrTransactionId(null); // Clear tracking when modal closes
+          // Create transaction request when QR modal closes
+          if (paymentAmount && vmfNumber) {
+            createPaymentRequest.mutate({ 
+              amount: paymentAmount, 
+              vmfNumber,
+              type: "qr_code_payment"
+            } as any);
+          }
         }}
         amount={paymentAmount}
         vmfNumber={vmfNumber}
-        qrData={qrData}
       />
 
 
