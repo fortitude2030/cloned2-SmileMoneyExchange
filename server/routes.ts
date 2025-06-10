@@ -292,7 +292,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/transactions', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const transactions = await storage.getTransactionsByUserId(userId);
+      const user = await storage.getUser(userId);
+      
+      let transactions;
+      if (user?.role === 'cashier') {
+        // Cashiers see all transactions they've processed, including timed-out/rejected ones
+        transactions = await storage.getAllTransactionsByCashier(userId);
+      } else {
+        // Other users see transactions with standard filtering
+        transactions = await storage.getTransactionsByUserId(userId);
+      }
+      
       res.json(transactions);
     } catch (error) {
       console.error("Error fetching transactions:", error);
@@ -356,8 +366,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Transaction not found" });
       }
 
-      // For QR code transactions, set the cashier as the processor
-      if (transaction.type === 'qr_code_payment' && status === 'completed') {
+      // Set the cashier as the processor for completed and rejected transactions
+      if (status === 'completed' || status === 'rejected') {
         await storage.updateTransactionProcessor(transactionId, cashierId);
       }
 
