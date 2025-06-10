@@ -491,12 +491,12 @@ export default function CashierDashboard() {
         {(activeTransaction || activeQrTransaction) && isActive && timeLeft > 0 && (
           <div className="flex justify-center mb-3">
             <div className={`
-              w-16 h-16 rounded-full flex items-center justify-center transition-colors duration-500 ease-in-out shadow-md
+              w-12 h-12 rounded-full flex items-center justify-center transition-colors duration-500 ease-in-out shadow-sm border-2 border-black
               ${timeLeft > 90 ? 'bg-green-500' : 
                 timeLeft > 60 ? 'bg-yellow-500' : 
                 timeLeft > 30 ? 'bg-orange-500' : 'bg-red-500'}
             `}>
-              <div className="text-lg font-mono font-bold text-white">
+              <div className="text-sm font-mono font-bold text-white">
                 {timeLeft}
               </div>
             </div>
