@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import QrScanner from "qr-scanner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { parsePaymentQR, validatePaymentQR } from "@/lib/qr-utils";
+import { parsePaymentQR, validatePaymentQR, getQRParseError } from "@/lib/qr-utils";
 
 interface QRScannerProps {
   isOpen: boolean;
@@ -46,22 +46,22 @@ export default function QRScannerComponent({ isOpen, onClose, onScanSuccess, exp
             try {
               console.log("QR Code detected:", result.data);
               
-              // Parse QR code data without amount validation
-              const qrData = parsePaymentQR(result.data);
+              // Parse QR code data with detailed error messages
+              const parseResult = parsePaymentQR(result.data);
               
-              if (!qrData) {
-                setError("Invalid QR code format");
+              if (!parseResult.data) {
+                setError(parseResult.error || "Invalid QR code format");
                 return;
               }
 
-              if (!validatePaymentQR(qrData)) {
-                setError("QR code validation failed");
+              if (!validatePaymentQR(parseResult.data)) {
+                setError("QR code validation failed - invalid data");
                 return;
               }
 
               setIsScanning(false);
               qrScanner.stop();
-              onScanSuccess(qrData);
+              onScanSuccess(parseResult.data);
             } catch (err) {
               console.error("QR scan error:", err);
               setError("Failed to process QR code");
@@ -172,13 +172,13 @@ export default function QRScannerComponent({ isOpen, onClose, onScanSuccess, exp
           videoRef.current,
           (result) => {
             try {
-              const qrData = parsePaymentQR(result.data);
-              if (qrData && validatePaymentQR(qrData)) {
+              const parseResult = parsePaymentQR(result.data);
+              if (parseResult.data && validatePaymentQR(parseResult.data)) {
                 setIsScanning(false);
                 qrScanner.stop();
-                onScanSuccess(qrData);
+                onScanSuccess(parseResult.data);
               } else {
-                setError("Invalid QR code");
+                setError(parseResult.error || "Invalid QR code");
               }
             } catch (err) {
               setError("Failed to process QR code");

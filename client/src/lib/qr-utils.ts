@@ -64,19 +64,58 @@ export function parsePaymentQR(qrData: string): PaymentQRData | null {
       typeof parsed.type !== 'string' ||
       typeof parsed.timestamp !== 'number'
     ) {
-      throw new Error('Invalid QR code format');
+      console.error('Invalid QR code format - missing required fields');
+      return null;
     }
     
     // Check if QR code is not too old (24 hours)
     const maxAge = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
-    if (Date.now() - parsed.timestamp > maxAge) {
-      throw new Error('QR code has expired');
+    const age = Date.now() - parsed.timestamp;
+    if (age > maxAge) {
+      const hoursOld = Math.floor(age / (60 * 60 * 1000));
+      console.error(`QR code expired (${hoursOld} hours old). Please generate a new QR code.`);
+      return null;
     }
     
     return parsed as PaymentQRData;
   } catch (error) {
     console.error('Error parsing QR code:', error);
     return null;
+  }
+}
+
+/**
+ * Get detailed error message for QR code parsing
+ * @param qrData - The scanned QR code data string
+ * @returns string - Detailed error message
+ */
+export function getQRParseError(qrData: string): string {
+  try {
+    const parsed = JSON.parse(qrData);
+    
+    // Validate required fields
+    if (
+      typeof parsed.amount !== 'number' ||
+      typeof parsed.type !== 'string' ||
+      typeof parsed.timestamp !== 'number'
+    ) {
+      return 'Invalid QR code format - missing required fields';
+    }
+    
+    // Check if QR code is not too old (24 hours)
+    const maxAge = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+    const age = Date.now() - parsed.timestamp;
+    if (age > maxAge) {
+      const hoursOld = Math.floor(age / (60 * 60 * 1000));
+      return `QR code expired (${hoursOld} hours old). Please generate a new QR code.`;
+    }
+    
+    return 'QR code validation failed';
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      return 'Invalid QR code - not a valid payment QR code';
+    }
+    return 'Failed to process QR code';
   }
 }
 
