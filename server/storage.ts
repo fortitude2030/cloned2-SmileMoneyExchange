@@ -207,7 +207,7 @@ export class DatabaseStorage implements IStorage {
           .update(wallets)
           .set({
             dailyCollected: "0",
-            balance: "0", // Merchant balance resets to 0 at midnight
+            // Keep merchant balance - no longer reset to 0 since funds flow to finance in real-time
             lastResetDate: now,
             updatedAt: now,
           })
@@ -286,10 +286,12 @@ export class DatabaseStorage implements IStorage {
     // For merchants - track ALL types of digital money received
     // This includes: QR code payments, RTP (Request to Pay), direct transfers, settlements, etc.
     if (role === 'merchant') {
+      const merchantUser = await this.getUser(userId);
       const wallet = await this.getOrCreateWallet(userId);
       const currentDailyCollected = parseFloat(wallet.dailyCollected || '0');
       const newDailyCollected = currentDailyCollected + amount;
 
+      // Update merchant wallet (for tracking daily collections)
       await db
         .update(wallets)
         .set({
@@ -299,6 +301,36 @@ export class DatabaseStorage implements IStorage {
           updatedAt: new Date(),
         })
         .where(eq(wallets.userId, userId));
+
+      // Real-time finance aggregation: Transfer to finance master wallet immediately
+      if (merchantUser?.organizationId) {
+        // Find finance user for this organization
+        const [financeUser] = await db
+          .select()
+          .from(users)
+          .where(
+            and(
+              eq(users.organizationId, merchantUser.organizationId),
+              eq(users.role, 'finance')
+            )
+          )
+          .limit(1);
+
+        if (financeUser) {
+          const financeWallet = await this.getOrCreateWallet(financeUser.id);
+          const newFinanceBalance = Math.floor(parseFloat(financeWallet.balance || '0') + amount);
+
+          // Add to finance master wallet
+          await db
+            .update(wallets)
+            .set({
+              balance: newFinanceBalance.toString(),
+              lastTransactionDate: new Date(),
+              updatedAt: new Date(),
+            })
+            .where(eq(wallets.userId, financeUser.id));
+        }
+      }
     }
     
     // For cashiers - track daily transfers (money sent)
