@@ -170,6 +170,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Fetch merchant wallets for finance portal
+  app.get('/api/merchant-wallets', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (user?.role !== 'finance' || !user.organizationId) {
+        return res.status(403).json({ message: "Only finance officers can access merchant wallet data" });
+      }
+
+      const merchantWallets = await storage.getMerchantWalletsByOrganization(user.organizationId);
+      res.json(merchantWallets);
+    } catch (error) {
+      console.error("Error fetching merchant wallets:", error);
+      res.status(500).json({ message: "Failed to fetch merchant wallets" });
+    }
+  });
+
   // Wallet routes
   app.get('/api/wallet', isAuthenticated, async (req: any, res) => {
     try {

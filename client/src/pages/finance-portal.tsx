@@ -57,9 +57,9 @@ export default function FinancePortal() {
     retry: false,
   });
 
-  // Fetch branches
-  const { data: branches = [], isLoading: branchesLoading } = useQuery({
-    queryKey: ["/api/branches"],
+  // Fetch merchant wallets
+  const { data: merchantWallets = [], isLoading: merchantWalletsLoading } = useQuery({
+    queryKey: ["/api/merchant-wallets"],
     retry: false,
   });
 

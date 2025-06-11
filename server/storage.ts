@@ -73,6 +73,9 @@ export interface IStorage {
   getPendingSettlementRequests(): Promise<SettlementRequest[]>;
   updateSettlementRequestStatus(id: number, status: string, reviewedBy?: string): Promise<void>;
   
+  // Finance operations
+  getMerchantWalletsByOrganization(organizationId: number): Promise<(Wallet & { user: User })[]>;
+  
   // QR Code operations
   createQrCode(qrCodeData: InsertQrCode): Promise<QrCode>;
   getQrCodeByHash(hash: string): Promise<QrCode | undefined>;
@@ -677,6 +680,34 @@ export class DatabaseStorage implements IStorage {
         gt(qrCodes.expiresAt, new Date())
       ));
     return qrCode;
+  }
+
+  async getMerchantWalletsByOrganization(organizationId: number): Promise<(Wallet & { user: User })[]> {
+    const merchantWallets = await db
+      .select({
+        id: wallets.id,
+        userId: wallets.userId,
+        balance: wallets.balance,
+        dailyLimit: wallets.dailyLimit,
+        dailyCollected: wallets.dailyCollected,
+        dailyTransferred: wallets.dailyTransferred,
+        lastResetDate: wallets.lastResetDate,
+        lastTransactionDate: wallets.lastTransactionDate,
+        isActive: wallets.isActive,
+        createdAt: wallets.createdAt,
+        updatedAt: wallets.updatedAt,
+        user: users
+      })
+      .from(wallets)
+      .innerJoin(users, eq(wallets.userId, users.id))
+      .where(
+        and(
+          eq(users.organizationId, organizationId),
+          eq(users.role, 'merchant')
+        )
+      );
+
+    return merchantWallets;
   }
 }
 
