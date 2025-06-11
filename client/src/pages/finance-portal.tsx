@@ -17,12 +17,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 
-const branchSchema = z.object({
-  name: z.string().min(1, "Branch name is required"),
-  identifier: z.string().min(1, "Identifier is required"),
-  location: z.string().optional(),
-});
-
 const settlementSchema = z.object({
   amount: z.string().min(1, "Amount is required").transform((val) => Math.floor(parseFloat(val)).toString()),
   bankName: z.string().min(1, "Bank name is required"),
@@ -33,7 +27,6 @@ const settlementSchema = z.object({
 export default function FinancePortal() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
-  const [showBranchDialog, setShowBranchDialog] = useState(false);
   const [showSettlementDialog, setShowSettlementDialog] = useState(false);
 
   // Redirect if not authenticated
@@ -75,16 +68,6 @@ export default function FinancePortal() {
     retry: false,
   });
 
-  // Branch form
-  const branchForm = useForm({
-    resolver: zodResolver(branchSchema),
-    defaultValues: {
-      name: "",
-      identifier: "",
-      location: "",
-    },
-  });
-
   // Settlement form
   const settlementForm = useForm({
     resolver: zodResolver(settlementSchema),
@@ -96,46 +79,12 @@ export default function FinancePortal() {
     },
   });
 
-  // Create branch mutation
-  const createBranch = useMutation({
-    mutationFn: async (data: z.infer<typeof branchSchema>) => {
-      await apiRequest("POST", "/api/branches", data);
-    },
-    onSuccess: () => {
-      toast({
-        title: "Success",
-        description: "Branch created successfully",
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/branches"] });
-      setShowBranchDialog(false);
-      branchForm.reset();
-    },
-    onError: (error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-      toast({
-        title: "Error",
-        description: "Failed to create branch",
-        variant: "destructive",
-      });
-    },
-  });
-
   // Create settlement request mutation
   const createSettlementRequest = useMutation({
     mutationFn: async (data: z.infer<typeof settlementSchema>) => {
       await apiRequest("POST", "/api/settlement-requests", {
         ...data,
-        status: "pending",
+        amount: Math.floor(parseFloat(data.amount)).toString(),
       });
     },
     onSuccess: () => {
@@ -147,7 +96,7 @@ export default function FinancePortal() {
       setShowSettlementDialog(false);
       settlementForm.reset();
     },
-    onError: (error) => {
+    onError: (error: any) => {
       if (isUnauthorizedError(error)) {
         toast({
           title: "Unauthorized",
@@ -161,7 +110,7 @@ export default function FinancePortal() {
       }
       toast({
         title: "Error",
-        description: "Failed to create settlement request",
+        description: error.message || "Failed to create settlement request",
         variant: "destructive",
       });
     },
@@ -170,16 +119,39 @@ export default function FinancePortal() {
   // Create test settlement requests mutation
   const createTestSettlementRequests = useMutation({
     mutationFn: async () => {
-      await apiRequest("POST", "/api/dev/settlement-requests", {});
+      const testRequests = [
+        {
+          amount: "50000",
+          bankName: "Standard Bank",
+          accountNumber: "123456789",
+          priority: "high" as const,
+        },
+        {
+          amount: "75000",
+          bankName: "Zanaco",
+          accountNumber: "987654321",
+          priority: "medium" as const,
+        },
+        {
+          amount: "25000",
+          bankName: "FNB Bank",
+          accountNumber: "456789123",
+          priority: "low" as const,
+        },
+      ];
+
+      for (const request of testRequests) {
+        await apiRequest("POST", "/api/settlement-requests", request);
+      }
     },
     onSuccess: () => {
       toast({
         title: "Success",
-        description: "Test settlement requests created successfully",
+        description: "Test settlement requests created",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/settlement-requests"] });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       if (isUnauthorizedError(error)) {
         toast({
           title: "Unauthorized",
@@ -193,7 +165,7 @@ export default function FinancePortal() {
       }
       toast({
         title: "Error",
-        description: "Failed to create test settlement requests",
+        description: error.message || "Failed to create test data",
         variant: "destructive",
       });
     },
@@ -235,8 +207,9 @@ export default function FinancePortal() {
     }
   };
 
-  const calculateTotalBalance = () => {
-    return branches.reduce((total: number, branch: any) => total + Math.round(parseFloat(branch.balance || "0")), 0);
+  const calculateTotalMerchantCollections = () => {
+    return (merchantWallets as any[]).reduce((total: number, merchantWallet: any) => 
+      total + Math.floor(parseFloat(merchantWallet.dailyCollected || "0")), 0);
   };
 
   if (isLoading) {
@@ -256,7 +229,7 @@ export default function FinancePortal() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-20">
       <MobileHeader
         title="Finance Portal"
-        subtitle={organizations[0]?.name || "Organization"}
+        subtitle={(organizations as any[])[0]?.name || "Organization"}
         icon="fas fa-building"
         color="secondary"
       />
@@ -268,9 +241,9 @@ export default function FinancePortal() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-gray-600 dark:text-gray-400 text-sm">Total Balance</p>
+                  <p className="text-gray-600 dark:text-gray-400 text-sm">Master Wallet Balance</p>
                   <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200">
-                    {formatCurrency(calculateTotalBalance())}
+                    {formatCurrency((wallet as any)?.balance || "0")}
                   </h3>
                 </div>
                 <div className="w-10 h-10 bg-secondary bg-opacity-10 rounded-lg flex items-center justify-center">
@@ -284,71 +257,30 @@ export default function FinancePortal() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-gray-600 dark:text-gray-400 text-sm">Active Branches</p>
+                  <p className="text-gray-600 dark:text-gray-400 text-sm">Daily Collections</p>
                   <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200">
-                    {branches.filter((b: any) => b.isActive).length}
+                    {formatCurrency(calculateTotalMerchantCollections())}
                   </h3>
                 </div>
                 <div className="w-10 h-10 bg-primary bg-opacity-10 rounded-lg flex items-center justify-center">
-                  <i className="fas fa-store text-primary"></i>
+                  <i className="fas fa-coins text-primary"></i>
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Branch Management */}
+        {/* Merchant Wallets */}
         <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-gray-800 dark:text-gray-200">Branch Management</h3>
-              <Dialog open={showBranchDialog} onOpenChange={setShowBranchDialog}>
-                <DialogTrigger asChild>
-                  <Button className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium">
-                    <i className="fas fa-plus mr-2"></i>Add Branch
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Add New Branch</DialogTitle>
-                  </DialogHeader>
-                  <form onSubmit={branchForm.handleSubmit((data) => createBranch.mutate(data))} className="space-y-4">
-                    <div>
-                      <Label htmlFor="name">Branch Name</Label>
-                      <Input
-                        {...branchForm.register("name")}
-                        placeholder="Enter branch name"
-                      />
-                      {branchForm.formState.errors.name && (
-                        <p className="text-sm text-destructive">{branchForm.formState.errors.name.message}</p>
-                      )}
-                    </div>
-                    <div>
-                      <Label htmlFor="identifier">Identifier</Label>
-                      <Input
-                        {...branchForm.register("identifier")}
-                        placeholder="e.g., BR-001"
-                      />
-                      {branchForm.formState.errors.identifier && (
-                        <p className="text-sm text-destructive">{branchForm.formState.errors.identifier.message}</p>
-                      )}
-                    </div>
-                    <div>
-                      <Label htmlFor="location">Location (Optional)</Label>
-                      <Input
-                        {...branchForm.register("location")}
-                        placeholder="Enter location"
-                      />
-                    </div>
-                    <Button type="submit" disabled={createBranch.isPending} className="w-full">
-                      {createBranch.isPending ? "Creating..." : "Create Branch"}
-                    </Button>
-                  </form>
-                </DialogContent>
-              </Dialog>
+              <h3 className="font-semibold text-gray-800 dark:text-gray-200">Merchant Daily Collections</h3>
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                Total: {formatCurrency(calculateTotalMerchantCollections())}
+              </div>
             </div>
             
-            {branchesLoading ? (
+            {merchantWalletsLoading ? (
               <div className="space-y-3">
                 {[1, 2].map((i) => (
                   <div key={i} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg animate-pulse">
@@ -366,33 +298,37 @@ export default function FinancePortal() {
                   </div>
                 ))}
               </div>
-            ) : branches.length === 0 ? (
+            ) : (merchantWallets as any[]).length === 0 ? (
               <div className="text-center py-8">
                 <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <i className="fas fa-store text-gray-400 text-xl"></i>
+                  <i className="fas fa-users text-gray-400 text-xl"></i>
                 </div>
-                <p className="text-gray-600 dark:text-gray-400">No branches yet</p>
-                <p className="text-gray-500 dark:text-gray-500 text-sm">Create your first branch to get started</p>
+                <p className="text-gray-600 dark:text-gray-400">No merchants found</p>
+                <p className="text-gray-500 dark:text-gray-500 text-sm">Merchant wallets will appear here</p>
               </div>
             ) : (
               <div className="space-y-3">
-                {branches.map((branch: any) => (
-                  <div key={branch.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                {(merchantWallets as any[]).map((merchantWallet: any) => (
+                  <div key={merchantWallet.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                     <div className="flex items-center">
-                      <div className="w-10 h-10 bg-success bg-opacity-10 rounded-lg flex items-center justify-center mr-3">
-                        <i className="fas fa-store text-success"></i>
+                      <div className="w-10 h-10 bg-primary bg-opacity-10 rounded-lg flex items-center justify-center mr-3">
+                        <i className="fas fa-store text-primary"></i>
                       </div>
                       <div>
-                        <p className="font-medium text-gray-800 dark:text-gray-200 text-sm">{branch.name}</p>
-                        <p className="text-gray-600 dark:text-gray-400 text-xs">ID: {branch.identifier}</p>
+                        <p className="font-medium text-gray-800 dark:text-gray-200 text-sm">
+                          {merchantWallet.user?.firstName || 'Merchant'} {merchantWallet.user?.lastName || ''}
+                        </p>
+                        <p className="text-gray-600 dark:text-gray-400 text-xs">
+                          {merchantWallet.user?.email}
+                        </p>
                       </div>
                     </div>
                     <div className="text-right">
                       <p className="font-semibold text-gray-800 dark:text-gray-200 text-sm">
-                        {formatCurrency(branch.balance)}
+                        {formatCurrency(merchantWallet.dailyCollected || "0")}
                       </p>
-                      <Badge className={branch.isActive ? "status-completed" : "status-rejected"}>
-                        {branch.isActive ? "Active" : "Inactive"}
+                      <Badge className={merchantWallet.isActive ? "bg-green-600 text-white" : "bg-red-600 text-white"}>
+                        {merchantWallet.isActive ? "Active" : "Inactive"}
                       </Badge>
                     </div>
                   </div>
@@ -501,7 +437,7 @@ export default function FinancePortal() {
                   </div>
                 ))}
               </div>
-            ) : settlementRequests.length === 0 ? (
+            ) : (settlementRequests as any[]).length === 0 ? (
               <div className="text-center py-8">
                 <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
                   <i className="fas fa-university text-gray-400 text-xl"></i>
@@ -511,7 +447,7 @@ export default function FinancePortal() {
               </div>
             ) : (
               <div className="space-y-3">
-                {settlementRequests.map((request: any) => (
+                {(settlementRequests as any[]).map((request: any) => (
                   <div key={request.id} className={`border-2 rounded-lg p-4 shadow-md ${
                     request.status === 'pending' ? 'border-orange-400 bg-orange-50 dark:bg-orange-950 dark:border-orange-600' :
                     request.status === 'approved' ? 'border-blue-400 bg-blue-50 dark:bg-blue-950 dark:border-blue-600' :
