@@ -1151,10 +1151,10 @@ export default function CashierDashboard() {
                   // Validation for both RTP and QR transactions
                   const targetTransaction = activeTransaction || activeQrTransaction;
                   if (targetTransaction) {
-                    const cashierAmountNum = parseFloat(cashAmount);
-                    const originalAmountNum = parseFloat(targetTransaction.amount);
+                    const cashierAmountNum = Math.floor(parseFloat(cashAmount));
+                    const originalAmountNum = Math.floor(parseFloat(targetTransaction.amount));
                     
-                    if (Math.abs(cashierAmountNum - originalAmountNum) > 0.01) {
+                    if (cashierAmountNum !== originalAmountNum) {
                       // Immediate transaction failure due to amount mismatch
                       showFailureNotification();
                       
@@ -1225,7 +1225,7 @@ export default function CashierDashboard() {
                   setShowAmountModal(false);
                   toast({
                     title: "Amount Verified",
-                    description: `Cash amount of ZMW ${parseFloat(cashAmount).toLocaleString()} matches merchant request`,
+                    description: `Cash amount of ZMW ${Math.floor(parseFloat(cashAmount)).toLocaleString()} matches merchant request`,
                   });
                 }}
                 disabled={!cashAmount || parseFloat(cashAmount) <= 0}

@@ -226,10 +226,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateWalletBalance(userId: string, balance: string): Promise<void> {
-    const preciseBalance = parseFloat(balance).toFixed(2);
+    // Use Math.floor to truncate decimals without rounding (183.97 becomes 183, not 184)
+    const truncatedBalance = Math.floor(parseFloat(balance)).toString();
     await db
       .update(wallets)
-      .set({ balance: preciseBalance, updatedAt: new Date() })
+      .set({ balance: truncatedBalance, updatedAt: new Date() })
       .where(eq(wallets.userId, userId));
   }
 
@@ -292,8 +293,8 @@ export class DatabaseStorage implements IStorage {
       await db
         .update(wallets)
         .set({
-          dailyCollected: newDailyCollected.toFixed(2),
-          balance: (parseFloat(wallet.balance || '0') + amount).toFixed(2),
+          dailyCollected: Math.floor(newDailyCollected).toString(),
+          balance: Math.floor(parseFloat(wallet.balance || '0') + amount).toString(),
           lastTransactionDate: new Date(),
           updatedAt: new Date(),
         })
@@ -309,8 +310,8 @@ export class DatabaseStorage implements IStorage {
       await db
         .update(wallets)
         .set({
-          dailyTransferred: newDailyTransferred.toFixed(2),
-          balance: (parseFloat(wallet.balance || '0') - amount).toFixed(2),
+          dailyTransferred: Math.floor(newDailyTransferred).toString(),
+          balance: Math.floor(parseFloat(wallet.balance || '0') - amount).toString(),
           lastTransactionDate: new Date(),
           updatedAt: new Date(),
         })
@@ -341,8 +342,8 @@ export class DatabaseStorage implements IStorage {
       );
 
     return {
-      completed: Math.round(parseFloat(result?.completed || "0")).toString(),
-      total: Math.round(parseFloat(result?.total || "0")).toString()
+      completed: Math.floor(parseFloat(result?.completed || "0")).toString(),
+      total: Math.floor(parseFloat(result?.total || "0")).toString()
     };
   }
 

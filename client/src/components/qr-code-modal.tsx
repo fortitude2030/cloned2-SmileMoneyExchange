@@ -99,7 +99,11 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
   };
 
   const formatCurrency = (amount: string | number) => {
-    return `ZMW ${Math.round(parseFloat(amount.toString())).toLocaleString()}`;
+    const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+    if (isNaN(numericAmount)) return 'ZMW 0';
+    // Use Math.floor to truncate decimals without rounding
+    const truncatedAmount = Math.floor(numericAmount);
+    return `ZMW ${truncatedAmount.toLocaleString()}`;
   };
 
   const progressPercentage = ((60 - timeLeft) / 60) * 100;

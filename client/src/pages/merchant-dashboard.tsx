@@ -202,7 +202,7 @@ export default function MerchantDashboard() {
     if (amount > remainingLimit) {
       toast({
         title: "Daily Limit Exceeded",
-        description: `Transaction amount (ZMW ${amount.toLocaleString()}) exceeds your available daily limit. Available: ZMW ${remainingLimit.toLocaleString()}`,
+        description: `Transaction amount (ZMW ${Math.floor(amount).toLocaleString()}) exceeds your available daily limit. Available: ZMW ${Math.floor(remainingLimit).toLocaleString()}`,
         variant: "destructive",
       });
       return;
@@ -212,7 +212,11 @@ export default function MerchantDashboard() {
   };
 
   const formatCurrency = (amount: string | number) => {
-    return `ZMW ${Math.round(parseFloat(amount.toString())).toLocaleString()}`;
+    const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+    if (isNaN(numericAmount)) return 'ZMW 0';
+    // Use Math.floor to truncate decimals without rounding
+    const truncatedAmount = Math.floor(numericAmount);
+    return `ZMW ${truncatedAmount.toLocaleString()}`;
   };
 
   const getStatusBadge = (status: string, rejectionReason?: string) => {
