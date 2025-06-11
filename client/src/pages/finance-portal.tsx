@@ -24,7 +24,7 @@ const branchSchema = z.object({
 });
 
 const settlementSchema = z.object({
-  amount: z.string().min(1, "Amount is required").transform((val) => Math.round(parseFloat(val)).toString()),
+  amount: z.string().min(1, "Amount is required").transform((val) => Math.floor(parseFloat(val)).toString()),
   bankName: z.string().min(1, "Bank name is required"),
   accountNumber: z.string().min(1, "Account number is required"),
   priority: z.enum(["low", "medium", "high"]),
@@ -200,7 +200,11 @@ export default function FinancePortal() {
   });
 
   const formatCurrency = (amount: string | number) => {
-    return `ZMW ${Math.round(parseFloat(amount.toString())).toLocaleString()}`;
+    const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+    if (isNaN(numericAmount)) return 'ZMW 0';
+    // Use Math.floor to truncate decimals without rounding
+    const truncatedAmount = Math.floor(numericAmount);
+    return `ZMW ${truncatedAmount.toLocaleString()}`;
   };
 
   const getStatusBadge = (status: string) => {

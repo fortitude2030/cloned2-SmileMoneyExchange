@@ -24,8 +24,11 @@ export default function CashierDashboard() {
 
   // Utility functions for formatting
   const formatCurrency = (amount: string) => {
-    const num = parseFloat(amount);
-    return `ZMW ${num.toLocaleString()}`;
+    const numericAmount = parseFloat(amount);
+    if (isNaN(numericAmount)) return 'ZMW 0';
+    // Use Math.floor to truncate decimals without rounding
+    const truncatedAmount = Math.floor(numericAmount);
+    return `ZMW ${truncatedAmount.toLocaleString()}`;
   };
 
   const formatDateTime = (dateString: string) => {
@@ -709,7 +712,7 @@ export default function CashierDashboard() {
                   <h4 className="font-medium text-gray-800 dark:text-gray-200 text-sm">Enter Cash Amount</h4>
                   {cashAmount && (
                     <p className="text-gray-600 dark:text-gray-400 text-xs mt-1">
-                      ZMW {Math.round(parseFloat(cashAmount)).toLocaleString()}
+                      ZMW {Math.floor(parseFloat(cashAmount)).toLocaleString()}
                     </p>
                   )}
                   {cashCountingStep === 1 && (

@@ -16,12 +16,16 @@ interface WalletLimitsDisplayProps {
 
 export default function WalletLimitsDisplay({ wallet, userRole }: WalletLimitsDisplayProps) {
   const formatCurrency = (amount: string) => {
-    return `ZMW ${Math.round(parseFloat(amount || '0')).toLocaleString()}`;
+    const numericAmount = parseFloat(amount || '0');
+    if (isNaN(numericAmount)) return 'ZMW 0';
+    // Use Math.floor to truncate decimals without rounding
+    const truncatedAmount = Math.floor(numericAmount);
+    return `ZMW ${truncatedAmount.toLocaleString()}`;
   };
 
   const calculatePercentage = (used: string, limit: string) => {
-    const usedAmount = Math.round(parseFloat(used || '0'));
-    const limitAmount = Math.round(parseFloat(limit || '1'));
+    const usedAmount = Math.floor(parseFloat(used || '0'));
+    const limitAmount = Math.floor(parseFloat(limit || '1'));
     return Math.min((usedAmount / limitAmount) * 100, 100);
   };
 
