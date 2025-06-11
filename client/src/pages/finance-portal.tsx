@@ -212,6 +212,23 @@ export default function FinancePortal() {
       total + Math.floor(parseFloat(merchantWallet.dailyCollected || "0")), 0);
   };
 
+  const getCollectionProgress = (collected: string, limit: string = "1000000") => {
+    const collectedAmount = parseFloat(collected || "0");
+    const limitAmount = parseFloat(limit);
+    const percentage = Math.min((collectedAmount / limitAmount) * 100, 100);
+    return { percentage, remaining: Math.max(limitAmount - collectedAmount, 0) };
+  };
+
+  const validateSettlementAmount = (amount: string) => {
+    const requestedAmount = Math.floor(parseFloat(amount || "0"));
+    const availableBalance = Math.floor(parseFloat((wallet as any)?.balance || "0"));
+    return {
+      isValid: requestedAmount <= availableBalance,
+      availableBalance,
+      requestedAmount
+    };
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -235,35 +252,57 @@ export default function FinancePortal() {
       />
 
       <div className="p-4">
-        {/* Organization Overview */}
+        {/* Daily Activity Overview */}
+        <div className="grid grid-cols-1 gap-4 mb-6">
+          {/* Today's Activity Card */}
+          <Card className="shadow-sm border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-950">
+            <CardContent className="p-4">
+              <div className="text-center">
+                <p className="text-blue-700 dark:text-blue-300 text-sm font-medium mb-1">TODAY'S COLLECTIONS</p>
+                <h2 className="text-3xl font-bold text-blue-800 dark:text-blue-200 mb-1">
+                  {formatCurrency(calculateTotalMerchantCollections())}
+                </h2>
+                <p className="text-blue-600 dark:text-blue-400 text-xs">
+                  Collected across {(merchantWallets as any[]).filter(m => parseFloat(m.dailyCollected || '0') > 0).length} active merchants
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Settlement & Balance Overview */}
         <div className="grid grid-cols-2 gap-4 mb-6">
-          <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
+          <Card className="shadow-sm border border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-950">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-gray-600 dark:text-gray-400 text-sm">Master Wallet Balance</p>
-                  <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200">
+                  <p className="text-green-700 dark:text-green-300 text-sm font-medium">Available for Settlement</p>
+                  <h3 className="text-xl font-bold text-green-800 dark:text-green-200">
                     {formatCurrency((wallet as any)?.balance || "0")}
                   </h3>
+                  <p className="text-green-600 dark:text-green-400 text-xs">Master wallet balance</p>
                 </div>
-                <div className="w-10 h-10 bg-secondary bg-opacity-10 rounded-lg flex items-center justify-center">
-                  <i className="fas fa-wallet text-secondary"></i>
+                <div className="w-10 h-10 bg-green-600 bg-opacity-20 rounded-lg flex items-center justify-center">
+                  <i className="fas fa-university text-green-600"></i>
                 </div>
               </div>
             </CardContent>
           </Card>
           
-          <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
+          <Card className="shadow-sm border border-orange-200 dark:border-orange-700 bg-orange-50 dark:bg-orange-950">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-gray-600 dark:text-gray-400 text-sm">Daily Collections</p>
-                  <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200">
-                    {formatCurrency(calculateTotalMerchantCollections())}
+                  <p className="text-orange-700 dark:text-orange-300 text-sm font-medium">Active Merchants</p>
+                  <h3 className="text-xl font-bold text-orange-800 dark:text-orange-200">
+                    {(merchantWallets as any[]).filter(m => m.isActive).length}
                   </h3>
+                  <p className="text-orange-600 dark:text-orange-400 text-xs">
+                    {(merchantWallets as any[]).filter(m => parseFloat(m.dailyCollected || '0') > 0).length} collecting today
+                  </p>
                 </div>
-                <div className="w-10 h-10 bg-primary bg-opacity-10 rounded-lg flex items-center justify-center">
-                  <i className="fas fa-coins text-primary"></i>
+                <div className="w-10 h-10 bg-orange-600 bg-opacity-20 rounded-lg flex items-center justify-center">
+                  <i className="fas fa-store text-orange-600"></i>
                 </div>
               </div>
             </CardContent>
@@ -274,9 +313,19 @@ export default function FinancePortal() {
         <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-gray-800 dark:text-gray-200">Merchant Daily Collections</h3>
-              <div className="text-sm text-gray-600 dark:text-gray-400">
-                Total: {formatCurrency(calculateTotalMerchantCollections())}
+              <div>
+                <h3 className="font-semibold text-gray-800 dark:text-gray-200">Merchant Daily Collections</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Tracking amounts reset at midnight, funds flow to master wallet
+                </p>
+              </div>
+              <div className="text-right">
+                <div className="text-lg font-bold text-gray-800 dark:text-gray-200">
+                  {formatCurrency(calculateTotalMerchantCollections())}
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  Today's total
+                </div>
               </div>
             </div>
             
@@ -327,9 +376,19 @@ export default function FinancePortal() {
                       <p className="font-semibold text-gray-800 dark:text-gray-200 text-sm">
                         {formatCurrency(merchantWallet.dailyCollected || "0")}
                       </p>
-                      <Badge className={merchantWallet.isActive ? "bg-green-600 text-white" : "bg-red-600 text-white"}>
-                        {merchantWallet.isActive ? "Active" : "Inactive"}
-                      </Badge>
+                      <div className="flex items-center gap-2 justify-end">
+                        <Badge className={merchantWallet.isActive ? "bg-green-600 text-white" : "bg-red-600 text-white"}>
+                          {merchantWallet.isActive ? "Active" : "Inactive"}
+                        </Badge>
+                        {parseFloat(merchantWallet.dailyCollected || '0') > 0 && (
+                          <Badge className="bg-blue-100 text-blue-800 text-xs">
+                            Last: {new Date(merchantWallet.lastTransactionDate).toLocaleTimeString('en-GB', { 
+                              hour: '2-digit', 
+                              minute: '2-digit' 
+                            })}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
