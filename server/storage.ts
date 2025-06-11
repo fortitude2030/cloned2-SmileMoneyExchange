@@ -207,7 +207,7 @@ export class DatabaseStorage implements IStorage {
           .update(wallets)
           .set({
             dailyCollected: "0",
-            // Keep merchant balance - no longer reset to 0 since funds flow to finance in real-time
+            balance: "0", // Reset display-only balance since actual funds are in finance master wallet
             lastResetDate: now,
             updatedAt: now,
           })
@@ -291,12 +291,12 @@ export class DatabaseStorage implements IStorage {
       const currentDailyCollected = parseFloat(wallet.dailyCollected || '0');
       const newDailyCollected = currentDailyCollected + amount;
 
-      // Update merchant wallet (for tracking daily collections)
+      // Update merchant wallet (for tracking daily collections - balance is display-only)
       await db
         .update(wallets)
         .set({
           dailyCollected: Math.floor(newDailyCollected).toString(),
-          balance: Math.floor(parseFloat(wallet.balance || '0') + amount).toString(),
+          balance: Math.floor(parseFloat(wallet.balance || '0') + amount).toString(), // Display-only tracking
           lastTransactionDate: new Date(),
           updatedAt: new Date(),
         })
