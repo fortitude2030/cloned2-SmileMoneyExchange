@@ -613,6 +613,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateSettlementRequestStatus(id: number, status: string, reviewedBy?: string): Promise<void> {
+    // Get the settlement request details before updating
+    const [settlementRequest] = await db
+      .select()
+      .from(settlementRequests)
+      .where(eq(settlementRequests.id, id))
+      .limit(1);
+
+    if (!settlementRequest) {
+      throw new Error("Settlement request not found");
+    }
+
     const updateData: any = { 
       status, 
       updatedAt: new Date() 
@@ -623,10 +634,49 @@ export class DatabaseStorage implements IStorage {
       updateData.reviewedAt = new Date();
     }
 
+    // Update settlement request status
     await db
       .update(settlementRequests)
       .set(updateData)
       .where(eq(settlementRequests.id, id));
+
+    // If settlement is approved or completed, deduct from finance master wallet
+    if ((status === 'approved' || status === 'completed') && settlementRequest.status === 'pending') {
+      // Find finance user for this organization
+      const [financeUser] = await db
+        .select()
+        .from(users)
+        .where(
+          and(
+            eq(users.organizationId, settlementRequest.organizationId),
+            eq(users.role, 'finance')
+          )
+        )
+        .limit(1);
+
+      if (financeUser) {
+        const financeWallet = await this.getOrCreateWallet(financeUser.id);
+        const currentBalance = Math.floor(parseFloat(financeWallet.balance || '0'));
+        const settlementAmount = Math.floor(parseFloat(settlementRequest.amount));
+        
+        // Validate sufficient funds
+        if (currentBalance < settlementAmount) {
+          throw new Error(`Insufficient funds: Available ZMW ${currentBalance}, Requested ZMW ${settlementAmount}`);
+        }
+
+        const newBalance = currentBalance - settlementAmount;
+
+        // Deduct settlement amount from finance master wallet
+        await db
+          .update(wallets)
+          .set({
+            balance: newBalance.toString(),
+            lastTransactionDate: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(eq(wallets.userId, financeUser.id));
+      }
+    }
   }
 
   // QR Code operations

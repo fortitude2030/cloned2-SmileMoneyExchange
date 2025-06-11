@@ -495,6 +495,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...req.body,
         userId,
         organizationId: user.organizationId,
+        status: "pending", // Default status for new settlement requests
       });
       
       const request = await storage.createSettlementRequest(requestData);
