@@ -86,7 +86,8 @@ export function useUnifiedTimer() {
       // Timer expired or stopped - refresh transaction data
       queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
       queryClient.invalidateQueries({ queryKey: ["/api/transactions/pending"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/transactions/qr-verification"] });
+      // Only invalidate QR verification for cashiers - this prevents 403 errors for merchants
+      // queryClient.invalidateQueries({ queryKey: ["/api/transactions/qr-verification"] });
     }
   }, [timerState.isActive, timerState.timeLeft]);
 

@@ -46,25 +46,33 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
 
   const handleGenerateQR = async () => {
     try {
-      // Get the latest transaction for this user to generate QR
-      const response = await fetch('/api/transactions', {
-        credentials: 'include'
+      // Create a new QR transaction first, then generate QR code
+      const transactionData = {
+        type: 'qr_code_payment',
+        amount: amount,
+        vmfNumber: vmfNumber,
+        description: `QR Payment - ${vmfNumber}`,
+        currency: 'ZMW'
+      };
+
+      // Create the transaction
+      const transactionResponse = await fetch('/api/transactions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(transactionData)
       });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch transactions');
-      }
-      
-      const transactions = await response.json();
-      const latestQRTransaction = transactions
-        .filter((t: any) => t.type === 'qr_code_payment' && t.status === 'pending')
-        .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-      
-      if (!latestQRTransaction) {
-        throw new Error('No pending QR transaction found');
+
+      if (!transactionResponse.ok) {
+        const errorData = await transactionResponse.json();
+        throw new Error(errorData.message || 'Failed to create transaction');
       }
 
-      // Generate secure QR code via server API
+      const transaction = await transactionResponse.json();
+
+      // Generate secure QR code for the new transaction
       const qrResponse = await fetch('/api/qr-codes/generate', {
         method: 'POST',
         headers: {
@@ -72,7 +80,7 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
         },
         credentials: 'include',
         body: JSON.stringify({
-          transactionId: latestQRTransaction.id
+          transactionId: transaction.id
         })
       });
 
