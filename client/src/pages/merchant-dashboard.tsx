@@ -3,13 +3,11 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useTransactionNotifications } from "@/hooks/use-transaction-notifications";
-import { useUnifiedTimer } from "@/hooks/use-unified-timer";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import MobileHeader from "@/components/mobile-header";
 import MobileNav from "@/components/mobile-nav";
 import QRCodeModal from "@/components/qr-code-modal";
-import RequestCooldownModal from "@/components/request-cooldown-modal";
 
 import WalletLimitsDisplay from "@/components/wallet-limits-display";
 import { Card, CardContent } from "@/components/ui/card";
@@ -22,7 +20,6 @@ export default function MerchantDashboard() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
   const { showSuccessNotification, showFailureNotification } = useTransactionNotifications();
-  const { timeLeft, isActive, startTimer } = useUnifiedTimer();
   const [showQRModal, setShowQRModal] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [vmfNumber, setVmfNumber] = useState("");
@@ -151,9 +148,6 @@ export default function MerchantDashboard() {
         title: "Request Sent",
         description: "Your payment request has been sent to the security cashier",
       });
-      
-      // Start the cooldown timer after successful request
-      startTimer();
       
       queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
     },
@@ -494,11 +488,7 @@ export default function MerchantDashboard() {
         vmfNumber={vmfNumber}
       />
 
-      <RequestCooldownModal
-        isOpen={isActive}
-        countdown={timeLeft}
-        onClose={() => {}}
-      />
+
 
     </div>
   );
