@@ -111,10 +111,13 @@ export const settlementRequests = pgTable("settlement_requests", {
   amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
   bankName: varchar("bank_name").notNull(),
   accountNumber: varchar("account_number").notNull(),
-  status: varchar("status").notNull(), // pending, approved, rejected, completed
+  status: varchar("status").notNull(), // pending, approved, hold, rejected, completed
   priority: varchar("priority").notNull(), // low, medium, high
   reviewedBy: varchar("reviewed_by"),
   reviewedAt: timestamp("reviewed_at"),
+  holdReason: varchar("hold_reason"), // insufficient_documentation, settlement_cover, pending_verification, other
+  rejectReason: varchar("reject_reason"), // invalid_account_details, duplicate_request, policy_violation, other
+  reasonComment: varchar("reason_comment", { length: 125 }), // For "other" reasons
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -128,6 +131,18 @@ export const qrCodes = pgTable("qr_codes", {
   isUsed: boolean("is_used").notNull().default(false),
   usedAt: timestamp("used_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  type: varchar("type").notNull(), // settlement_status_change, transaction_update, system_alert
+  title: varchar("title").notNull(),
+  message: text("message").notNull(),
+  relatedEntityType: varchar("related_entity_type"), // settlement_request, transaction
+  relatedEntityId: integer("related_entity_id"),
+  isRead: boolean("is_read").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Relations
@@ -144,6 +159,7 @@ export const userRelations = relations(users, ({ one, many }) => ({
   receivedTransactions: many(transactions, { relationName: "receiver" }),
   documents: many(documents),
   settlementRequests: many(settlementRequests),
+  notifications: many(notifications),
 }));
 
 export const organizationRelations = relations(organizations, ({ many }) => ({
