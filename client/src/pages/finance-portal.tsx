@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -822,98 +823,81 @@ export default function FinancePortal() {
             <DialogTitle>Create New Branch</DialogTitle>
           </DialogHeader>
           
-          <Form {...branchForm}>
-            <form onSubmit={branchForm.handleSubmit((data) => createBranch.mutate(data))} className="space-y-4">
-              <FormField
-                control={branchForm.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Branch Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter branch name" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="branchName">Branch Name</Label>
+              <Input 
+                id="branchName"
+                placeholder="Enter branch name"
+                value={branchForm.watch("name")}
+                onChange={(e) => branchForm.setValue("name", e.target.value)}
               />
+            </div>
 
-              <FormField
-                control={branchForm.control}
-                name="location"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Location</FormLabel>
-                    <FormControl>
-                      <Input placeholder="City, District" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+            <div>
+              <Label htmlFor="branchLocation">Location</Label>
+              <Input 
+                id="branchLocation"
+                placeholder="City, District"
+                value={branchForm.watch("location")}
+                onChange={(e) => branchForm.setValue("location", e.target.value)}
               />
+            </div>
 
-              <FormField
-                control={branchForm.control}
-                name="address"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Address (Optional)</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Full address" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+            <div>
+              <Label htmlFor="branchAddress">Address (Optional)</Label>
+              <Input 
+                id="branchAddress"
+                placeholder="Full address"
+                value={branchForm.watch("address")}
+                onChange={(e) => branchForm.setValue("address", e.target.value)}
               />
+            </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={branchForm.control}
-                  name="managerName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Manager Name (Optional)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Branch manager" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={branchForm.control}
-                  name="contactPhone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Contact Phone (Optional)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="+260 XXX XXX XXX" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="managerName">Manager Name (Optional)</Label>
+                <Input 
+                  id="managerName"
+                  placeholder="Branch manager"
+                  value={branchForm.watch("managerName")}
+                  onChange={(e) => branchForm.setValue("managerName", e.target.value)}
                 />
               </div>
 
-              <div className="flex justify-end space-x-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowCreateBranchModal(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={createBranch.isPending}
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  {createBranch.isPending ? "Creating..." : "Create Branch"}
-                </Button>
+              <div>
+                <Label htmlFor="contactPhone">Contact Phone (Optional)</Label>
+                <Input 
+                  id="contactPhone"
+                  placeholder="+260 XXX XXX XXX"
+                  value={branchForm.watch("contactPhone")}
+                  onChange={(e) => branchForm.setValue("contactPhone", e.target.value)}
+                />
               </div>
-            </form>
-          </Form>
+            </div>
+
+            <div className="flex justify-end space-x-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowCreateBranchModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  const formData = branchForm.getValues();
+                  if (formData.name && formData.location) {
+                    createBranch.mutate(formData);
+                  }
+                }}
+                disabled={createBranch.isPending}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {createBranch.isPending ? "Creating..." : "Create Branch"}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
