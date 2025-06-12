@@ -131,12 +131,13 @@ export default function FinancePortal() {
         priority: data.priority || "medium",
       });
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       toast({
-        title: "Success",
-        description: "Settlement request created successfully",
+        title: "Settlement Request Created",
+        description: `Settlement request #${data.id} for ZMW ${Math.floor(parseFloat(settlementForm.getValues('amount'))).toLocaleString()} submitted successfully`,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/settlement-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/settlement-breakdown"] });
       setShowSettlementDialog(false);
       settlementForm.reset();
     },
@@ -152,11 +153,14 @@ export default function FinancePortal() {
         }, 500);
         return;
       }
+      // Handle specific error responses from server
+      const errorMessage = error?.response?.data?.message || error.message || "Failed to create settlement request";
       toast({
-        title: "Error",
-        description: error.message || "Failed to create settlement request",
+        title: "Settlement Request Failed",
+        description: errorMessage,
         variant: "destructive",
       });
+      console.error("Settlement creation error:", error);
     },
   });
 

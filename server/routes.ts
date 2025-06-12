@@ -755,6 +755,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch('/api/admin/settlement-requests/:id/release', isAuthenticated, async (req: any, res) => {
+    try {
+      const settlementId = parseInt(req.params.id);
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Only admin users can release settlements" });
+      }
+
+      await storage.updateSettlementRequestStatus(settlementId, 'approved', userId);
+      res.json({ message: "Settlement request released and approved successfully" });
+    } catch (error) {
+      console.error("Error releasing settlement:", error);
+      res.status(500).json({ message: "Failed to release settlement request" });
+    }
+  });
+
   app.patch('/api/admin/settlement-requests/:id/hold', isAuthenticated, async (req: any, res) => {
     try {
       const settlementId = parseInt(req.params.id);
