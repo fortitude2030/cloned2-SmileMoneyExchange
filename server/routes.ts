@@ -4,7 +4,6 @@ import { WebSocketServer, WebSocket } from "ws";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
-import { jsPDF } from "jspdf";
 import { storage } from "./storage";
 import { setupDevAuth, isAuthenticated } from "./devAuth";
 import {
@@ -17,35 +16,23 @@ import {
 } from "@shared/schema";
 import crypto from "crypto";
 
-// Convert image to PDF function using base64 encoding
-async function convertImageToPDF(imagePath: string, outputPath: string): Promise<void> {
+// Optimized image processing - minimal conversion for faster uploads
+async function processImage(imagePath: string, outputPath: string): Promise<void> {
   try {
-    // Read image file and convert to base64
-    const imageBuffer = fs.readFileSync(imagePath);
-    const base64Image = imageBuffer.toString('base64');
-    const mimeType = imagePath.toLowerCase().includes('.png') ? 'PNG' : 'JPEG';
-    
-    // Create PDF document
-    const pdf = new jsPDF();
-    
-    // Add image to PDF (auto-sizing to fit page)
-    pdf.addImage(`data:image/${mimeType.toLowerCase()};base64,${base64Image}`, mimeType, 10, 10, 180, 240);
-    
-    // Save PDF
-    const pdfBuffer = Buffer.from(pdf.output('arraybuffer'));
-    fs.writeFileSync(outputPath, pdfBuffer);
-    
+    // For now, just rename the file to avoid heavy processing
+    // This eliminates the PDF conversion bottleneck
+    fs.renameSync(imagePath, outputPath);
   } catch (error) {
-    console.error('Error converting image to PDF:', error);
+    console.error('Error processing image:', error);
     throw error;
   }
 }
 
-// File upload configuration
+// File upload configuration - optimized for faster processing
 const upload = multer({
   dest: 'uploads/',
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
+    fileSize: 5 * 1024 * 1024, // Reduced to 5MB for faster processing
   },
   fileFilter: (req, file, cb) => {
     const allowedTypes = /jpeg|jpg|png/;
@@ -507,32 +494,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let finalMimeType = req.file.mimetype;
       let finalSize = req.file.size;
       
-      // If uploaded file is an image, convert to PDF and delete original
+      // Optimized processing - keep original format for faster uploads
       const isImage = req.file.mimetype.startsWith('image/');
       if (isImage) {
-        const originalPath = req.file.path;
-        const pdfFilename = `${req.file.filename}.pdf`;
-        const pdfPath = path.join('uploads', pdfFilename);
-        
-        try {
-          // Convert image to PDF
-          await convertImageToPDF(originalPath, pdfPath);
-          
-          // Delete original image file for security
-          fs.unlinkSync(originalPath);
-          
-          // Update file info to PDF
-          finalFilename = pdfFilename;
-          finalMimeType = 'application/pdf';
-          finalSize = fs.statSync(pdfPath).size;
-          
-        } catch (conversionError) {
-          console.error('PDF conversion failed:', conversionError);
-          // Clean up files on error
-          if (fs.existsSync(originalPath)) fs.unlinkSync(originalPath);
-          if (fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath);
-          return res.status(500).json({ message: "Failed to process image file" });
-        }
+        // Just keep the image as-is for faster processing
+        // No PDF conversion to eliminate processing bottleneck
+        finalFilename = req.file.filename;
+        finalMimeType = req.file.mimetype;
+        finalSize = req.file.size;
       }
 
       const documentData = insertDocumentSchema.parse({
