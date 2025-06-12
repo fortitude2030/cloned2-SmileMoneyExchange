@@ -261,6 +261,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: finalStatus,
         amount: parsedAmount.toFixed(2),
         fromUserId: req.body.fromUserId || userId,
+        toUserId: req.body.toUserId || "system", // Default to system for QR transactions
         expiresAt,
       });
       
@@ -315,6 +316,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(transaction);
     } catch (error) {
       console.error("Error creating transaction:", error);
+      console.error("Request body:", req.body);
+      console.error("User ID:", userId);
       
       if (error instanceof Error && error.message === 'PENDING_TRANSACTION_EXISTS') {
         res.status(409).json({ 
@@ -322,7 +325,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           code: "PENDING_TRANSACTION_EXISTS"
         });
       } else {
-        res.status(400).json({ message: "Failed to create transaction" });
+        res.status(400).json({ 
+          message: "Failed to create transaction",
+          error: error instanceof Error ? error.message : "Unknown error"
+        });
       }
     }
   });
