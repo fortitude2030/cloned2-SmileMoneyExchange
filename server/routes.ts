@@ -242,14 +242,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Transaction routes
   app.post('/api/transactions', isAuthenticated, async (req: any, res) => {
+    const userId = req.user.claims.sub;
+    
     try {
-      const userId = req.user.claims.sub;
-      
-      // Keep original status for all transactions
-      let finalStatus = req.body.status;
+      // Set proper status for QR transactions
+      let finalStatus = req.body.status || 'pending';
+      if (req.body.type === 'qr_code_payment') {
+        finalStatus = 'pending';
+      }
       
       // Set expiration time for all pending transactions (both QR and RTP)
-      const expiresAt = (req.body.status === 'pending') 
+      const expiresAt = (finalStatus === 'pending') 
         ? new Date(Date.now() + 120 * 1000) 
         : null;
       
@@ -317,7 +320,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating transaction:", error);
       console.error("Request body:", req.body);
-      console.error("User ID:", userId);
+      console.error("User ID:", req.user?.claims?.sub);
       
       if (error instanceof Error && error.message === 'PENDING_TRANSACTION_EXISTS') {
         res.status(409).json({ 
