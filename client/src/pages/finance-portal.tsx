@@ -125,16 +125,17 @@ export default function FinancePortal() {
   // Create settlement request mutation
   const createSettlementRequest = useMutation({
     mutationFn: async (data: z.infer<typeof settlementSchema>) => {
-      await apiRequest("POST", "/api/settlement-requests", {
+      return await apiRequest("POST", "/api/settlement-requests", {
         ...data,
         amount: Math.floor(parseFloat(data.amount)).toString(),
         priority: data.priority || "medium",
       });
     },
     onSuccess: (data: any) => {
+      const amount = Math.floor(parseFloat(settlementForm.getValues('amount'))).toLocaleString();
       toast({
         title: "Settlement Request Created",
-        description: `Settlement request #${data.id} for ZMW ${Math.floor(parseFloat(settlementForm.getValues('amount'))).toLocaleString()} submitted successfully`,
+        description: `Settlement request for ZMW ${amount} submitted successfully`,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/settlement-requests"] });
       queryClient.invalidateQueries({ queryKey: ["/api/settlement-breakdown"] });
