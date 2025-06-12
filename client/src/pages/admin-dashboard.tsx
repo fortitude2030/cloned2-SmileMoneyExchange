@@ -1,19 +1,16 @@
-import { useEffect, useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
-import { isUnauthorizedError } from "@/lib/authUtils";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import MobileHeader from "@/components/mobile-header";
-import MobileNav from "@/components/mobile-nav";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import type { SettlementRequest } from "@/../../shared/schema";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import MobileHeader from "@/components/mobile-header";
+import MobileNav from "@/components/mobile-nav";
+import { apiRequest } from "@/lib/queryClient";
 
 interface ActionDialogState {
   isOpen: boolean;
@@ -36,105 +33,112 @@ export default function AdminDashboard() {
     reasonComment: ''
   });
 
+  const queryClient = useQueryClient();
+
   // Redirect if not authenticated
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      toast({
-        title: "Unauthorized",
-        description: "You are logged out. Logging in again...",
-        variant: "destructive",
-      });
-      setTimeout(() => {
-        window.location.href = "/api/login";
-      }, 500);
-      return;
+      window.location.href = '/login';
     }
-  }, [isAuthenticated, isLoading, toast]);
+  }, [isLoading, isAuthenticated]);
 
-  // Fetch settlement requests for admin with auto-refresh
-  const { data: settlementRequests = [], isLoading: settlementsLoading } = useQuery<SettlementRequest[]>({
-    queryKey: ["/api/settlement-requests"],
-    retry: false,
-    refetchInterval: 3000, // Auto-refresh every 3 seconds
-    refetchIntervalInBackground: true, // Keep refreshing when tab is not active
+  // Format currency helper
+  const formatCurrency = (amount: string | number) => {
+    const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+    return new Intl.NumberFormat('en-ZM', {
+      style: 'currency',
+      currency: 'ZMW',
+      minimumFractionDigits: 2,
+    }).format(numAmount);
+  };
+
+  // Fetch settlement requests
+  const { data: settlementRequests = [], isLoading: settlementsLoading } = useQuery({
+    queryKey: ['/api/settlement-requests'],
+    refetchInterval: 3000,
   });
 
-  // Fetch all transactions for admin
+  // Fetch transaction log
   const { data: transactions = [], isLoading: transactionsLoading } = useQuery({
-    queryKey: ["/api/admin/transactions"],
-    retry: false,
-    refetchInterval: 5000, // Auto-refresh every 5 seconds
+    queryKey: ['/api/admin/transactions'],
+    refetchInterval: 3000,
+  });
+
+  // Filter pending requests
+  const pendingRequests = Array.isArray(settlementRequests) ? 
+    settlementRequests.filter((request: any) => request.status === 'pending') : [];
+
+  // Hold settlement mutation
+  const holdSettlement = useMutation({
+    mutationFn: async ({ id, reason, reasonComment }: { id: number; reason: string; reasonComment?: string }) => {
+      return apiRequest(`/api/settlement-requests/${id}/hold`, {
+        method: 'POST',
+        body: { reason, reasonComment }
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/settlement-requests'] });
+      toast({
+        title: "Settlement request held successfully",
+        description: "The settlement request has been placed on hold.",
+      });
+      setActionDialog({ isOpen: false, settlementId: null, action: null, reason: '', reasonComment: '' });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error holding settlement request",
+        description: error.message || "Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Reject settlement mutation
+  const rejectSettlement = useMutation({
+    mutationFn: async ({ id, reason, reasonComment }: { id: number; reason: string; reasonComment?: string }) => {
+      return apiRequest(`/api/settlement-requests/${id}/reject`, {
+        method: 'POST',
+        body: { reason, reasonComment }
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/settlement-requests'] });
+      toast({
+        title: "Settlement request rejected",
+        description: "The settlement request has been rejected.",
+      });
+      setActionDialog({ isOpen: false, settlementId: null, action: null, reason: '', reasonComment: '' });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error rejecting settlement request",
+        description: error.message || "Please try again.",
+        variant: "destructive",
+      });
+    },
   });
 
   // Approve settlement mutation
   const approveSettlement = useMutation({
     mutationFn: async (id: number) => {
-      await apiRequest("PATCH", `/api/admin/settlement-requests/${id}/approve`);
-    },
-    onSuccess: () => {
-      toast({
-        title: "Success",
-        description: "Settlement request approved successfully",
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/settlement-requests"] });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to approve settlement",
-        variant: "destructive",
-      });
-    }
-  });
-
-  // Hold settlement mutation
-  const holdSettlement = useMutation({
-    mutationFn: async ({ id, holdReason, reasonComment }: { id: number; holdReason: string; reasonComment?: string }) => {
-      await apiRequest("PATCH", `/api/admin/settlement-requests/${id}/hold`, {
-        holdReason,
-        reasonComment
+      return apiRequest(`/api/settlement-requests/${id}/approve`, {
+        method: 'POST',
       });
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/settlement-requests'] });
       toast({
-        title: "Success",
-        description: "Settlement request placed on hold",
+        title: "Settlement request approved",
+        description: "The settlement request has been approved successfully.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/settlement-requests"] });
-      setActionDialog({ isOpen: false, settlementId: null, action: null, reason: '', reasonComment: '' });
     },
     onError: (error: any) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to hold settlement",
+        title: "Error approving settlement request",
+        description: error.message || "Please try again.",
         variant: "destructive",
       });
-    }
-  });
-
-  // Reject settlement mutation
-  const rejectSettlement = useMutation({
-    mutationFn: async ({ id, rejectReason, reasonComment }: { id: number; rejectReason: string; reasonComment?: string }) => {
-      await apiRequest("PATCH", `/api/admin/settlement-requests/${id}/reject`, {
-        rejectReason,
-        reasonComment
-      });
     },
-    onSuccess: () => {
-      toast({
-        title: "Success",
-        description: "Settlement request rejected",
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/settlement-requests"] });
-      setActionDialog({ isOpen: false, settlementId: null, action: null, reason: '', reasonComment: '' });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to reject settlement",
-        variant: "destructive",
-      });
-    }
   });
 
   const handleOpenActionDialog = (settlementId: number, action: 'hold' | 'reject') => {
@@ -147,112 +151,42 @@ export default function AdminDashboard() {
     });
   };
 
-  const handleSubmitAction = () => {
-    if (!actionDialog.settlementId || !actionDialog.action || !actionDialog.reason) {
-      toast({
-        title: "Error",
-        description: "Please select a reason",
-        variant: "destructive",
-      });
-      return;
-    }
+  const handleSubmitAction = async () => {
+    if (!actionDialog.settlementId || !actionDialog.reason) return;
 
-    if (actionDialog.reason === 'other' && !actionDialog.reasonComment.trim()) {
-      toast({
-        title: "Error",
-        description: "Comment is required when selecting 'other' reason",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (actionDialog.reasonComment.length > 125) {
-      toast({
-        title: "Error",
-        description: "Comment must be 125 characters or less",
-        variant: "destructive",
-      });
-      return;
-    }
+    const payload = {
+      id: actionDialog.settlementId,
+      reason: actionDialog.reason,
+      reasonComment: actionDialog.reason === 'other' ? actionDialog.reasonComment : undefined
+    };
 
     if (actionDialog.action === 'hold') {
-      holdSettlement.mutate({
-        id: actionDialog.settlementId,
-        holdReason: actionDialog.reason,
-        reasonComment: actionDialog.reasonComment || undefined
-      });
-    } else {
-      rejectSettlement.mutate({
-        id: actionDialog.settlementId,
-        rejectReason: actionDialog.reason,
-        reasonComment: actionDialog.reasonComment || undefined
-      });
+      holdSettlement.mutate(payload);
+    } else if (actionDialog.action === 'reject') {
+      rejectSettlement.mutate(payload);
     }
   };
 
   const getHoldReasons = () => [
-    { value: 'insufficient_documentation', label: 'Insufficient documentation' },
-    { value: 'settlement_cover', label: 'Settlement Cover' },
-    { value: 'pending_verification', label: 'Pending verification' },
-    { value: 'other', label: 'Other' }
+    { value: 'insufficient_documentation', label: 'Insufficient Documentation' },
+    { value: 'verification_required', label: 'Additional Verification Required' },
+    { value: 'compliance_review', label: 'Compliance Review Needed' },
+    { value: 'other', label: 'Other (specify below)' }
   ];
 
   const getRejectReasons = () => [
-    { value: 'invalid_account_details', label: 'Invalid account details' },
-    { value: 'duplicate_request', label: 'Duplicate request' },
-    { value: 'policy_violation', label: 'Policy violation' },
-    { value: 'other', label: 'Other' }
+    { value: 'invalid_documentation', label: 'Invalid Documentation' },
+    { value: 'insufficient_funds', label: 'Insufficient Funds' },
+    { value: 'policy_violation', label: 'Policy Violation' },
+    { value: 'fraud_suspicion', label: 'Fraud Suspicion' },
+    { value: 'other', label: 'Other (specify below)' }
   ];
 
-  const formatCurrency = (amount: string | number) => {
-    const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
-    if (isNaN(numericAmount)) return 'ZMW 0';
-    const truncatedAmount = Math.floor(numericAmount);
-    return `ZMW ${truncatedAmount.toLocaleString()}`;
-  };
-
-  const getPriorityBadge = (priority: string) => {
-    switch (priority) {
-      case 'high':
-        return <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 font-medium border border-red-300">High Priority</Badge>;
-      case 'medium':
-        return <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 font-medium border border-yellow-300">Medium Priority</Badge>;
-      case 'low':
-        return <Badge className="bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200 font-medium border border-gray-300">Low Priority</Badge>;
-      default:
-        return <Badge className="bg-gray-100 text-gray-800 font-medium border">{priority}</Badge>;
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return <Badge className="bg-green-600 text-white font-medium">Completed</Badge>;
-      case 'pending':
-        return <Badge className="bg-orange-600 text-white font-medium">Pending</Badge>;
-      case 'approved':
-        return <Badge className="bg-blue-600 text-white font-medium">Approved</Badge>;
-      case 'hold':
-        return <Badge className="bg-orange-600 text-white font-medium">On Hold</Badge>;
-      case 'rejected':
-        return <Badge className="bg-red-600 text-white font-medium">Rejected</Badge>;
-      default:
-        return <Badge className="bg-gray-600 text-white font-medium">{status}</Badge>;
-    }
-  };
-
-  // Calculate metrics from settlement requests
-  const requests = (settlementRequests as any[]) || [];
-  const pendingRequests = requests.filter((req: any) => req.status === 'pending');
-  const totalVolume = requests.reduce((sum: number, req: any) => sum + parseFloat(req.amount || '0'), 0);
-
-  if (isLoading || settlementsLoading) {
+  if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 bg-red-600 rounded-2xl flex items-center justify-center mx-auto mb-4 animate-pulse">
-            <i className="fas fa-user-shield text-white text-2xl"></i>
-          </div>
+          <i className="fas fa-spinner fa-spin text-4xl text-gray-400 mb-4"></i>
           <p className="text-gray-600 dark:text-gray-400">Loading...</p>
         </div>
       </div>
@@ -300,36 +234,38 @@ export default function AdminDashboard() {
           <>
             {/* System Overview */}
             <div className="grid grid-cols-2 gap-4 mb-6">
-          <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-600 dark:text-gray-400 text-sm">Pending Approvals</p>
-                  <h3 className="text-2xl font-bold text-warning">{pendingRequests.length}</h3>
-                </div>
-                <div className="w-10 h-10 bg-warning bg-opacity-10 rounded-lg flex items-center justify-center">
-                  <i className="fas fa-clock text-warning"></i>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-600 dark:text-gray-400 text-sm">Total Volume</p>
-                  <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200">
-                    {formatCurrency(totalVolume)}
-                  </h3>
-                </div>
-                <div className="w-10 h-10 bg-success bg-opacity-10 rounded-lg flex items-center justify-center">
-                  <i className="fas fa-chart-line text-success"></i>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+              <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-2xl font-bold text-red-600">
+                        {pendingRequests.length}
+                      </p>
+                      <p className="text-gray-600 dark:text-gray-400 text-sm">Pending Approvals</p>
+                    </div>
+                    <div className="w-10 h-10 bg-red-100 dark:bg-red-900 rounded-lg flex items-center justify-center">
+                      <i className="fas fa-exclamation-triangle text-red-600 dark:text-red-400"></i>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-2xl font-bold text-green-600">
+                        {Array.isArray(transactions) ? transactions.filter((t: any) => t.status === 'completed').length : 0}
+                      </p>
+                      <p className="text-gray-600 dark:text-gray-400 text-sm">Completed Today</p>
+                    </div>
+                    <div className="w-10 h-10 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
+                      <i className="fas fa-check-circle text-green-600 dark:text-green-400"></i>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
 
             {/* Quick Actions Overview */}
             <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
@@ -369,111 +305,115 @@ export default function AdminDashboard() {
                   <i className="fas fa-tasks text-red-600 mr-2"></i>
                   Settlement Management
                 </h3>
-            
-            {settlementsLoading ? (
-              <div className="space-y-4">
-                {[1, 2].map((i) => (
-                  <div key={i} className="border-l-4 border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 rounded-lg p-4 animate-pulse">
-                    <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <div className="w-48 h-4 bg-gray-300 dark:bg-gray-700 rounded mb-1"></div>
-                        <div className="w-32 h-3 bg-gray-300 dark:bg-gray-700 rounded mb-1"></div>
-                        <div className="w-24 h-3 bg-gray-300 dark:bg-gray-700 rounded"></div>
-                      </div>
-                      <div className="text-right">
-                        <div className="w-20 h-6 bg-gray-300 dark:bg-gray-700 rounded mb-1"></div>
-                        <div className="w-16 h-4 bg-gray-300 dark:bg-gray-700 rounded"></div>
-                      </div>
-                    </div>
-                    <div className="flex space-x-3">
-                      <div className="flex-1 h-8 bg-gray-300 dark:bg-gray-700 rounded"></div>
-                      <div className="flex-1 h-8 bg-gray-300 dark:bg-gray-700 rounded"></div>
-                      <div className="flex-1 h-8 bg-gray-300 dark:bg-gray-700 rounded"></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : pendingRequests.length === 0 ? (
-              <div className="text-center py-8">
-                <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <i className="fas fa-tasks text-gray-400 text-xl"></i>
-                </div>
-                <p className="text-gray-600 dark:text-gray-400">No pending approvals</p>
-                <p className="text-gray-500 dark:text-gray-500 text-sm">Settlement requests will appear here</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {pendingRequests.map((request: any) => (
-                  <div key={request.id} className={`border-l-4 rounded-lg p-4 shadow-md ${
-                    request.priority === 'high' ? 'border-red-500 bg-red-50 dark:bg-red-950 dark:border-red-400' :
-                    request.priority === 'medium' ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-950 dark:border-yellow-400' :
-                    'border-gray-400 bg-gray-50 dark:bg-gray-800 dark:border-gray-500'
-                  }`}>
-                    <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <h4 className="font-medium text-gray-800 dark:text-gray-200">
-                          Settlement Request - {request.organizationId ? `Org ${request.organizationId}` : 'Unknown'}
-                        </h4>
-                        <p className="text-gray-600 dark:text-gray-400 text-sm">
-                          To: {request.bankName} (****{request.accountNumber.slice(-4)})
-                        </p>
-                        <p className="text-gray-500 dark:text-gray-500 text-xs">
-                          Submitted: {new Date(request.createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-xl text-gray-800 dark:text-gray-200">
-                          {formatCurrency(request.amount)}
-                        </p>
-                        <div className="flex flex-col items-end space-y-1">
-                          {getPriorityBadge(request.priority)}
-                          {getStatusBadge(request.status)}
+                
+                {settlementsLoading ? (
+                  <div className="space-y-4">
+                    {[1, 2].map((i) => (
+                      <div key={i} className="border-l-4 border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 rounded-lg p-4 animate-pulse">
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <div className="w-48 h-4 bg-gray-300 dark:bg-gray-700 rounded mb-1"></div>
+                            <div className="w-32 h-3 bg-gray-300 dark:bg-gray-700 rounded mb-1"></div>
+                            <div className="w-24 h-3 bg-gray-300 dark:bg-gray-700 rounded"></div>
+                          </div>
+                          <div className="text-right">
+                            <div className="w-20 h-6 bg-gray-300 dark:bg-gray-700 rounded mb-1"></div>
+                            <div className="w-16 h-4 bg-gray-300 dark:bg-gray-700 rounded"></div>
+                          </div>
+                        </div>
+                        <div className="flex space-x-3">
+                          <div className="flex-1 h-8 bg-gray-300 dark:bg-gray-700 rounded"></div>
+                          <div className="flex-1 h-8 bg-gray-300 dark:bg-gray-700 rounded"></div>
+                          <div className="flex-1 h-8 bg-gray-300 dark:bg-gray-700 rounded"></div>
                         </div>
                       </div>
-                    </div>
-                    
-                    {/* Show action buttons for pending and held requests */}
-                    {(request.status === 'pending' || request.status === 'hold') ? (
-                      <div className="flex space-x-3">
-                        <Button 
-                          onClick={() => approveSettlement.mutate(request.id)}
-                          disabled={approveSettlement.isPending}
-                          className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-medium"
-                        >
-                          <i className="fas fa-check mr-2"></i>Approve
-                        </Button>
-                        <Button 
-                          onClick={() => handleOpenActionDialog(request.id, 'hold')}
-                          disabled={holdSettlement.isPending}
-                          className="flex-1 bg-orange-600 hover:bg-orange-700 text-white py-2 rounded-lg font-medium"
-                        >
-                          <i className="fas fa-pause mr-2"></i>Hold
-                        </Button>
-                        <Button 
-                          onClick={() => handleOpenActionDialog(request.id, 'reject')}
-                          disabled={rejectSettlement.isPending}
-                          className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg font-medium"
-                        >
-                          <i className="fas fa-times mr-2"></i>Reject
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {request.reviewedBy && request.reviewedAt ? (
-                            <>Processed by Admin on {new Date(request.reviewedAt).toLocaleDateString()}</>
-                          ) : (
-                            <>Status: {request.status.charAt(0).toUpperCase() + request.status.slice(1)}</>
-                          )}
-                        </p>
-                      </div>
-                    )}
+                    ))}
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                ) : Array.isArray(settlementRequests) && settlementRequests.length === 0 ? (
+                  <div className="text-center py-8">
+                    <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <i className="fas fa-tasks text-gray-400 text-xl"></i>
+                    </div>
+                    <p className="text-gray-600 dark:text-gray-400">No settlement requests</p>
+                    <p className="text-gray-500 dark:text-gray-500 text-sm">Settlement requests will appear here</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {Array.isArray(settlementRequests) && settlementRequests.map((request: any) => (
+                      <div key={request.id} className={`border-l-4 rounded-lg p-4 shadow-md ${
+                        request.status === 'pending' ? 'border-orange-500 bg-orange-50 dark:bg-orange-950 dark:border-orange-400' :
+                        request.status === 'approved' ? 'border-green-500 bg-green-50 dark:bg-green-950 dark:border-green-400' :
+                        request.status === 'held' ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-950 dark:border-yellow-400' :
+                        'border-red-500 bg-red-50 dark:bg-red-950 dark:border-red-400'
+                      }`}>
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <p className="font-semibold text-gray-800 dark:text-gray-200">
+                              Settlement Request #{request.id}
+                            </p>
+                            <p className="text-gray-600 dark:text-gray-400 text-sm">
+                              {request.user?.email}
+                            </p>
+                            <p className="text-gray-500 dark:text-gray-500 text-xs">
+                              {new Date(request.createdAt).toLocaleString()}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-lg text-gray-800 dark:text-gray-200">
+                              {formatCurrency(request.requestedAmount)}
+                            </p>
+                            <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
+                              request.status === 'pending' ? 'bg-orange-100 text-orange-800 dark:bg-orange-800 dark:text-orange-200' :
+                              request.status === 'approved' ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200' :
+                              request.status === 'held' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-200' :
+                              'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-200'
+                            }`}>
+                              {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                            </span>
+                          </div>
+                        </div>
+
+                        {request.status === 'pending' ? (
+                          <div className="flex space-x-3">
+                            <Button 
+                              onClick={() => approveSettlement.mutate(request.id)}
+                              disabled={approveSettlement.isPending}
+                              className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-medium"
+                            >
+                              <i className="fas fa-check mr-2"></i>Approve
+                            </Button>
+                            <Button 
+                              onClick={() => handleOpenActionDialog(request.id, 'hold')}
+                              disabled={holdSettlement.isPending}
+                              className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white py-2 rounded-lg font-medium"
+                            >
+                              <i className="fas fa-pause mr-2"></i>Hold
+                            </Button>
+                            <Button 
+                              onClick={() => handleOpenActionDialog(request.id, 'reject')}
+                              disabled={rejectSettlement.isPending}
+                              className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg font-medium"
+                            >
+                              <i className="fas fa-times mr-2"></i>Reject
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              {request.reviewedBy && request.reviewedAt ? (
+                                <>Processed by Admin on {new Date(request.reviewedAt).toLocaleDateString()}</>
+                              ) : (
+                                <>Status: {request.status.charAt(0).toUpperCase() + request.status.slice(1)}</>
+                              )}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </>
         )}
 
@@ -481,93 +421,93 @@ export default function AdminDashboard() {
         {activeTab === 'transactions' && (
           <>
             {/* Transaction Log */}
-        <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
-          <CardContent className="p-4">
-            <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
-              <i className="fas fa-list text-blue-600 mr-2"></i>
-              Transaction Log
-            </h3>
-            
-            {transactionsLoading ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg animate-pulse">
-                    <div className="flex items-center">
-                      <div className="w-10 h-10 bg-gray-300 dark:bg-gray-700 rounded-lg mr-3"></div>
-                      <div>
-                        <div className="w-24 h-4 bg-gray-300 dark:bg-gray-700 rounded mb-1"></div>
-                        <div className="w-16 h-3 bg-gray-300 dark:bg-gray-700 rounded"></div>
+            <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
+              <CardContent className="p-4">
+                <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
+                  <i className="fas fa-list text-blue-600 mr-2"></i>
+                  Transaction Log
+                </h3>
+                
+                {transactionsLoading ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg animate-pulse">
+                        <div className="flex items-center flex-1">
+                          <div className="w-10 h-10 bg-gray-300 dark:bg-gray-700 rounded-lg mr-3"></div>
+                          <div className="flex-1">
+                            <div className="w-32 h-4 bg-gray-300 dark:bg-gray-700 rounded mb-1"></div>
+                            <div className="w-24 h-3 bg-gray-300 dark:bg-gray-700 rounded"></div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="w-20 h-4 bg-gray-300 dark:bg-gray-700 rounded mb-1"></div>
+                          <div className="w-16 h-3 bg-gray-300 dark:bg-gray-700 rounded"></div>
+                        </div>
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="w-20 h-4 bg-gray-300 dark:bg-gray-700 rounded mb-1"></div>
-                      <div className="w-16 h-3 bg-gray-300 dark:bg-gray-700 rounded"></div>
-                    </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            ) : !Array.isArray(transactions) || transactions.length === 0 ? (
-              <div className="text-center py-8">
-                <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <i className="fas fa-history text-gray-400 text-xl"></i>
-                </div>
-                <p className="text-gray-600 dark:text-gray-400">No transactions yet</p>
-                <p className="text-gray-500 dark:text-gray-500 text-sm">System transactions will appear here</p>
-              </div>
-            ) : (
-              <div className="space-y-3 max-h-96 overflow-y-auto">
-                {(Array.isArray(transactions) ? transactions.slice(0, 20) : []).map((transaction: any) => (
-                  <div key={transaction.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <div className="flex items-center flex-1">
-                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center mr-3 ${
-                        transaction.status === 'completed' ? 'bg-green-100 dark:bg-green-900' :
-                        transaction.status === 'pending' ? 'bg-orange-100 dark:bg-orange-900' :
-                        transaction.status === 'rejected' ? 'bg-red-100 dark:bg-red-900' :
-                        'bg-gray-100 dark:bg-gray-700'
-                      }`}>
-                        <i className={`fas ${
-                          transaction.status === 'completed' ? 'fa-check text-green-600 dark:text-green-400' :
-                          transaction.status === 'pending' ? 'fa-clock text-orange-600 dark:text-orange-400' :
-                          transaction.status === 'rejected' ? 'fa-times text-red-600 dark:text-red-400' :
-                          'fa-circle text-gray-600 dark:text-gray-400'
-                        }`}></i>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={`font-medium text-sm truncate ${
-                          transaction.status === 'completed' ? 'text-green-600 dark:text-green-400' :
-                          transaction.status === 'pending' ? 'text-orange-600 dark:text-orange-400' :
-                          transaction.status === 'rejected' ? 'text-red-600 dark:text-red-400' :
-                          'text-gray-600 dark:text-gray-400'
-                        }`}>
-                          {transaction.transactionId}
-                        </p>
-                        <p className="text-gray-500 dark:text-gray-500 text-xs truncate">
-                          {transaction.type === 'qr_payment' ? 'QR Payment' : 
-                           transaction.type === 'rtp' ? 'Real-time Payment' : 
-                           transaction.type || 'Transfer'} • 
-                          {new Date(transaction.createdAt).toLocaleDateString()}
-                        </p>
-                        {transaction.description && (
-                          <p className="text-gray-400 dark:text-gray-600 text-xs truncate mt-1">
-                            {transaction.description}
+                ) : Array.isArray(transactions) && transactions.length === 0 ? (
+                  <div className="text-center py-8">
+                    <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <i className="fas fa-list text-gray-400 text-xl"></i>
+                    </div>
+                    <p className="text-gray-600 dark:text-gray-400">No transactions found</p>
+                    <p className="text-gray-500 dark:text-gray-500 text-sm">Transaction history will appear here</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                    {Array.isArray(transactions) && transactions.slice(0, 50).map((transaction: any) => (
+                      <div key={transaction.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <div className="flex items-center flex-1">
+                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center mr-3 ${
+                            transaction.status === 'completed' ? 'bg-green-100 dark:bg-green-900' :
+                            transaction.status === 'pending' ? 'bg-orange-100 dark:bg-orange-900' :
+                            transaction.status === 'rejected' ? 'bg-red-100 dark:bg-red-900' :
+                            'bg-gray-100 dark:bg-gray-700'
+                          }`}>
+                            <i className={`fas ${
+                              transaction.status === 'completed' ? 'fa-check text-green-600 dark:text-green-400' :
+                              transaction.status === 'pending' ? 'fa-clock text-orange-600 dark:text-orange-400' :
+                              transaction.status === 'rejected' ? 'fa-times text-red-600 dark:text-red-400' :
+                              'fa-circle text-gray-600 dark:text-gray-400'
+                            }`}></i>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`font-medium text-sm truncate ${
+                              transaction.status === 'completed' ? 'text-green-600 dark:text-green-400' :
+                              transaction.status === 'pending' ? 'text-orange-600 dark:text-orange-400' :
+                              transaction.status === 'rejected' ? 'text-red-600 dark:text-red-400' :
+                              'text-gray-600 dark:text-gray-400'
+                            }`}>
+                              {transaction.transactionId}
+                            </p>
+                            <p className="text-gray-500 dark:text-gray-500 text-xs truncate">
+                              {transaction.type === 'qr_payment' ? 'QR Payment' : 
+                               transaction.type === 'rtp' ? 'Real-time Payment' : 
+                               transaction.type || 'Transfer'} • 
+                              {new Date(transaction.createdAt).toLocaleDateString()}
+                            </p>
+                            {transaction.description && (
+                              <p className="text-gray-400 dark:text-gray-600 text-xs truncate mt-1">
+                                {transaction.description}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right ml-3">
+                          <p className="font-bold text-sm text-gray-800 dark:text-gray-200">
+                            {formatCurrency(transaction.amount)}
                           </p>
-                        )}
+                          <p className="text-xs text-gray-500 dark:text-gray-500">
+                            {new Date(transaction.createdAt).toLocaleTimeString()}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                    <div className="text-right ml-3">
-                      <p className="font-bold text-sm text-gray-800 dark:text-gray-200">
-                        {formatCurrency(transaction.amount)}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-500">
-                        {new Date(transaction.createdAt).toLocaleTimeString()}
-                      </p>
-                    </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                )}
+              </CardContent>
+            </Card>
           </>
         )}
 

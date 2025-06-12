@@ -22,7 +22,6 @@ const settlementSchema = z.object({
   amount: z.string().min(1, "Amount is required").transform((val) => Math.floor(parseFloat(val)).toString()),
   bankName: z.string().min(1, "Bank name is required"),
   accountNumber: z.string().min(1, "Account number is required"),
-  priority: z.enum(["low", "medium", "high"]),
 });
 
 export default function FinancePortal() {
@@ -620,22 +619,7 @@ export default function FinancePortal() {
                         <p className="text-sm text-destructive">{settlementForm.formState.errors.accountNumber.message}</p>
                       )}
                     </div>
-                    <div>
-                      <Label htmlFor="priority">Priority</Label>
-                      <Select
-                        value={settlementForm.watch("priority")}
-                        onValueChange={(value: "low" | "medium" | "high") => settlementForm.setValue("priority", value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="low">Low Priority</SelectItem>
-                          <SelectItem value="medium">Medium Priority</SelectItem>
-                          <SelectItem value="high">High Priority</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+
                     <Button type="submit" disabled={createSettlementRequest.isPending} className="w-full">
                       {createSettlementRequest.isPending ? "Creating..." : "Create Request"}
                     </Button>
