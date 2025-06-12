@@ -14,6 +14,8 @@ interface TimerContextType {
   startTimer: () => void;
   markInteraction: () => void;
   stopTimer: () => void;
+  onTimeout?: () => void;
+  setTimeoutCallback: (callback: () => void) => void;
 }
 
 const TimerContext = createContext<TimerContextType | undefined>(undefined);
@@ -24,6 +26,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     isActive: false,
     hasInteraction: false
   });
+  const [timeoutCallback, setTimeoutCallback] = useState<(() => void) | null>(null);
 
   // Main timer effect - single 120-second countdown
   useEffect(() => {
@@ -34,9 +37,17 @@ export function TimerProvider({ children }: { children: ReactNode }) {
         setTimerState(prev => {
           const newTimeLeft = prev.timeLeft - 1;
           
-          // If no interaction and reached 30-second mark, stop timer
+          // If no interaction and reached 30-second mark, stop timer and trigger expiry
           if (!prev.hasInteraction && newTimeLeft === 90) {
-            setLastFinishTime(Date.now());
+            // Execute timeout callback if available
+            if (timeoutCallback) {
+              setTimeout(() => timeoutCallback(), 100);
+            }
+            // Trigger data refresh immediately on timeout
+            setTimeout(() => {
+              queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
+              queryClient.invalidateQueries({ queryKey: ['/api/transactions/pending'] });
+            }, 200);
             return {
               timeLeft: 0,
               isActive: false,
