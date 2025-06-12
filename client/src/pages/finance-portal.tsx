@@ -702,6 +702,32 @@ export default function FinancePortal() {
                       </p>
                       {getPriorityBadge(request.priority)}
                     </div>
+                    
+                    {/* Display hold/reject reasons */}
+                    {(request.status === 'hold' || request.status === 'rejected') && (request.holdReason || request.rejectReason) && (
+                      <div className="mt-3 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg border-l-4 border-yellow-400">
+                        <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                          {request.status === 'hold' ? 'Hold Reason:' : 'Rejection Reason:'}
+                        </p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {request.status === 'hold' ? 
+                            (request.holdReason === 'settlement_cover' ? 'Approved - In Queue' : 
+                             request.holdReason?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())) :
+                            request.rejectReason?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+                          }
+                        </p>
+                        {request.reasonComment && (
+                          <p className="text-sm text-gray-500 dark:text-gray-500 mt-1 italic">
+                            "{request.reasonComment}"
+                          </p>
+                        )}
+                        {request.reviewedBy && request.reviewedAt && (
+                          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                            Reviewed by Admin on {new Date(request.reviewedAt).toLocaleDateString()}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
