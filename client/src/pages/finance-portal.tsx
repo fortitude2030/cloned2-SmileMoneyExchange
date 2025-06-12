@@ -22,6 +22,7 @@ const settlementSchema = z.object({
   amount: z.string().min(1, "Amount is required").transform((val) => Math.floor(parseFloat(val)).toString()),
   bankName: z.string().min(1, "Bank name is required"),
   accountNumber: z.string().min(1, "Account number is required"),
+  priority: z.string().default("medium"),
 });
 
 export default function FinancePortal() {
@@ -96,6 +97,7 @@ export default function FinancePortal() {
       amount: "",
       bankName: "",
       accountNumber: "",
+      priority: "medium",
     },
   });
 
@@ -126,6 +128,7 @@ export default function FinancePortal() {
       await apiRequest("POST", "/api/settlement-requests", {
         ...data,
         amount: Math.floor(parseFloat(data.amount)).toString(),
+        priority: data.priority || "medium",
       });
     },
     onSuccess: () => {
@@ -206,9 +209,7 @@ export default function FinancePortal() {
       ];
 
       for (const request of testRequests) {
-        // Remove priority field as it's not supported
-        const { priority, ...requestData } = request;
-        await apiRequest("POST", "/api/settlement-requests", requestData);
+        await apiRequest("POST", "/api/settlement-requests", request);
       }
     },
     onSuccess: () => {
@@ -619,6 +620,20 @@ export default function FinancePortal() {
                       {settlementForm.formState.errors.accountNumber && (
                         <p className="text-sm text-destructive">{settlementForm.formState.errors.accountNumber.message}</p>
                       )}
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="priority">Priority</Label>
+                      <Select onValueChange={(value) => settlementForm.setValue("priority", value)} defaultValue="medium">
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select priority" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="high">High</SelectItem>
+                          <SelectItem value="medium">Medium</SelectItem>
+                          <SelectItem value="low">Low</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     <Button type="submit" disabled={createSettlementRequest.isPending} className="w-full">
