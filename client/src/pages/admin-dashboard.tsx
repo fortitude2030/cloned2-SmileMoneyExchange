@@ -252,7 +252,7 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-20">
       <MobileHeader
         title="Admin Portal"
-        subtitle={user?.firstName || "Admin"}
+        subtitle={(user as any)?.firstName || "Admin"}
         icon="fas fa-user-shield"
         color="red-600"
       />
@@ -360,23 +360,23 @@ export default function AdminDashboard() {
                     
                     <div className="flex space-x-3">
                       <Button 
-                        onClick={() => updateSettlementStatus.mutate({ id: request.id, status: 'approved' })}
-                        disabled={updateSettlementStatus.isPending}
-                        className="flex-1 bg-success hover:bg-success/90 text-white py-2 rounded-lg font-medium"
+                        onClick={() => approveSettlement.mutate(request.id)}
+                        disabled={approveSettlement.isPending}
+                        className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-medium"
                       >
-                        <i className="fas fa-check mr-2"></i>Approve Transfer
+                        <i className="fas fa-check mr-2"></i>Approve
                       </Button>
                       <Button 
-                        onClick={() => updateSettlementStatus.mutate({ id: request.id, status: 'pending' })}
-                        disabled={updateSettlementStatus.isPending}
-                        className="flex-1 bg-warning hover:bg-warning/90 text-white py-2 rounded-lg font-medium"
+                        onClick={() => handleOpenActionDialog(request.id, 'hold')}
+                        disabled={holdSettlement.isPending}
+                        className="flex-1 bg-orange-600 hover:bg-orange-700 text-white py-2 rounded-lg font-medium"
                       >
                         <i className="fas fa-pause mr-2"></i>Hold
                       </Button>
                       <Button 
-                        onClick={() => updateSettlementStatus.mutate({ id: request.id, status: 'rejected' })}
-                        disabled={updateSettlementStatus.isPending}
-                        className="flex-1 bg-destructive hover:bg-destructive/90 text-white py-2 rounded-lg font-medium"
+                        onClick={() => handleOpenActionDialog(request.id, 'reject')}
+                        disabled={rejectSettlement.isPending}
+                        className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg font-medium"
                       >
                         <i className="fas fa-times mr-2"></i>Reject
                       </Button>
