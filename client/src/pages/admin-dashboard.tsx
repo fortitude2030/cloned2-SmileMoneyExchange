@@ -93,7 +93,7 @@ export default function AdminDashboard() {
   // Hold settlement mutation
   const holdSettlement = useMutation({
     mutationFn: async ({ id, reason, reasonComment }: { id: number; reason: string; reasonComment?: string }) => {
-      return apiRequest('POST', `/api/settlement-requests/${id}/hold`, { reason, reasonComment });
+      return apiRequest('PATCH', `/api/admin/settlement-requests/${id}/hold`, { holdReason: reason, reasonComment });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/settlement-requests'] });
@@ -115,7 +115,7 @@ export default function AdminDashboard() {
   // Reject settlement mutation
   const rejectSettlement = useMutation({
     mutationFn: async ({ id, reason, reasonComment }: { id: number; reason: string; reasonComment?: string }) => {
-      return apiRequest('POST', `/api/settlement-requests/${id}/reject`, { reason, reasonComment });
+      return apiRequest('PATCH', `/api/admin/settlement-requests/${id}/reject`, { rejectReason: reason, reasonComment });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/settlement-requests'] });
