@@ -333,7 +333,36 @@ export default function FinancePortal() {
       />
 
       <div className="p-4">
-        {/* Daily Activity Overview */}
+        {/* Tab Navigation */}
+        <div className="flex mb-6 bg-white dark:bg-gray-800 rounded-lg p-1 shadow-sm">
+          <button
+            onClick={() => setActiveTab("dashboard")}
+            className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+              activeTab === "dashboard"
+                ? "bg-blue-600 text-white shadow-sm"
+                : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+            }`}
+          >
+            <i className="fas fa-chart-line mr-2"></i>
+            Dashboard
+          </button>
+          <button
+            onClick={() => setActiveTab("management")}
+            className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+              activeTab === "management"
+                ? "bg-blue-600 text-white shadow-sm"
+                : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+            }`}
+          >
+            <i className="fas fa-cog mr-2"></i>
+            Management
+          </button>
+        </div>
+
+        {/* Dashboard Tab */}
+        {activeTab === "dashboard" && (
+          <>
+            {/* Daily Activity Overview */}
         <div className="grid grid-cols-1 gap-4 mb-6">
           {/* Today's Activity Card */}
           <Card className="shadow-sm border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-950">
@@ -671,7 +700,222 @@ export default function FinancePortal() {
             )}
           </CardContent>
         </Card>
+          </>
+        )}
+
+        {/* Management Tab */}
+        {activeTab === "management" && (
+          <>
+            {/* Organization Management */}
+            <Card className="shadow-sm border border-purple-200 dark:border-purple-700 mb-6">
+              <CardContent className="p-4">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="font-semibold text-gray-800 dark:text-gray-200">Organization Details</h3>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowEditOrgModal(true)}
+                  >
+                    <i className="fas fa-edit mr-2"></i>
+                    Edit
+                  </Button>
+                </div>
+                
+                {(organizations as any[])[0] ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Name</p>
+                      <p className="font-medium text-gray-800 dark:text-gray-200">
+                        {(organizations as any[])[0]?.name || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Type</p>
+                      <p className="font-medium text-gray-800 dark:text-gray-200">
+                        {(organizations as any[])[0]?.type || "N/A"}
+                      </p>
+                    </div>
+                    <div className="md:col-span-2">
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Description</p>
+                      <p className="font-medium text-gray-800 dark:text-gray-200">
+                        {(organizations as any[])[0]?.description || "No description"}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-gray-500 dark:text-gray-400">No organization found</p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Branch Management */}
+            <Card className="shadow-sm border border-green-200 dark:border-green-700 mb-6">
+              <CardContent className="p-4">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="font-semibold text-gray-800 dark:text-gray-200">Branch Management</h3>
+                  <Button
+                    onClick={() => setShowCreateBranchModal(true)}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    <i className="fas fa-plus mr-2"></i>
+                    Add Branch
+                  </Button>
+                </div>
+
+                {branchesLoading ? (
+                  <div className="text-center py-4">
+                    <p className="text-gray-500 dark:text-gray-400">Loading branches...</p>
+                  </div>
+                ) : (branches as any[]).length === 0 ? (
+                  <div className="text-center py-8">
+                    <i className="fas fa-building text-4xl text-gray-300 dark:text-gray-600 mb-4"></i>
+                    <p className="text-gray-500 dark:text-gray-400 mb-2">No branches found</p>
+                    <p className="text-sm text-gray-400 dark:text-gray-500">Create your first branch to get started</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {(branches as any[]).map((branch: any) => (
+                      <div key={branch.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                        <div className="flex justify-between items-start mb-2">
+                          <h4 className="font-medium text-gray-800 dark:text-gray-200">{branch.name}</h4>
+                          <span className={`px-2 py-1 rounded-full text-xs ${
+                            branch.isActive 
+                              ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                              : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                          }`}>
+                            {branch.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                          <i className="fas fa-map-marker-alt mr-2"></i>
+                          {branch.location}
+                        </p>
+                        {branch.address && (
+                          <p className="text-sm text-gray-500 dark:text-gray-500 mb-1">{branch.address}</p>
+                        )}
+                        {branch.managerName && (
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            <i className="fas fa-user mr-2"></i>
+                            Manager: {branch.managerName}
+                          </p>
+                        )}
+                        {branch.contactPhone && (
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            <i className="fas fa-phone mr-2"></i>
+                            {branch.contactPhone}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
+
+      {/* Create Branch Modal */}
+      <Dialog open={showCreateBranchModal} onOpenChange={setShowCreateBranchModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Branch</DialogTitle>
+          </DialogHeader>
+          
+          <Form {...branchForm}>
+            <form onSubmit={branchForm.handleSubmit((data) => createBranch.mutate(data))} className="space-y-4">
+              <FormField
+                control={branchForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Branch Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter branch name" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={branchForm.control}
+                name="location"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Location</FormLabel>
+                    <FormControl>
+                      <Input placeholder="City, District" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={branchForm.control}
+                name="address"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Address (Optional)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Full address" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={branchForm.control}
+                  name="managerName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Manager Name (Optional)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Branch manager" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={branchForm.control}
+                  name="contactPhone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Contact Phone (Optional)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="+260 XXX XXX XXX" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="flex justify-end space-x-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowCreateBranchModal(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={createBranch.isPending}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  {createBranch.isPending ? "Creating..." : "Create Branch"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
 
       <MobileNav
         activeTab="home"
