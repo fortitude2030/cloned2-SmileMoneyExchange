@@ -230,6 +230,13 @@ export const settlementRequestRelations = relations(settlementRequests, ({ one }
   }),
 }));
 
+export const notificationRelations = relations(notifications, ({ one }) => ({
+  user: one(users, {
+    fields: [notifications.userId],
+    references: [users.id],
+  }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   createdAt: true,
@@ -266,8 +273,17 @@ export const insertSettlementRequestSchema = createInsertSchema(settlementReques
   id: true,
   reviewedBy: true,
   reviewedAt: true,
+  holdReason: true,
+  rejectReason: true,
+  reasonComment: true,
   createdAt: true,
   updatedAt: true,
+});
+
+export const insertNotificationSchema = createInsertSchema(notifications).omit({
+  id: true,
+  isRead: true,
+  createdAt: true,
 });
 
 export const insertQrCodeSchema = createInsertSchema(qrCodes).omit({
@@ -293,3 +309,5 @@ export type SettlementRequest = typeof settlementRequests.$inferSelect;
 export type InsertSettlementRequest = z.infer<typeof insertSettlementRequestSchema>;
 export type QrCode = typeof qrCodes.$inferSelect;
 export type InsertQrCode = z.infer<typeof insertQrCodeSchema>;
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;

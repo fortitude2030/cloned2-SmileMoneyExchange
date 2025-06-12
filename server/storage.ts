@@ -7,6 +7,7 @@ import {
   documents,
   settlementRequests,
   qrCodes,
+  notifications,
   type User,
   type UpsertUser,
   type Organization,
@@ -22,6 +23,8 @@ import {
   type InsertSettlementRequest,
   type QrCode,
   type InsertQrCode,
+  type Notification,
+  type InsertNotification,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte, lt, sql, or, isNull, gt, not, inArray } from "drizzle-orm";
@@ -71,7 +74,12 @@ export interface IStorage {
   createSettlementRequest(request: InsertSettlementRequest): Promise<SettlementRequest>;
   getSettlementRequestsByOrganization(organizationId: number): Promise<SettlementRequest[]>;
   getPendingSettlementRequests(): Promise<SettlementRequest[]>;
-  updateSettlementRequestStatus(id: number, status: string, reviewedBy?: string): Promise<void>;
+  updateSettlementRequestStatus(id: number, status: string, reviewedBy?: string, holdReason?: string, rejectReason?: string, reasonComment?: string): Promise<void>;
+  
+  // Notification operations
+  createNotification(notification: InsertNotification): Promise<Notification>;
+  getNotificationsByUserId(userId: string): Promise<Notification[]>;
+  markNotificationAsRead(id: number): Promise<void>;
   
   // Finance operations
   getMerchantWalletsByOrganization(organizationId: number): Promise<(Wallet & { user: User })[]>;
@@ -619,7 +627,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(settlementRequests.priority, desc(settlementRequests.createdAt));
   }
 
-  async updateSettlementRequestStatus(id: number, status: string, reviewedBy?: string): Promise<void> {
+  async updateSettlementRequestStatus(id: number, status: string, reviewedBy?: string, holdReason?: string, rejectReason?: string, reasonComment?: string): Promise<void> {
     // Get the settlement request details before updating
     const [settlementRequest] = await db
       .select()
@@ -641,11 +649,35 @@ export class DatabaseStorage implements IStorage {
       updateData.reviewedAt = new Date();
     }
 
+    if (holdReason) {
+      updateData.holdReason = holdReason;
+      if (reasonComment) {
+        updateData.reasonComment = reasonComment;
+      }
+    }
+
+    if (rejectReason) {
+      updateData.rejectReason = rejectReason;
+      if (reasonComment) {
+        updateData.reasonComment = reasonComment;
+      }
+    }
+
     // Update settlement request status
     await db
       .update(settlementRequests)
       .set(updateData)
       .where(eq(settlementRequests.id, id));
+
+    // Create notification for status change
+    await this.createNotification({
+      userId: settlementRequest.userId,
+      type: "settlement_status_change",
+      title: `Settlement Request ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+      message: this.getSettlementStatusMessage(status, holdReason, rejectReason, reasonComment),
+      relatedEntityType: "settlement_request",
+      relatedEntityId: id,
+    });
 
     // If settlement is approved or completed, deduct from finance master wallet
     if ((status === 'approved' || status === 'completed') && settlementRequest.status === 'pending') {
