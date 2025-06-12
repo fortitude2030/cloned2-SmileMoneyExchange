@@ -74,6 +74,17 @@ export default function FinancePortal() {
     retry: false,
   });
 
+  // Fetch branches
+  const { data: branches = [], isLoading: branchesLoading } = useQuery({
+    queryKey: ["/api/branches"],
+    retry: false,
+  });
+
+  // State for management tab
+  const [activeTab, setActiveTab] = useState("dashboard");
+  const [showCreateBranchModal, setShowCreateBranchModal] = useState(false);
+  const [showEditOrgModal, setShowEditOrgModal] = useState(false);
+
   // Settlement form
   const settlementForm = useForm({
     resolver: zodResolver(settlementSchema),
@@ -82,6 +93,27 @@ export default function FinancePortal() {
       bankName: "",
       accountNumber: "",
       priority: "medium" as const,
+    },
+  });
+
+  // Branch form schema
+  const branchSchema = z.object({
+    name: z.string().min(1, "Branch name is required"),
+    location: z.string().min(1, "Location is required"),
+    address: z.string().optional(),
+    contactPhone: z.string().optional(),
+    managerName: z.string().optional(),
+  });
+
+  // Branch form
+  const branchForm = useForm({
+    resolver: zodResolver(branchSchema),
+    defaultValues: {
+      name: "",
+      location: "",
+      address: "",
+      contactPhone: "",
+      managerName: "",
     },
   });
 
@@ -117,6 +149,30 @@ export default function FinancePortal() {
       toast({
         title: "Error",
         description: error.message || "Failed to create settlement request",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Create branch mutation
+  const createBranch = useMutation({
+    mutationFn: async (data: z.infer<typeof branchSchema>) => {
+      await apiRequest("POST", "/api/branches", data);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Branch created successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/branches"] });
+      setShowCreateBranchModal(false);
+      branchForm.reset();
+    },
+    onError: (error: any) => {
+      const errorMessage = error?.response?.data?.message || "Failed to create branch";
+      toast({
+        title: "Error",
+        description: errorMessage,
         variant: "destructive",
       });
     },
