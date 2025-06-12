@@ -105,7 +105,7 @@ export default function CashierDashboard() {
   const [timedOutTransactionIds, setTimedOutTransactionIds] = useState<Set<string>>(new Set());
   
   // Use global timer system
-  const { timeLeft, isActive, hasInteraction, startTimer, markInteraction, stopTimer } = useTimer();
+  const { timeLeft, isActive, hasInteraction, startTimer, markInteraction, stopTimer, setTimeoutCallback } = useTimer();
   const [showAllTransactions, setShowAllTransactions] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
   
@@ -264,6 +264,28 @@ export default function CashierDashboard() {
       
       if (canStartTimer) {
         console.log('Auto-launching QR transaction timer:', transactionId);
+        
+        // Set timeout callback for QR transaction cancellation
+        setTimeoutCallback(async () => {
+          console.log('QR Timer expired - auto-cancelling transaction:', transactionId);
+          try {
+            await apiRequest("PATCH", `/api/transactions/${newQrTransaction.id}/status`, {
+              status: "rejected",
+              rejectionReason: "timed out"
+            });
+            setTimedOutTransactionIds(prev => new Set(prev).add(transactionId));
+            queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/transactions/qr-verification"] });
+            toast({
+              title: "QR Transaction Timed Out",
+              description: `QR Transaction ${transactionId} was automatically cancelled due to inactivity.`,
+              variant: "destructive",
+            });
+          } catch (error) {
+            console.error("Failed to auto-cancel QR transaction:", error);
+          }
+        });
+        
         startTimer();
         setProcessedTransactionIds(prev => new Set(prev).add(transactionId));
       }
@@ -298,6 +320,27 @@ export default function CashierDashboard() {
         setShowVMFModal(false);
         setShowUploadModal(false);
         
+        // Set timeout callback for automatic cancellation
+        setTimeoutCallback(async () => {
+          console.log('Timer expired - auto-cancelling transaction:', transactionId);
+          try {
+            await apiRequest("PATCH", `/api/transactions/${activeTransaction.id}/status`, {
+              status: "rejected",
+              rejectionReason: "timed out"
+            });
+            setTimedOutTransactionIds(prev => new Set(prev).add(transactionId));
+            queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/transactions/pending"] });
+            toast({
+              title: "Transaction Timed Out",
+              description: `Transaction ${transactionId} was automatically cancelled due to inactivity.`,
+              variant: "destructive",
+            });
+          } catch (error) {
+            console.error("Failed to auto-cancel transaction:", error);
+          }
+        });
+        
         startTimer();
         setProcessedTransactionIds(prev => new Set(prev).add(transactionId));
       }
@@ -308,7 +351,7 @@ export default function CashierDashboard() {
       setCashAmount("");
       setVmfNumber("");
     }
-  }, [activeTransaction, isActive, timeLeft, processedTransactionIds, timedOutTransactionIds, startTimer, stopTimer]);
+  }, [activeTransaction, isActive, timeLeft, processedTransactionIds, timedOutTransactionIds, startTimer, stopTimer, setTimeoutCallback, toast]);
 
   // Mark interaction when cashier takes action (enters amount for RTP)
   useEffect(() => {

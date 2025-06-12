@@ -123,13 +123,18 @@ export function TimerProvider({ children }: { children: ReactNode }) {
 
   // Don't automatically refresh queries on timer expiry to prevent flashing
 
+  const handleSetTimeoutCallback = useCallback((callback: () => void) => {
+    setTimeoutCallback(() => callback);
+  }, []);
+
   const value: TimerContextType = {
     timeLeft: timerState.timeLeft,
     isActive: timerState.isActive,
     hasInteraction: timerState.hasInteraction,
     startTimer,
     markInteraction,
-    stopTimer
+    stopTimer,
+    setTimeoutCallback: handleSetTimeoutCallback
   };
 
   return (

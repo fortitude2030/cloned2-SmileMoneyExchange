@@ -5,12 +5,29 @@ import { storage } from "./storage";
 
 const app = express();
 
-// Daily reset scheduler - checks for midnight resets (merchants only)
-setInterval(() => {
+// Daily reset scheduler - actively resets all wallets at midnight
+setInterval(async () => {
   const now = new Date();
   if (now.getHours() === 0 && now.getMinutes() < 5) {
-    log("Daily merchant spending limit reset triggered at midnight");
-    // Reset happens automatically when merchant wallets are accessed via getOrCreateWallet
+    log("Daily reset triggered at midnight - resetting all merchant and cashier limits");
+    try {
+      // Get all users and reset their wallet limits
+      const { db } = await import("./db");
+      const { users, wallets } = await import("../shared/schema");
+      const { eq } = await import("drizzle-orm");
+      
+      // Get all users with wallets
+      const allUsers = await db.select().from(users);
+      
+      for (const user of allUsers) {
+        const wallet = await storage.getOrCreateWallet(user.id);
+        await storage.checkAndResetDailySpending(wallet);
+      }
+      
+      log(`Daily reset completed for ${allUsers.length} users`);
+    } catch (error) {
+      log(`Error during daily reset: ${error}`);
+    }
   }
 }, 5 * 60 * 1000); // Check every 5 minutes
 

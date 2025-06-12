@@ -240,6 +240,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Force daily reset for all users (admin testing endpoint)
+  app.post('/api/admin/force-daily-reset', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Admin role required." });
+      }
+
+      // Force reset all users by updating their lastResetDate to yesterday
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      
+      // Get all users and force reset their wallets
+      const allUsers = await db.select().from(users);
+      
+      for (const userRecord of allUsers) {
+        const wallet = await storage.getOrCreateWallet(userRecord.id);
+        // Force the wallet's lastResetDate to yesterday to trigger reset
+        await db
+          .update(wallets)
+          .set({ lastResetDate: yesterday })
+          .where(eq(wallets.userId, userRecord.id));
+        
+        // Now trigger the reset
+        await storage.checkAndResetDailySpending({...wallet, lastResetDate: yesterday});
+      }
+      
+      res.json({ message: `Forced daily reset completed for ${allUsers.length} users` });
+    } catch (error) {
+      console.error("Error forcing daily reset:", error);
+      res.status(500).json({ message: "Failed to force daily reset" });
+    }
+  });
+
   // Transaction routes
   app.post('/api/transactions', isAuthenticated, async (req: any, res) => {
     console.log("POST /api/transactions - Request received");
