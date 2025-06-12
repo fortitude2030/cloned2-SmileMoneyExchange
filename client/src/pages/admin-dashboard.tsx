@@ -58,6 +58,13 @@ export default function AdminDashboard() {
     refetchIntervalInBackground: true, // Keep refreshing when tab is not active
   });
 
+  // Fetch all transactions for admin
+  const { data: transactions = [], isLoading: transactionsLoading } = useQuery({
+    queryKey: ["/api/admin/transactions"],
+    retry: false,
+    refetchInterval: 5000, // Auto-refresh every 5 seconds
+  });
+
   // Approve settlement mutation
   const approveSettlement = useMutation({
     mutationFn: async (id: number) => {
@@ -364,8 +371,8 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                     
-                    {/* Only show action buttons for pending requests */}
-                    {request.status === 'pending' ? (
+                    {/* Show action buttons for pending and held requests */}
+                    {(request.status === 'pending' || request.status === 'hold') ? (
                       <div className="flex space-x-3">
                         <Button 
                           onClick={() => approveSettlement.mutate(request.id)}
@@ -441,6 +448,95 @@ export default function AdminDashboard() {
                 <p className="text-gray-600 dark:text-gray-400 text-sm">Avg Process Time</p>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Transaction Log */}
+        <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
+          <CardContent className="p-4">
+            <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
+              <i className="fas fa-list text-blue-600 mr-2"></i>
+              Transaction Log
+            </h3>
+            
+            {transactionsLoading ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg animate-pulse">
+                    <div className="flex items-center">
+                      <div className="w-10 h-10 bg-gray-300 dark:bg-gray-700 rounded-lg mr-3"></div>
+                      <div>
+                        <div className="w-24 h-4 bg-gray-300 dark:bg-gray-700 rounded mb-1"></div>
+                        <div className="w-16 h-3 bg-gray-300 dark:bg-gray-700 rounded"></div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="w-20 h-4 bg-gray-300 dark:bg-gray-700 rounded mb-1"></div>
+                      <div className="w-16 h-3 bg-gray-300 dark:bg-gray-700 rounded"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : !Array.isArray(transactions) || transactions.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <i className="fas fa-history text-gray-400 text-xl"></i>
+                </div>
+                <p className="text-gray-600 dark:text-gray-400">No transactions yet</p>
+                <p className="text-gray-500 dark:text-gray-500 text-sm">System transactions will appear here</p>
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {(Array.isArray(transactions) ? transactions.slice(0, 20) : []).map((transaction: any) => (
+                  <div key={transaction.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="flex items-center flex-1">
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center mr-3 ${
+                        transaction.status === 'completed' ? 'bg-green-100 dark:bg-green-900' :
+                        transaction.status === 'pending' ? 'bg-orange-100 dark:bg-orange-900' :
+                        transaction.status === 'rejected' ? 'bg-red-100 dark:bg-red-900' :
+                        'bg-gray-100 dark:bg-gray-700'
+                      }`}>
+                        <i className={`fas ${
+                          transaction.status === 'completed' ? 'fa-check text-green-600 dark:text-green-400' :
+                          transaction.status === 'pending' ? 'fa-clock text-orange-600 dark:text-orange-400' :
+                          transaction.status === 'rejected' ? 'fa-times text-red-600 dark:text-red-400' :
+                          'fa-circle text-gray-600 dark:text-gray-400'
+                        }`}></i>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`font-medium text-sm truncate ${
+                          transaction.status === 'completed' ? 'text-green-600 dark:text-green-400' :
+                          transaction.status === 'pending' ? 'text-orange-600 dark:text-orange-400' :
+                          transaction.status === 'rejected' ? 'text-red-600 dark:text-red-400' :
+                          'text-gray-600 dark:text-gray-400'
+                        }`}>
+                          {transaction.transactionId}
+                        </p>
+                        <p className="text-gray-500 dark:text-gray-500 text-xs truncate">
+                          {transaction.type === 'qr_payment' ? 'QR Payment' : 
+                           transaction.type === 'rtp' ? 'Real-time Payment' : 
+                           transaction.type || 'Transfer'} • 
+                          {new Date(transaction.createdAt).toLocaleDateString()}
+                        </p>
+                        {transaction.description && (
+                          <p className="text-gray-400 dark:text-gray-600 text-xs truncate mt-1">
+                            {transaction.description}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right ml-3">
+                      <p className="font-bold text-sm text-gray-800 dark:text-gray-200">
+                        {formatCurrency(transaction.amount)}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-500">
+                        {new Date(transaction.createdAt).toLocaleTimeString()}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

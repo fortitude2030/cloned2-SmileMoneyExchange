@@ -361,6 +361,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin endpoint to view all transactions
+  app.get('/api/admin/transactions', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Only admin users can view all transactions" });
+      }
+      
+      const transactions = await storage.getAllTransactions();
+      res.json(transactions);
+    } catch (error) {
+      console.error("Error fetching admin transactions:", error);
+      res.status(500).json({ message: "Failed to fetch transactions" });
+    }
+  });
+
   app.get('/api/transactions/pending', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
