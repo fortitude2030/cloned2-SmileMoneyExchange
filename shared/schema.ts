@@ -228,6 +228,7 @@ export const insertOrganizationSchema = createInsertSchema(organizations).omit({
 
 export const insertBranchSchema = createInsertSchema(branches).omit({
   id: true,
+  identifier: true,
   createdAt: true,
   updatedAt: true,
 });

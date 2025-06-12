@@ -141,9 +141,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         organizationId = defaultOrg.id;
       }
 
+      // Generate unique branch identifier
+      const branchIdentifier = `BR-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+      
       const branchData = insertBranchSchema.parse({
         ...req.body,
         organizationId,
+        identifier: branchIdentifier,
       });
       const branch = await storage.createBranch(branchData);
       res.json(branch);
