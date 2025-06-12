@@ -25,6 +25,8 @@ export default function AdminDashboard() {
   const { toast } = useToast();
   
   const [activeTab, setActiveTab] = useState('overview');
+  const [priorityFilter, setPriorityFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('date');
   const [actionDialog, setActionDialog] = useState<ActionDialogState>({
     isOpen: false,
     settlementId: null,
@@ -71,10 +73,7 @@ export default function AdminDashboard() {
   // Hold settlement mutation
   const holdSettlement = useMutation({
     mutationFn: async ({ id, reason, reasonComment }: { id: number; reason: string; reasonComment?: string }) => {
-      return apiRequest(`/api/settlement-requests/${id}/hold`, {
-        method: 'POST',
-        body: { reason, reasonComment }
-      });
+      return apiRequest('POST', `/api/settlement-requests/${id}/hold`, { reason, reasonComment });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/settlement-requests'] });
@@ -96,10 +95,7 @@ export default function AdminDashboard() {
   // Reject settlement mutation
   const rejectSettlement = useMutation({
     mutationFn: async ({ id, reason, reasonComment }: { id: number; reason: string; reasonComment?: string }) => {
-      return apiRequest(`/api/settlement-requests/${id}/reject`, {
-        method: 'POST',
-        body: { reason, reasonComment }
-      });
+      return apiRequest('POST', `/api/settlement-requests/${id}/reject`, { reason, reasonComment });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/settlement-requests'] });
@@ -135,6 +131,30 @@ export default function AdminDashboard() {
     onError: (error: any) => {
       toast({
         title: "Error approving settlement request",
+        description: error.message || "Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Update transaction priority mutation
+  const updateTransactionPriority = useMutation({
+    mutationFn: async ({ id, priority }: { id: number; priority: string }) => {
+      return apiRequest(`/api/transactions/${id}/priority`, {
+        method: 'PATCH',
+        body: { priority }
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/transactions'] });
+      toast({
+        title: "Priority updated",
+        description: "Transaction priority has been updated successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error updating priority",
         description: error.message || "Please try again.",
         variant: "destructive",
       });
@@ -420,12 +440,49 @@ export default function AdminDashboard() {
         {/* Transactions Tab */}
         {activeTab === 'transactions' && (
           <>
+            {/* Filtering Controls */}
+            <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-4">
+              <CardContent className="p-4">
+                <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-3">Filter & Sort</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <Select 
+                    value={priorityFilter} 
+                    onValueChange={setPriorityFilter}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Filter by Priority" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Priorities</SelectItem>
+                      <SelectItem value="high">High Priority</SelectItem>
+                      <SelectItem value="medium">Medium Priority</SelectItem>
+                      <SelectItem value="low">Low Priority</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select 
+                    value={sortBy} 
+                    onValueChange={setSortBy}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sort by" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="date">Sort by Date</SelectItem>
+                      <SelectItem value="priority">Sort by Priority</SelectItem>
+                      <SelectItem value="amount">Sort by Amount</SelectItem>
+                      <SelectItem value="status">Sort by Status</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Transaction Log */}
             <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
               <CardContent className="p-4">
                 <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
                   <i className="fas fa-list text-blue-600 mr-2"></i>
-                  Transaction Log
+                  Transaction Management
                 </h3>
                 
                 {transactionsLoading ? (

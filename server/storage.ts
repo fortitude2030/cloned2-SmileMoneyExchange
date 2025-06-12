@@ -553,6 +553,16 @@ export class DatabaseStorage implements IStorage {
       .where(eq(transactions.id, id));
   }
 
+  async updateTransactionPriority(id: number, priority: string): Promise<void> {
+    await db
+      .update(transactions)
+      .set({ 
+        priority,
+        updatedAt: new Date()
+      })
+      .where(eq(transactions.id, id));
+  }
+
   async getAllPendingTransactions(): Promise<Transaction[]> {
     return await db
       .select()
