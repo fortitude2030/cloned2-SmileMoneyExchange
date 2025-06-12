@@ -27,6 +27,7 @@ export default function AdminDashboard() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
   
+  const [activeTab, setActiveTab] = useState('overview');
   const [actionDialog, setActionDialog] = useState<ActionDialogState>({
     isOpen: false,
     settlementId: null,
@@ -267,9 +268,38 @@ export default function AdminDashboard() {
         color="red-600"
       />
 
+      {/* Tab Navigation */}
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
+        <div className="flex overflow-x-auto">
+          {[
+            { id: 'overview', label: 'Overview', icon: 'fas fa-tachometer-alt' },
+            { id: 'settlements', label: 'Settlements', icon: 'fas fa-university' },
+            { id: 'transactions', label: 'Transactions', icon: 'fas fa-exchange-alt' },
+            { id: 'analytics', label: 'Analytics', icon: 'fas fa-chart-bar' },
+            { id: 'system', label: 'System', icon: 'fas fa-cogs' }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+                activeTab === tab.id
+                  ? 'border-red-500 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950'
+                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300'
+              }`}
+            >
+              <i className={`${tab.icon} mr-2`}></i>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="p-4">
-        {/* System Overview */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
+        {/* Overview Tab */}
+        {activeTab === 'overview' && (
+          <>
+            {/* System Overview */}
+            <div className="grid grid-cols-2 gap-4 mb-6">
           <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
@@ -301,13 +331,44 @@ export default function AdminDashboard() {
           </Card>
         </div>
 
-        {/* Maker-Checker Queue */}
-        <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
-          <CardContent className="p-4">
-            <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
-              <i className="fas fa-tasks text-red-600 mr-2"></i>
-              Maker-Checker Queue
-            </h3>
+            {/* Quick Actions Overview */}
+            <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
+              <CardContent className="p-4">
+                <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
+                  <i className="fas fa-bolt text-blue-600 mr-2"></i>
+                  Quick Actions
+                </h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <Button 
+                    onClick={() => setActiveTab('settlements')}
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    <i className="fas fa-tasks mr-2"></i>
+                    View Settlements ({pendingRequests.length})
+                  </Button>
+                  <Button 
+                    onClick={() => setActiveTab('transactions')}
+                    variant="outline"
+                  >
+                    <i className="fas fa-list mr-2"></i>
+                    Transaction Log
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
+
+        {/* Settlements Tab */}
+        {activeTab === 'settlements' && (
+          <>
+            {/* Maker-Checker Queue */}
+            <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
+              <CardContent className="p-4">
+                <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
+                  <i className="fas fa-tasks text-red-600 mr-2"></i>
+                  Settlement Management
+                </h3>
             
             {settlementsLoading ? (
               <div className="space-y-4">
@@ -413,45 +474,13 @@ export default function AdminDashboard() {
             )}
           </CardContent>
         </Card>
+          </>
+        )}
 
-        {/* System Analytics */}
-        <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
-          <CardContent className="p-4">
-            <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4">System Analytics</h3>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                <p className="text-2xl font-bold text-gray-800 dark:text-gray-200">
-                  {Array.isArray(settlementRequests) ? settlementRequests.length : 0}
-                </p>
-                <p className="text-gray-600 dark:text-gray-400 text-sm">Total Requests</p>
-              </div>
-              
-              <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                <p className="text-2xl font-bold text-gray-800 dark:text-gray-200">
-                  {Array.isArray(settlementRequests) ? settlementRequests.filter((r) => r.status === 'approved').length : 0}
-                </p>
-                <p className="text-gray-600 dark:text-gray-400 text-sm">Approved</p>
-              </div>
-              
-              <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                <p className="text-2xl font-bold text-secondary">
-                  {Array.isArray(settlementRequests) && settlementRequests.length > 0 ? 
-                    Math.round((settlementRequests.filter((r) => r.status === 'approved').length / settlementRequests.length) * 100) : 0
-                  }%
-                </p>
-                <p className="text-gray-600 dark:text-gray-400 text-sm">Success Rate</p>
-              </div>
-              
-              <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                <p className="text-2xl font-bold text-primary">2.3m</p>
-                <p className="text-gray-600 dark:text-gray-400 text-sm">Avg Process Time</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Transaction Log */}
+        {/* Transactions Tab */}
+        {activeTab === 'transactions' && (
+          <>
+            {/* Transaction Log */}
         <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
           <CardContent className="p-4">
             <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
@@ -539,6 +568,71 @@ export default function AdminDashboard() {
             )}
           </CardContent>
         </Card>
+          </>
+        )}
+
+        {/* Analytics Tab */}
+        {activeTab === 'analytics' && (
+          <>
+            {/* System Analytics */}
+            <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
+              <CardContent className="p-4">
+                <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4">System Analytics</h3>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-2xl font-bold text-gray-800 dark:text-gray-200">
+                      {Array.isArray(settlementRequests) ? settlementRequests.length : 0}
+                    </p>
+                    <p className="text-gray-600 dark:text-gray-400 text-sm">Total Requests</p>
+                  </div>
+                  
+                  <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-2xl font-bold text-gray-800 dark:text-gray-200">
+                      {Array.isArray(settlementRequests) ? settlementRequests.filter((r) => r.status === 'approved').length : 0}
+                    </p>
+                    <p className="text-gray-600 dark:text-gray-400 text-sm">Approved</p>
+                  </div>
+                  
+                  <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-2xl font-bold text-secondary">
+                      {Array.isArray(settlementRequests) && settlementRequests.length > 0 ? 
+                        Math.round((settlementRequests.filter((r) => r.status === 'approved').length / settlementRequests.length) * 100) : 0
+                      }%
+                    </p>
+                    <p className="text-gray-600 dark:text-gray-400 text-sm">Success Rate</p>
+                  </div>
+                  
+                  <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-2xl font-bold text-primary">2.3m</p>
+                    <p className="text-gray-600 dark:text-gray-400 text-sm">Avg Process Time</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
+
+        {/* System Tab */}
+        {activeTab === 'system' && (
+          <>
+            <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
+              <CardContent className="p-4">
+                <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4">System Configuration</h3>
+                <div className="space-y-4">
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Database Status</p>
+                    <p className="text-xs text-green-600 dark:text-green-400">Connected</p>
+                  </div>
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Real-time Updates</p>
+                    <p className="text-xs text-green-600 dark:text-green-400">Active</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
 
       <MobileNav
