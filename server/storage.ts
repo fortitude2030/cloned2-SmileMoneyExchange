@@ -844,6 +844,51 @@ export class DatabaseStorage implements IStorage {
 
     return Object.values(breakdown);
   }
+
+  // Notification operations
+  async createNotification(notificationData: InsertNotification): Promise<Notification> {
+    const [notification] = await db
+      .insert(notifications)
+      .values(notificationData)
+      .returning();
+    return notification;
+  }
+
+  async getNotificationsByUserId(userId: string): Promise<Notification[]> {
+    return await db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.userId, userId))
+      .orderBy(desc(notifications.createdAt));
+  }
+
+  async markNotificationAsRead(id: number): Promise<void> {
+    await db
+      .update(notifications)
+      .set({ isRead: true })
+      .where(eq(notifications.id, id));
+  }
+
+  private getSettlementStatusMessage(status: string, holdReason?: string, rejectReason?: string, reasonComment?: string): string {
+    switch (status) {
+      case "approved":
+        return "Your settlement request has been approved and will be processed soon.";
+      case "hold":
+        const displayReason = holdReason === "settlement_cover" ? "Approved - In Queue" : this.formatReason(holdReason);
+        return `Your settlement request is on hold: ${displayReason}${reasonComment ? ` - ${reasonComment}` : ""}`;
+      case "rejected":
+        return `Your settlement request has been rejected: ${this.formatReason(rejectReason)}${reasonComment ? ` - ${reasonComment}` : ""}`;
+      case "completed":
+        return "Your settlement request has been completed and funds have been transferred.";
+      default:
+        return `Your settlement request status has been updated to ${status}.`;
+    }
+  }
+
+  private formatReason(reason?: string): string {
+    if (!reason) return "";
+    return reason.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase());
+  }
 }
 
 export const storage = new DatabaseStorage();

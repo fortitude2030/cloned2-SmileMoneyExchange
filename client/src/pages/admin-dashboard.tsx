@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -6,13 +6,33 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import MobileHeader from "@/components/mobile-header";
 import MobileNav from "@/components/mobile-nav";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+
+interface ActionDialogState {
+  isOpen: boolean;
+  settlementId: number | null;
+  action: 'hold' | 'reject' | null;
+  reason: string;
+  reasonComment: string;
+}
 
 export default function AdminDashboard() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
+  
+  const [actionDialog, setActionDialog] = useState<ActionDialogState>({
+    isOpen: false,
+    settlementId: null,
+    action: null,
+    reason: '',
+    reasonComment: ''
+  });
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -35,44 +55,147 @@ export default function AdminDashboard() {
     retry: false,
   });
 
-  // Update settlement status mutation
-  const updateSettlementStatus = useMutation({
-    mutationFn: async ({ id, status }: { id: number; status: string }) => {
-      await apiRequest("PATCH", `/api/settlement-requests/${id}/status`, {
-        status
-      });
+  // Approve settlement mutation
+  const approveSettlement = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("PATCH", `/api/admin/settlement-requests/${id}/approve`);
     },
-    onSuccess: (_, variables) => {
+    onSuccess: () => {
       toast({
         title: "Success",
-        description: `Settlement request ${variables.status}`,
+        description: "Settlement request approved successfully",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/settlement-requests"] });
     },
-    onError: (error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
+    onError: (error: any) => {
       toast({
         title: "Error",
-        description: "Failed to update settlement request",
+        description: error.message || "Failed to approve settlement",
         variant: "destructive",
       });
-    },
+    }
   });
+
+  // Hold settlement mutation
+  const holdSettlement = useMutation({
+    mutationFn: async ({ id, holdReason, reasonComment }: { id: number; holdReason: string; reasonComment?: string }) => {
+      await apiRequest("PATCH", `/api/admin/settlement-requests/${id}/hold`, {
+        holdReason,
+        reasonComment
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Settlement request placed on hold",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/settlement-requests"] });
+      setActionDialog({ isOpen: false, settlementId: null, action: null, reason: '', reasonComment: '' });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to hold settlement",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Reject settlement mutation
+  const rejectSettlement = useMutation({
+    mutationFn: async ({ id, rejectReason, reasonComment }: { id: number; rejectReason: string; reasonComment?: string }) => {
+      await apiRequest("PATCH", `/api/admin/settlement-requests/${id}/reject`, {
+        rejectReason,
+        reasonComment
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Settlement request rejected",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/settlement-requests"] });
+      setActionDialog({ isOpen: false, settlementId: null, action: null, reason: '', reasonComment: '' });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to reject settlement",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const handleOpenActionDialog = (settlementId: number, action: 'hold' | 'reject') => {
+    setActionDialog({
+      isOpen: true,
+      settlementId,
+      action,
+      reason: '',
+      reasonComment: ''
+    });
+  };
+
+  const handleSubmitAction = () => {
+    if (!actionDialog.settlementId || !actionDialog.action || !actionDialog.reason) {
+      toast({
+        title: "Error",
+        description: "Please select a reason",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (actionDialog.reason === 'other' && !actionDialog.reasonComment.trim()) {
+      toast({
+        title: "Error",
+        description: "Comment is required when selecting 'other' reason",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (actionDialog.reasonComment.length > 125) {
+      toast({
+        title: "Error",
+        description: "Comment must be 125 characters or less",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (actionDialog.action === 'hold') {
+      holdSettlement.mutate({
+        id: actionDialog.settlementId,
+        holdReason: actionDialog.reason,
+        reasonComment: actionDialog.reasonComment || undefined
+      });
+    } else {
+      rejectSettlement.mutate({
+        id: actionDialog.settlementId,
+        rejectReason: actionDialog.reason,
+        reasonComment: actionDialog.reasonComment || undefined
+      });
+    }
+  };
+
+  const getHoldReasons = () => [
+    { value: 'insufficient_documentation', label: 'Insufficient documentation' },
+    { value: 'settlement_cover', label: 'Settlement Cover' },
+    { value: 'pending_verification', label: 'Pending verification' },
+    { value: 'other', label: 'Other' }
+  ];
+
+  const getRejectReasons = () => [
+    { value: 'invalid_account_details', label: 'Invalid account details' },
+    { value: 'duplicate_request', label: 'Duplicate request' },
+    { value: 'policy_violation', label: 'Policy violation' },
+    { value: 'other', label: 'Other' }
+  ];
 
   const formatCurrency = (amount: string | number) => {
     const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
     if (isNaN(numericAmount)) return 'ZMW 0';
-    // Use Math.floor to truncate decimals without rounding
     const truncatedAmount = Math.floor(numericAmount);
     return `ZMW ${truncatedAmount.toLocaleString()}`;
   };
@@ -98,6 +221,8 @@ export default function AdminDashboard() {
         return <Badge className="bg-orange-600 text-white font-medium">Pending</Badge>;
       case 'approved':
         return <Badge className="bg-blue-600 text-white font-medium">Approved</Badge>;
+      case 'hold':
+        return <Badge className="bg-orange-600 text-white font-medium">On Hold</Badge>;
       case 'rejected':
         return <Badge className="bg-red-600 text-white font-medium">Rejected</Badge>;
       default:
@@ -105,12 +230,12 @@ export default function AdminDashboard() {
     }
   };
 
-  const pendingRequests = settlementRequests.filter((req: any) => req.status === 'pending');
-  const totalVolume = settlementRequests.reduce((sum: number, req: any) => 
-    sum + parseFloat(req.amount || "0"), 0
-  );
+  // Calculate metrics from settlement requests
+  const requests = (settlementRequests as any[]) || [];
+  const pendingRequests = requests.filter((req: any) => req.status === 'pending');
+  const totalVolume = requests.reduce((sum: number, req: any) => sum + parseFloat(req.amount || '0'), 0);
 
-  if (isLoading) {
+  if (isLoading || settlementsLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">

@@ -719,6 +719,110 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin settlement approval routes for maker-checker workflow
+  app.patch('/api/admin/settlement-requests/:id/approve', isAuthenticated, async (req: any, res) => {
+    try {
+      const settlementId = parseInt(req.params.id);
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Only admin users can approve settlements" });
+      }
+
+      await storage.updateSettlementRequestStatus(settlementId, 'approved', userId);
+      res.json({ message: "Settlement request approved successfully" });
+    } catch (error) {
+      console.error("Error approving settlement:", error);
+      res.status(500).json({ message: "Failed to approve settlement request" });
+    }
+  });
+
+  app.patch('/api/admin/settlement-requests/:id/hold', isAuthenticated, async (req: any, res) => {
+    try {
+      const settlementId = parseInt(req.params.id);
+      const { holdReason, reasonComment } = req.body;
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Only admin users can hold settlements" });
+      }
+
+      if (!holdReason) {
+        return res.status(400).json({ message: "Hold reason is required" });
+      }
+
+      if (holdReason === 'other' && !reasonComment) {
+        return res.status(400).json({ message: "Comment is required when selecting 'other' reason" });
+      }
+
+      if (reasonComment && reasonComment.length > 125) {
+        return res.status(400).json({ message: "Comment must be 125 characters or less" });
+      }
+
+      await storage.updateSettlementRequestStatus(settlementId, 'hold', userId, holdReason, undefined, reasonComment);
+      res.json({ message: "Settlement request placed on hold" });
+    } catch (error) {
+      console.error("Error holding settlement:", error);
+      res.status(500).json({ message: "Failed to hold settlement request" });
+    }
+  });
+
+  app.patch('/api/admin/settlement-requests/:id/reject', isAuthenticated, async (req: any, res) => {
+    try {
+      const settlementId = parseInt(req.params.id);
+      const { rejectReason, reasonComment } = req.body;
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Only admin users can reject settlements" });
+      }
+
+      if (!rejectReason) {
+        return res.status(400).json({ message: "Reject reason is required" });
+      }
+
+      if (rejectReason === 'other' && !reasonComment) {
+        return res.status(400).json({ message: "Comment is required when selecting 'other' reason" });
+      }
+
+      if (reasonComment && reasonComment.length > 125) {
+        return res.status(400).json({ message: "Comment must be 125 characters or less" });
+      }
+
+      await storage.updateSettlementRequestStatus(settlementId, 'rejected', userId, undefined, rejectReason, reasonComment);
+      res.json({ message: "Settlement request rejected" });
+    } catch (error) {
+      console.error("Error rejecting settlement:", error);
+      res.status(500).json({ message: "Failed to reject settlement request" });
+    }
+  });
+
+  // Notification routes
+  app.get('/api/notifications', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const notifications = await storage.getNotificationsByUserId(userId);
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      res.status(500).json({ message: "Failed to fetch notifications" });
+    }
+  });
+
+  app.patch('/api/notifications/:id/read', isAuthenticated, async (req: any, res) => {
+    try {
+      const notificationId = parseInt(req.params.id);
+      await storage.markNotificationAsRead(notificationId);
+      res.json({ message: "Notification marked as read" });
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+      res.status(500).json({ message: "Failed to mark notification as read" });
+    }
+  });
+
   // Create HTTP server
   const httpServer = createServer(app);
 
