@@ -290,23 +290,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
 
-      // Force reset by setting lastResetDate to yesterday
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
+      // Direct wallet reset based on user role
+      if (user.role === 'merchant') {
+        await db
+          .update(wallets)
+          .set({
+            dailyCollected: "0",
+            balance: "0",
+            lastResetDate: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(eq(wallets.userId, userId));
+      } else if (user.role === 'cashier') {
+        await db
+          .update(wallets)
+          .set({
+            dailyTransferred: "0",
+            lastResetDate: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(eq(wallets.userId, userId));
+      }
       
-      await db
-        .update(wallets)
-        .set({ lastResetDate: yesterday })
-        .where(eq(wallets.userId, userId));
-      
-      // Get wallet and trigger reset
-      const wallet = await storage.getOrCreateWallet(userId);
+      // Get updated wallet
       const updatedWallet = await storage.getOrCreateWallet(userId);
       
       res.json({ 
         message: "Wallet reset completed",
         wallet: updatedWallet,
-        resetType: user.role === 'merchant' ? 'balance and daily collected' : 'daily transferred'
+        resetType: user.role === 'merchant' ? 'balance and daily collected reset to 0' : 'daily transferred reset to 0'
       });
     } catch (error) {
       console.error("Error forcing wallet reset:", error);

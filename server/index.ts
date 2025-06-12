@@ -6,30 +6,39 @@ import { storage } from "./storage";
 const app = express();
 
 // Daily reset scheduler - actively resets all wallets at midnight
+// Uses a more flexible approach to handle timezone differences
 setInterval(async () => {
-  const now = new Date();
-  if (now.getHours() === 0 && now.getMinutes() < 5) {
-    log("Daily reset triggered at midnight - resetting all merchant and cashier limits");
-    try {
-      // Get all users and reset their wallet limits
-      const { db } = await import("./db");
-      const { users, wallets } = await import("../shared/schema");
-      const { eq } = await import("drizzle-orm");
+  try {
+    // Check if any wallet needs reset based on lastResetDate comparison
+    const { db } = await import("./db");
+    const { users, wallets } = await import("../shared/schema");
+    
+    // Get all users with wallets and check if they need reset
+    const allUsers = await db.select().from(users);
+    let resetCount = 0;
+    
+    for (const user of allUsers) {
+      const wallet = await storage.getOrCreateWallet(user.id);
+      const now = new Date();
+      const lastReset = new Date(wallet.lastResetDate);
       
-      // Get all users with wallets
-      const allUsers = await db.select().from(users);
+      // Check if it's a new day (more reliable than time-based check)
+      const nowDateOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const lastResetDateOnly = new Date(lastReset.getFullYear(), lastReset.getMonth(), lastReset.getDate());
       
-      for (const user of allUsers) {
-        const wallet = await storage.getOrCreateWallet(user.id);
+      if (nowDateOnly.getTime() !== lastResetDateOnly.getTime()) {
         await storage.checkAndResetDailySpending(wallet);
+        resetCount++;
       }
-      
-      log(`Daily reset completed for ${allUsers.length} users`);
-    } catch (error) {
-      log(`Error during daily reset: ${error}`);
     }
+    
+    if (resetCount > 0) {
+      log(`Daily reset completed for ${resetCount} users`);
+    }
+  } catch (error) {
+    log(`Error during daily reset check: ${error}`);
   }
-}, 5 * 60 * 1000); // Check every 5 minutes
+}, 10 * 60 * 1000); // Check every 10 minutes
 
 // Transaction expiration cleanup - runs every 30 seconds
 setInterval(async () => {
