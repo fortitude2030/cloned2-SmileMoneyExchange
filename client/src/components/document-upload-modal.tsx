@@ -149,24 +149,24 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
     const fileDate = file.lastModified || now;
     const timeDiff = now - fileDate;
     
-    // Multiple validation criteria for camera capture
-    const isFreshPhoto = timeDiff < 60000; // Within last minute
-    const hasReasonableSize = file.size > 100000 && file.size < 15000000; // 100KB - 15MB
-    const hasCameraLikeName = /^(img_|image_|photo_|camera_|\d{8}_\d{6})/i.test(file.name);
+    // Relaxed validation criteria for better compatibility
+    const isFreshPhoto = timeDiff < 300000; // Within last 5 minutes (increased from 1 minute)
+    const hasReasonableSize = file.size > 10000 && file.size < 25000000; // 10KB - 25MB (relaxed limits)
     
     if (!isFreshPhoto) {
+      console.warn(`Photo timestamp validation failed: ${timeDiff}ms old`);
       toast({
-        title: "Fresh Photo Required",
-        description: "Please capture a new photo now using your camera. Old photos are not accepted.",
+        title: "Fresh Photo Recommended",
+        description: "For best results, please capture a new photo using your camera.",
         variant: "destructive",
       });
-      return;
+      // Don't return - allow the upload to continue
     }
     
     if (!hasReasonableSize) {
       toast({
-        title: "Invalid Photo",
-        description: "Photo size appears unusual. Please capture a clear photo using your camera.",
+        title: "Invalid Photo Size",
+        description: "Photo must be between 10KB and 25MB. Please try again.",
         variant: "destructive",
       });
       return;
@@ -301,22 +301,28 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
                 type="file"
                 className="hidden"
                 accept="image/*"
-                capture="environment"
+                capture="user"
                 id={`file-input-${document.id}`}
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) {
-                    // Additional validation for camera capture
-                    const isLikelyFromCamera = 
-                      file.name.toLowerCase().includes('img_') || 
-                      file.name.toLowerCase().includes('image_') ||
-                      file.name.toLowerCase().includes('photo_') ||
-                      file.size > 500000; // Assume camera photos are larger than 500KB
+                    console.log(`File selected: ${file.name}, size: ${file.size}, type: ${file.type}`);
                     
-                    if (!isLikelyFromCamera) {
+                    // Simplified validation - focus on file type and basic size check
+                    if (!file.type.startsWith('image/')) {
                       toast({
-                        title: "Camera Required",
-                        description: "Please use your device camera to capture a new photo of the document.",
+                        title: "Invalid File Type",
+                        description: "Please select an image file from your camera.",
+                        variant: "destructive",
+                      });
+                      e.target.value = '';
+                      return;
+                    }
+                    
+                    if (file.size < 1000) { // Less than 1KB is likely invalid
+                      toast({
+                        title: "File Too Small",
+                        description: "The selected file appears to be invalid. Please try again.",
                         variant: "destructive",
                       });
                       e.target.value = '';
