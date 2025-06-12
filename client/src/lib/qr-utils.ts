@@ -1,46 +1,81 @@
 /**
  * QR Code generation utilities for payment requests
- * Uses a CDN-based QR code generator for client-side generation
+ * Uses client-side QR code generation for better reliability
  */
+import QRCode from 'qrcode';
 
 export interface PaymentQRData {
-  amount: number;
+  transactionId: string;
+  amount: string;
+  currency: string;
   type: string;
+  nonce: string;
   timestamp: number;
-  merchantId?: string;
-  description?: string;
+  expiresAt: number;
 }
 
 /**
- * Generate a QR code URL for the given data
- * @param data - The data to encode in the QR code
- * @param size - The size of the QR code (default: 200)
- * @returns Promise<string> - The QR code image URL
+ * Generate a cryptographically secure nonce
  */
-export async function generateQRCode(data: string, size: number = 200): Promise<string> {
+function generateNonce(): string {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Generate a QR code data URL for the given data
+ * @param data - The data to encode in the QR code
+ * @param size - The size of the QR code (default: 256)
+ * @returns Promise<string> - The QR code data URL
+ */
+export async function generateQRCode(data: string, size: number = 256): Promise<string> {
   try {
-    // Using QR Server API for QR code generation
-    const encodedData = encodeURIComponent(data);
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodedData}&format=png&margin=10`;
+    const qrDataUrl = await QRCode.toDataURL(data, {
+      width: size,
+      margin: 2,
+      errorCorrectionLevel: 'M',
+      color: {
+        dark: '#000000',
+        light: '#FFFFFF'
+      }
+    });
     
-    // Return URL directly without verification to avoid CORS issues
-    return qrUrl;
+    return qrDataUrl;
   } catch (error) {
     console.error('Error generating QR code:', error);
-    // Return a fallback QR code URL instead of throwing
-    const fallbackData = encodeURIComponent('QR_GENERATION_ERROR');
-    return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${fallbackData}&format=png&margin=10`;
+    throw new Error('Failed to generate QR code');
   }
 }
 
 /**
- * Generate a QR code for a payment request
- * @param paymentData - The payment data to encode
- * @param size - The size of the QR code (default: 200)
- * @returns Promise<string> - The QR code image URL
+ * Generate a QR code for a payment request with automatic expiration
+ * @param transactionId - The transaction ID
+ * @param amount - The payment amount
+ * @param type - The transaction type
+ * @param size - The size of the QR code (default: 256)
+ * @returns Promise<string> - The QR code data URL
  */
-export async function generatePaymentQR(paymentData: PaymentQRData, size: number = 200): Promise<string> {
+export async function generatePaymentQR(
+  transactionId: string,
+  amount: string,
+  type: string = 'cash_digitization',
+  size: number = 256
+): Promise<string> {
   try {
+    const now = Date.now();
+    const expiresAt = now + (2 * 60 * 1000); // 2 minutes expiration
+    
+    const paymentData: PaymentQRData = {
+      transactionId,
+      amount,
+      currency: 'ZMW',
+      type,
+      nonce: generateNonce(),
+      timestamp: now,
+      expiresAt
+    };
+    
     const dataString = JSON.stringify(paymentData);
     return await generateQRCode(dataString, size);
   } catch (error) {
@@ -58,22 +93,25 @@ export function parsePaymentQR(qrData: string): PaymentQRData | null {
   try {
     const parsed = JSON.parse(qrData);
     
-    // Validate required fields
+    // Validate required fields for new format
     if (
-      typeof parsed.amount !== 'number' ||
+      typeof parsed.transactionId !== 'string' ||
+      typeof parsed.amount !== 'string' ||
+      typeof parsed.currency !== 'string' ||
       typeof parsed.type !== 'string' ||
-      typeof parsed.timestamp !== 'number'
+      typeof parsed.nonce !== 'string' ||
+      typeof parsed.timestamp !== 'number' ||
+      typeof parsed.expiresAt !== 'number'
     ) {
       console.error('Invalid QR code format - missing required fields');
       return null;
     }
     
-    // Check if QR code is not too old (24 hours)
-    const maxAge = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
-    const age = Date.now() - parsed.timestamp;
-    if (age > maxAge) {
-      const hoursOld = Math.floor(age / (60 * 60 * 1000));
-      console.error(`QR code expired (${hoursOld} hours old). Please generate a new QR code.`);
+    // Check if QR code is expired using expiresAt field
+    const now = Date.now();
+    if (now > parsed.expiresAt) {
+      const secondsExpired = Math.floor((now - parsed.expiresAt) / 1000);
+      console.error(`QR code expired ${secondsExpired} seconds ago`);
       return null;
     }
     
