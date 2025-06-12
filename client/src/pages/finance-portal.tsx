@@ -254,6 +254,8 @@ export default function FinancePortal() {
         return <Badge className="bg-orange-600 text-white font-medium">Pending Approval</Badge>;
       case 'approved':
         return <Badge className="bg-blue-600 text-white font-medium">Approved</Badge>;
+      case 'hold':
+        return <Badge className="bg-yellow-600 text-white font-medium">On Hold</Badge>;
       case 'rejected':
         return <Badge className="bg-red-600 text-white font-medium">Rejected</Badge>;
       default:
@@ -676,6 +678,7 @@ export default function FinancePortal() {
                     request.status === 'pending' ? 'border-orange-400 bg-orange-50 dark:bg-orange-950 dark:border-orange-600' :
                     request.status === 'approved' ? 'border-blue-400 bg-blue-50 dark:bg-blue-950 dark:border-blue-600' :
                     request.status === 'completed' ? 'border-green-400 bg-green-50 dark:bg-green-950 dark:border-green-600' :
+                    request.status === 'hold' ? 'border-yellow-400 bg-yellow-50 dark:bg-yellow-950 dark:border-yellow-600' :
                     request.status === 'rejected' ? 'border-red-400 bg-red-50 dark:bg-red-950 dark:border-red-600' :
                     'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800'
                   }`}>
