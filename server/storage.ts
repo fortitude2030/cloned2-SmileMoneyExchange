@@ -141,9 +141,14 @@ export class DatabaseStorage implements IStorage {
 
   // Branch operations
   async createBranch(branchData: InsertBranch): Promise<Branch> {
+    const branchWithIdentifier = {
+      ...branchData,
+      identifier: branchData.identifier || `BR-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+    } as const;
+    
     const [branch] = await db
       .insert(branches)
-      .values(branchData)
+      .values(branchWithIdentifier)
       .returning();
     return branch;
   }

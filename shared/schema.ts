@@ -228,9 +228,10 @@ export const insertOrganizationSchema = createInsertSchema(organizations).omit({
 
 export const insertBranchSchema = createInsertSchema(branches).omit({
   id: true,
-  identifier: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  identifier: z.string().optional(),
 });
 
 export const insertTransactionSchema = createInsertSchema(transactions).omit({
