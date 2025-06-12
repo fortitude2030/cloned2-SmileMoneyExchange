@@ -14,8 +14,10 @@ interface QRCodeModalProps {
 
 export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCodeModalProps) {
   const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
+  const [nextQrCodeUrl, setNextQrCodeUrl] = useState<string>("");
   const [transactionId, setTransactionId] = useState<string>("");
   const [uniqueId] = useState(() => `QR${Date.now()}${Math.random().toString(36).substr(2, 9)}`);
+  const [isUpdating, setIsUpdating] = useState(false);
   
   // Use global timer system
   const { timeLeft, isActive, startTimer, markInteraction, stopTimer } = useTimer();
@@ -47,7 +49,7 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
     }
   }, [isOpen]);
 
-  const handleGenerateQR = async () => {
+  const handleGenerateQR = async (isPreload = false) => {
     try {
       // Only create transaction once, store the ID for refreshes
       if (!transactionId) {
@@ -85,11 +87,29 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
         'qr_code_payment'
       );
       
-      setQrCodeUrl(qrDataUrl);
+      if (isPreload) {
+        setNextQrCodeUrl(qrDataUrl);
+      } else {
+        setQrCodeUrl(qrDataUrl);
+      }
       
     } catch (error) {
       console.error("Error generating QR code:", error);
-      setQrCodeUrl("");
+      if (!isPreload) {
+        setQrCodeUrl("");
+      }
+    }
+  };
+
+  // Smooth QR transition function
+  const swapQRCodes = () => {
+    if (nextQrCodeUrl) {
+      setIsUpdating(true);
+      setTimeout(() => {
+        setQrCodeUrl(nextQrCodeUrl);
+        setNextQrCodeUrl("");
+        setIsUpdating(false);
+      }, 50); // Brief transition
     }
   };
 
@@ -99,7 +119,11 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
 
     const interval = setInterval(() => {
       if (transactionId) {
-        handleGenerateQR();
+        // Preload next QR code first
+        handleGenerateQR(true).then(() => {
+          // Then smoothly swap to it
+          swapQRCodes();
+        });
       }
     }, 2000);
 
@@ -180,7 +204,9 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
               <img 
                 src={qrCodeUrl} 
                 alt="Payment QR Code" 
-                className="w-full h-full object-contain"
+                className={`w-full h-full object-contain transition-opacity duration-100 ${
+                  isUpdating ? 'opacity-90' : 'opacity-100'
+                }`}
               />
             </div>
           )}
