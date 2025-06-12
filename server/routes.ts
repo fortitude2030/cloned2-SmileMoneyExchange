@@ -242,6 +242,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Transaction routes
   app.post('/api/transactions', isAuthenticated, async (req: any, res) => {
+    console.log("POST /api/transactions - Request received");
+    console.log("Request body:", JSON.stringify(req.body, null, 2));
+    console.log("User:", req.user?.claims?.sub);
+    
     const userId = req.user.claims.sub;
     
     try {
