@@ -592,6 +592,9 @@ export default function FinancePortal() {
                   <DialogContent>
                   <DialogHeader>
                     <DialogTitle>Create Settlement Request</DialogTitle>
+                    <DialogDescription>
+                      Request a settlement to transfer funds to your bank account
+                    </DialogDescription>
                   </DialogHeader>
                   <form onSubmit={settlementForm.handleSubmit((data) => createSettlementRequest.mutate(data))} className="space-y-4">
                     <div>
@@ -858,6 +861,9 @@ export default function FinancePortal() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create New Branch</DialogTitle>
+            <DialogDescription>
+              Add a new branch location to your organization
+            </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4">

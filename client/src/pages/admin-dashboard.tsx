@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -747,6 +747,9 @@ export default function AdminDashboard() {
             <DialogTitle className="text-center">
               {actionDialog.action === 'hold' ? 'Hold Settlement Request' : 'Reject Settlement Request'}
             </DialogTitle>
+            <DialogDescription className="text-center text-sm text-gray-600 dark:text-gray-400">
+              {actionDialog.action === 'hold' ? 'Temporarily hold this settlement request with a reason' : 'Permanently reject this settlement request with a reason'}
+            </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4">
