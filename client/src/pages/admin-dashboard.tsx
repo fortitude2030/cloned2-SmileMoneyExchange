@@ -377,7 +377,7 @@ export default function AdminDashboard() {
                       <div key={request.id} className={`border-l-4 rounded-lg p-4 shadow-md ${
                         request.status === 'pending' ? 'border-orange-500 bg-orange-50 dark:bg-orange-950 dark:border-orange-400' :
                         request.status === 'approved' ? 'border-green-500 bg-green-50 dark:bg-green-950 dark:border-green-400' :
-                        request.status === 'held' ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-950 dark:border-yellow-400' :
+                        (request.status === 'held' || request.status === 'hold') ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-950 dark:border-yellow-400' :
                         'border-red-500 bg-red-50 dark:bg-red-950 dark:border-red-400'
                       }`}>
                         <div className="flex items-center justify-between mb-3">
@@ -431,7 +431,7 @@ export default function AdminDashboard() {
                               <i className="fas fa-times mr-2"></i>Reject
                             </Button>
                           </div>
-                        ) : request.status === 'held' ? (
+                        ) : (request.status === 'held' || request.status === 'hold') ? (
                           <div className="flex space-x-3">
                             <Button 
                               onClick={() => approveSettlement.mutate(request.id)}
