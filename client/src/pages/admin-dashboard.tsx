@@ -70,6 +70,26 @@ export default function AdminDashboard() {
   const pendingRequests = Array.isArray(settlementRequests) ? 
     settlementRequests.filter((request: any) => request.status === 'pending') : [];
 
+  // Filter and sort transactions
+  const filteredTransactions = Array.isArray(transactions) ? 
+    transactions.filter((transaction: any) => {
+      if (priorityFilter === 'all') return true;
+      return transaction.priority === priorityFilter;
+    }).sort((a: any, b: any) => {
+      switch (sortBy) {
+        case 'priority':
+          const priorityOrder = { high: 3, medium: 2, low: 1 };
+          return (priorityOrder[b.priority as keyof typeof priorityOrder] || 2) - (priorityOrder[a.priority as keyof typeof priorityOrder] || 2);
+        case 'amount':
+          return parseFloat(b.amount) - parseFloat(a.amount);
+        case 'status':
+          return a.status.localeCompare(b.status);
+        case 'date':
+        default:
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+    }) : [];
+
   // Hold settlement mutation
   const holdSettlement = useMutation({
     mutationFn: async ({ id, reason, reasonComment }: { id: number; reason: string; reasonComment?: string }) => {
@@ -117,9 +137,7 @@ export default function AdminDashboard() {
   // Approve settlement mutation
   const approveSettlement = useMutation({
     mutationFn: async (id: number) => {
-      return apiRequest(`/api/settlement-requests/${id}/approve`, {
-        method: 'POST',
-      });
+      return apiRequest('POST', `/api/settlement-requests/${id}/approve`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/settlement-requests'] });
@@ -140,10 +158,7 @@ export default function AdminDashboard() {
   // Update transaction priority mutation
   const updateTransactionPriority = useMutation({
     mutationFn: async ({ id, priority }: { id: number; priority: string }) => {
-      return apiRequest(`/api/transactions/${id}/priority`, {
-        method: 'PATCH',
-        body: { priority }
-      });
+      return apiRequest('PATCH', `/api/transactions/${id}/priority`, { priority });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/transactions'] });
@@ -513,51 +528,97 @@ export default function AdminDashboard() {
                   </div>
                 ) : (
                   <div className="space-y-3 max-h-96 overflow-y-auto">
-                    {Array.isArray(transactions) && transactions.slice(0, 50).map((transaction: any) => (
-                      <div key={transaction.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                        <div className="flex items-center flex-1">
-                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center mr-3 ${
-                            transaction.status === 'completed' ? 'bg-green-100 dark:bg-green-900' :
-                            transaction.status === 'pending' ? 'bg-orange-100 dark:bg-orange-900' :
-                            transaction.status === 'rejected' ? 'bg-red-100 dark:bg-red-900' :
-                            'bg-gray-100 dark:bg-gray-700'
-                          }`}>
-                            <i className={`fas ${
-                              transaction.status === 'completed' ? 'fa-check text-green-600 dark:text-green-400' :
-                              transaction.status === 'pending' ? 'fa-clock text-orange-600 dark:text-orange-400' :
-                              transaction.status === 'rejected' ? 'fa-times text-red-600 dark:text-red-400' :
-                              'fa-circle text-gray-600 dark:text-gray-400'
-                            }`}></i>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className={`font-medium text-sm truncate ${
-                              transaction.status === 'completed' ? 'text-green-600 dark:text-green-400' :
-                              transaction.status === 'pending' ? 'text-orange-600 dark:text-orange-400' :
-                              transaction.status === 'rejected' ? 'text-red-600 dark:text-red-400' :
-                              'text-gray-600 dark:text-gray-400'
+                    {filteredTransactions.slice(0, 50).map((transaction: any) => (
+                      <div key={transaction.id} className={`p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border-l-4 ${
+                        transaction.priority === 'high' ? 'border-red-500' :
+                        transaction.priority === 'medium' ? 'border-yellow-500' :
+                        'border-gray-400'
+                      }`}>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center flex-1">
+                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center mr-3 ${
+                              transaction.status === 'completed' ? 'bg-green-100 dark:bg-green-900' :
+                              transaction.status === 'pending' ? 'bg-orange-100 dark:bg-orange-900' :
+                              transaction.status === 'rejected' ? 'bg-red-100 dark:bg-red-900' :
+                              'bg-gray-100 dark:bg-gray-700'
                             }`}>
-                              {transaction.transactionId}
-                            </p>
-                            <p className="text-gray-500 dark:text-gray-500 text-xs truncate">
-                              {transaction.type === 'qr_payment' ? 'QR Payment' : 
-                               transaction.type === 'rtp' ? 'Real-time Payment' : 
-                               transaction.type || 'Transfer'} • 
-                              {new Date(transaction.createdAt).toLocaleDateString()}
-                            </p>
-                            {transaction.description && (
-                              <p className="text-gray-400 dark:text-gray-600 text-xs truncate mt-1">
-                                {transaction.description}
+                              <i className={`fas ${
+                                transaction.status === 'completed' ? 'fa-check text-green-600 dark:text-green-400' :
+                                transaction.status === 'pending' ? 'fa-clock text-orange-600 dark:text-orange-400' :
+                                transaction.status === 'rejected' ? 'fa-times text-red-600 dark:text-red-400' :
+                                'fa-circle text-gray-600 dark:text-gray-400'
+                              }`}></i>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <p className={`font-medium text-sm truncate ${
+                                  transaction.status === 'completed' ? 'text-green-600 dark:text-green-400' :
+                                  transaction.status === 'pending' ? 'text-orange-600 dark:text-orange-400' :
+                                  transaction.status === 'rejected' ? 'text-red-600 dark:text-red-400' :
+                                  'text-gray-600 dark:text-gray-400'
+                                }`}>
+                                  {transaction.transactionId}
+                                </p>
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  transaction.priority === 'high' ? 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-200' :
+                                  transaction.priority === 'medium' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-200' :
+                                  'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
+                                }`}>
+                                  {transaction.priority?.charAt(0).toUpperCase() + transaction.priority?.slice(1) || 'Medium'} Priority
+                                </span>
+                              </div>
+                              <p className="text-gray-500 dark:text-gray-500 text-xs truncate">
+                                {transaction.type === 'qr_payment' ? 'QR Payment' : 
+                                 transaction.type === 'rtp' ? 'Real-time Payment' : 
+                                 transaction.type || 'Transfer'} • 
+                                {new Date(transaction.createdAt).toLocaleDateString()}
                               </p>
-                            )}
+                              {transaction.description && (
+                                <p className="text-gray-400 dark:text-gray-600 text-xs truncate mt-1">
+                                  {transaction.description}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-right ml-3">
+                            <p className="font-bold text-sm text-gray-800 dark:text-gray-200">
+                              {formatCurrency(transaction.amount)}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-500">
+                              {new Date(transaction.createdAt).toLocaleTimeString()}
+                            </p>
                           </div>
                         </div>
-                        <div className="text-right ml-3">
-                          <p className="font-bold text-sm text-gray-800 dark:text-gray-200">
-                            {formatCurrency(transaction.amount)}
-                          </p>
-                          <p className="text-xs text-gray-500 dark:text-gray-500">
-                            {new Date(transaction.createdAt).toLocaleTimeString()}
-                          </p>
+                        
+                        {/* Priority Control for Admin */}
+                        <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-700">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-600 dark:text-gray-400">Priority:</span>
+                            <Select 
+                              value={transaction.priority || 'medium'} 
+                              onValueChange={(priority) => updateTransactionPriority.mutate({ id: transaction.id, priority })}
+                              disabled={updateTransactionPriority.isPending}
+                            >
+                              <SelectTrigger className="h-7 w-24 text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="high">High</SelectItem>
+                                <SelectItem value="medium">Medium</SelectItem>
+                                <SelectItem value="low">Low</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              transaction.status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200' :
+                              transaction.status === 'pending' ? 'bg-orange-100 text-orange-800 dark:bg-orange-800 dark:text-orange-200' :
+                              transaction.status === 'rejected' ? 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-200' :
+                              'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
+                            }`}>
+                              {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     ))}
