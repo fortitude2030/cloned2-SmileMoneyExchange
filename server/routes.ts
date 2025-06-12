@@ -641,7 +641,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Generate unique QR data with strong cryptographic security
       const qrPayload = {
         transactionId: transaction.transactionId,
-        amount: parseFloat(transaction.amount),
+        amount: Math.floor(parseFloat(transaction.amount)),
         type: "qr_code_payment",
         timestamp: Date.now(),
         nonce: crypto.randomBytes(16).toString('hex'),

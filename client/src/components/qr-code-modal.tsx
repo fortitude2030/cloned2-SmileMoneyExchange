@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { generateQRCode } from "@/lib/qr-utils";
@@ -49,7 +49,7 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
       // Create a new QR transaction first, then generate QR code
       const transactionData = {
         type: 'qr_code_payment',
-        amount: amount,
+        amount: Math.floor(parseFloat(amount)).toString(),
         vmfNumber: vmfNumber,
         description: `QR Payment - ${vmfNumber}`,
         currency: 'ZMW'
@@ -118,6 +118,9 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
           <DialogTitle className="text-center">
             {isExpired ? "QR Code Expired" : "Payment Request QR"}
           </DialogTitle>
+          <DialogDescription className="text-center">
+            {isExpired ? "Please generate a new QR code to continue" : "Scan this QR code to complete the payment"}
+          </DialogDescription>
         </DialogHeader>
         
         <div className="text-center space-y-4">

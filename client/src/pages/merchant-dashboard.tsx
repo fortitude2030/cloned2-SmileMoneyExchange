@@ -194,8 +194,8 @@ export default function MerchantDashboard() {
       return;
     }
 
-    const amount = Math.round(parseFloat(paymentAmount));
-    const dailyCollected = Math.round(parseFloat(wallet?.dailyCollected || "0"));
+    const amount = Math.floor(parseFloat(paymentAmount));
+    const dailyCollected = Math.floor(parseFloat(wallet?.dailyCollected || "0"));
     const dailyLimit = 1000000; // K1,000,000 collection limit
     const remainingLimit = dailyLimit - dailyCollected;
 
@@ -330,7 +330,7 @@ export default function MerchantDashboard() {
                 return;
               }
               
-              const amount = Math.round(parseFloat(paymentAmount));
+              const amount = Math.floor(parseFloat(paymentAmount));
               const dailyCollected = Math.round(parseFloat(wallet?.dailyCollected || "0"));
               const dailyLimit = 1000000;
               const remainingLimit = dailyLimit - dailyCollected;
