@@ -394,7 +394,7 @@ export default function AdminDashboard() {
                           </div>
                           <div className="text-right">
                             <p className="font-bold text-lg text-gray-800 dark:text-gray-200">
-                              {formatCurrency(request.requestedAmount)}
+                              {formatCurrency(request.amount)}
                             </p>
                             <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
                               request.status === 'pending' ? 'bg-orange-100 text-orange-800 dark:bg-orange-800 dark:text-orange-200' :
