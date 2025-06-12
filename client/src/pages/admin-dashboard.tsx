@@ -137,7 +137,7 @@ export default function AdminDashboard() {
   // Approve settlement mutation
   const approveSettlement = useMutation({
     mutationFn: async (id: number) => {
-      return apiRequest('POST', `/api/settlement-requests/${id}/approve`);
+      return apiRequest('PATCH', `/api/admin/settlement-requests/${id}/approve`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/settlement-requests'] });

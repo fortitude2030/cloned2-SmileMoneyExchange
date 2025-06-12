@@ -691,7 +691,7 @@ export default function FinancePortal() {
                       </div>
                       <div className="text-right">
                         <p className="font-bold text-lg text-gray-800 dark:text-gray-200">
-                          {formatCurrency(request.amount)}
+                          {formatCurrency(request.requestedAmount)}
                         </p>
                         {getStatusBadge(request.status)}
                       </div>
