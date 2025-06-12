@@ -134,12 +134,22 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
       return;
     }
 
-    // Validate file size (10MB limit)
+    // Validate file size (10MB limit to match server)
     if (file.size > 10 * 1024 * 1024) {
       toast({
-        title: "File Too Large",
-        description: "Please select a file smaller than 10MB.",
+        title: "File Too Large", 
+        description: "Photo must be smaller than 10MB. Try taking the photo again.",
         variant: "destructive",
+      });
+      return;
+    }
+    
+    // Minimum file size check
+    if (file.size < 1000) {
+      toast({
+        title: "Invalid Photo",
+        description: "Photo file is too small. Please take the photo again.",
+        variant: "destructive", 
       });
       return;
     }

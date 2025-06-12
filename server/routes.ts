@@ -36,7 +36,7 @@ async function processImage(imagePath: string, outputPath: string): Promise<void
 const upload = multer({
   dest: 'uploads/',
   limits: {
-    fileSize: 5 * 1024 * 1024, // Reduced to 5MB for faster processing
+    fileSize: 10 * 1024 * 1024, // 10MB to match client validation
   },
   fileFilter: (req, file, cb) => {
     const allowedTypes = /jpeg|jpg|png/;
@@ -581,8 +581,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Document upload routes
-  app.post('/api/documents', isAuthenticated, upload.single('file'), async (req: any, res) => {
+  // Document upload routes with error handling
+  app.post('/api/documents', isAuthenticated, (req: any, res, next) => {
+    upload.single('file')(req, res, (err) => {
+      if (err) {
+        console.error('Multer upload error:', err);
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({ message: "File too large. Maximum size is 10MB." });
+        }
+        if (err.message === 'Only camera images are allowed') {
+          return res.status(400).json({ message: "Only JPEG and PNG images are allowed." });
+        }
+        return res.status(400).json({ message: "File upload error: " + err.message });
+      }
+      next();
+    });
+  }, async (req: any, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
