@@ -815,7 +815,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid QR code format" });
       }
 
-      // Generate hash and look up in database
+      // Check if this is a new client-side generated QR code (has nonce and expiresAt)
+      if (parsedQR.nonce && parsedQR.expiresAt && parsedQR.transactionId) {
+        // New client-side QR code validation
+        
+        // Check expiration
+        const now = Date.now();
+        if (now > parsedQR.expiresAt) {
+          const secondsExpired = Math.floor((now - parsedQR.expiresAt) / 1000);
+          return res.status(400).json({ 
+            message: `QR code expired ${secondsExpired} seconds ago. Please generate a new QR code.` 
+          });
+        }
+
+        // Validate required fields
+        if (
+          typeof parsedQR.transactionId !== 'string' ||
+          typeof parsedQR.amount !== 'string' ||
+          typeof parsedQR.currency !== 'string' ||
+          typeof parsedQR.type !== 'string' ||
+          typeof parsedQR.nonce !== 'string' ||
+          typeof parsedQR.timestamp !== 'number'
+        ) {
+          return res.status(400).json({ message: "Invalid QR code format - missing required fields" });
+        }
+
+        // Find transaction by transactionId
+        const allTransactions = await storage.getAllTransactions();
+        const transaction = allTransactions.find(t => t.transactionId === parsedQR.transactionId);
+        
+        if (!transaction || transaction.status !== 'pending') {
+          return res.status(400).json({ message: "Transaction is no longer valid or not found" });
+        }
+
+        // Verify amount matches
+        const qrAmount = parseFloat(parsedQR.amount);
+        const transactionAmount = parseFloat(transaction.amount);
+        if (Math.abs(qrAmount - transactionAmount) > 0.01) {
+          return res.status(400).json({ message: "QR code amount does not match transaction" });
+        }
+
+        // Return successful verification for client-side QR
+        return res.json({
+          valid: true,
+          transaction: {
+            id: transaction.id,
+            transactionId: transaction.transactionId,
+            amount: transaction.amount,
+            vmfNumber: transaction.vmfNumber,
+            type: transaction.type
+          }
+        });
+      }
+
+      // Legacy database-stored QR code validation
       const qrCodeHash = crypto.createHash('sha256').update(qrData).digest('hex');
       const qrCode = await storage.getQrCodeByHash(qrCodeHash);
 

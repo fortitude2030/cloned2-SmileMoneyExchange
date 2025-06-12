@@ -131,21 +131,33 @@ export function getQRParseError(qrData: string): string {
   try {
     const parsed = JSON.parse(qrData);
     
-    // Validate required fields
+    // Validate required fields - handle both string and number amounts
+    const hasValidAmount = (typeof parsed.amount === 'number' && !isNaN(parsed.amount)) ||
+                          (typeof parsed.amount === 'string' && !isNaN(parseFloat(parsed.amount)));
+    
     if (
-      typeof parsed.amount !== 'number' ||
+      !hasValidAmount ||
       typeof parsed.type !== 'string' ||
       typeof parsed.timestamp !== 'number'
     ) {
       return 'Invalid QR code format - missing required fields';
     }
     
-    // Check if QR code is not too old (24 hours)
-    const maxAge = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
-    const age = Date.now() - parsed.timestamp;
-    if (age > maxAge) {
-      const hoursOld = Math.floor(age / (60 * 60 * 1000));
-      return `QR code expired (${hoursOld} hours old). Please generate a new QR code.`;
+    // Check if QR code has expired using expiresAt field if available
+    if (parsed.expiresAt && typeof parsed.expiresAt === 'number') {
+      const now = Date.now();
+      if (now > parsed.expiresAt) {
+        const secondsExpired = Math.floor((now - parsed.expiresAt) / 1000);
+        return `QR code expired ${secondsExpired} seconds ago. Please generate a new QR code.`;
+      }
+    } else {
+      // Fallback to 24-hour check for older QR codes
+      const maxAge = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+      const age = Date.now() - parsed.timestamp;
+      if (age > maxAge) {
+        const hoursOld = Math.floor(age / (60 * 60 * 1000));
+        return `QR code expired (${hoursOld} hours old). Please generate a new QR code.`;
+      }
     }
     
     return 'QR code validation failed';
@@ -164,14 +176,15 @@ export function getQRParseError(qrData: string): string {
  */
 export function validatePaymentQR(paymentData: PaymentQRData): boolean {
   try {
-    // Amount validation (convert string to number)
-    const amount = parseFloat(paymentData.amount);
+    // Amount validation (handle both string and number)
+    const amount = typeof paymentData.amount === 'string' ? 
+      parseFloat(paymentData.amount) : paymentData.amount;
     if (isNaN(amount) || amount <= 0 || amount > 1000000) {
       return false;
     }
     
-    // Type validation
-    const validTypes = ['cash_digitization', 'transfer', 'settlement'];
+    // Type validation - include QR payment types
+    const validTypes = ['cash_digitization', 'transfer', 'settlement', 'qr_code_payment'];
     if (!validTypes.includes(paymentData.type)) {
       return false;
     }
