@@ -47,11 +47,10 @@ export default function AdminDashboard() {
   // Format currency helper
   const formatCurrency = (amount: string | number) => {
     const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
-    return new Intl.NumberFormat('en-ZM', {
-      style: 'currency',
-      currency: 'ZMW',
-      minimumFractionDigits: 2,
-    }).format(numAmount);
+    if (isNaN(numAmount)) return 'ZMW 0';
+    // Use Math.floor to truncate decimals without rounding
+    const truncatedAmount = Math.floor(numAmount);
+    return `ZMW ${truncatedAmount.toLocaleString()}`;
   };
 
   // Fetch settlement requests
