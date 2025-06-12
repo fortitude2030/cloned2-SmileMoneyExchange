@@ -14,10 +14,8 @@ interface QRCodeModalProps {
 
 export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCodeModalProps) {
   const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
-  const [nextQrCodeUrl, setNextQrCodeUrl] = useState<string>("");
   const [transactionId, setTransactionId] = useState<string>("");
   const [uniqueId] = useState(() => `QR${Date.now()}${Math.random().toString(36).substr(2, 9)}`);
-  const [isUpdating, setIsUpdating] = useState(false);
   
   // Use global timer system
   const { timeLeft, isActive, startTimer, markInteraction, stopTimer } = useTimer();
@@ -49,7 +47,7 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
     }
   }, [isOpen]);
 
-  const handleGenerateQR = async (isPreload = false) => {
+  const handleGenerateQR = async () => {
     try {
       // Only create transaction once, store the ID for refreshes
       if (!transactionId) {
@@ -87,29 +85,11 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
         'qr_code_payment'
       );
       
-      if (isPreload) {
-        setNextQrCodeUrl(qrDataUrl);
-      } else {
-        setQrCodeUrl(qrDataUrl);
-      }
+      setQrCodeUrl(qrDataUrl);
       
     } catch (error) {
       console.error("Error generating QR code:", error);
-      if (!isPreload) {
-        setQrCodeUrl("");
-      }
-    }
-  };
-
-  // Smooth QR transition function
-  const swapQRCodes = () => {
-    if (nextQrCodeUrl) {
-      setIsUpdating(true);
-      setTimeout(() => {
-        setQrCodeUrl(nextQrCodeUrl);
-        setNextQrCodeUrl("");
-        setIsUpdating(false);
-      }, 50); // Brief transition
+      setQrCodeUrl("");
     }
   };
 
@@ -119,16 +99,12 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
 
     const interval = setInterval(() => {
       if (transactionId) {
-        // Preload next QR code first
-        handleGenerateQR(true).then(() => {
-          // Then smoothly swap to it
-          swapQRCodes();
-        });
+        handleGenerateQR();
       }
     }, 2000);
 
     return () => clearInterval(interval);
-  }, [isOpen, isQrExpired, isActive, transactionId, amount]);
+  }, [isOpen, isQrExpired, isActive, transactionId]);
 
   const formatCurrency = (amount: string | number) => {
     const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
@@ -204,9 +180,8 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
               <img 
                 src={qrCodeUrl} 
                 alt="Payment QR Code" 
-                className={`w-full h-full object-contain transition-opacity duration-100 ${
-                  isUpdating ? 'opacity-90' : 'opacity-100'
-                }`}
+                className="w-full h-full object-contain"
+                key={qrCodeUrl}
               />
             </div>
           )}
