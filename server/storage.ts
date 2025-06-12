@@ -61,6 +61,7 @@ export interface IStorage {
   getTransactionById(id: number): Promise<Transaction | undefined>;
   updateTransactionStatus(id: number, status: string, rejectionReason?: string): Promise<void>;
   updateTransactionProcessor(id: number, processorId: string): Promise<void>;
+  updateTransactionPriority(id: number, priority: string): Promise<void>;
   getPendingTransactionsByReceiver(userId: string): Promise<Transaction[]>;
   getAllPendingTransactions(): Promise<Transaction[]>;
   getQRVerificationTransactions(): Promise<Transaction[]>;

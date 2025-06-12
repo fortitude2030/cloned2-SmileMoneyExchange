@@ -96,7 +96,6 @@ export default function FinancePortal() {
       amount: "",
       bankName: "",
       accountNumber: "",
-      priority: "medium" as const,
     },
   });
 
@@ -696,8 +695,8 @@ export default function FinancePortal() {
                         <p className="text-sm text-gray-600 dark:text-gray-400">
                           {request.status === 'hold' ? 
                             (request.holdReason === 'settlement_cover' ? 'Approved - In Queue' : 
-                             request.holdReason?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())) :
-                            request.rejectReason?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+                             request.holdReason?.replace(/_/g, ' ').replace(/\b\w/g, (letter: string) => letter.toUpperCase())) :
+                            request.rejectReason?.replace(/_/g, ' ').replace(/\b\w/g, (letter: string) => letter.toUpperCase())
                           }
                         </p>
                         {request.reasonComment && (

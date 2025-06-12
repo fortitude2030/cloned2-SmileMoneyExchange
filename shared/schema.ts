@@ -81,6 +81,7 @@ export const transactions = pgTable("transactions", {
   amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
   type: varchar("type").notNull(), // cash_digitization, settlement, transfer
   status: varchar("status").notNull(), // pending, approved, completed, rejected
+  priority: varchar("priority").default("medium"), // low, medium, high - set by admin
   description: text("description"),
   vmfNumber: varchar("vmf_number"), // Voucher Movement Form number
   vmfDocumentIds: text("vmf_document_ids").array(),

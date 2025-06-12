@@ -420,6 +420,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin-only endpoint to update transaction priority
+  app.patch('/api/transactions/:id/priority', isAuthenticated, async (req: any, res) => {
+    try {
+      const transactionId = parseInt(req.params.id);
+      const { priority } = req.body;
+      const userId = req.user.claims.sub;
+      
+      // Check if user is admin
+      const user = await storage.getUser(userId);
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Admin role required." });
+      }
+      
+      if (!['low', 'medium', 'high'].includes(priority)) {
+        return res.status(400).json({ message: "Invalid priority. Must be low, medium, or high." });
+      }
+
+      const transaction = await storage.getTransactionById(transactionId);
+      if (!transaction) {
+        return res.status(404).json({ message: "Transaction not found" });
+      }
+
+      await storage.updateTransactionPriority(transactionId, priority);
+      res.json({ message: "Transaction priority updated successfully" });
+    } catch (error) {
+      console.error("Error updating transaction priority:", error);
+      res.status(500).json({ message: "Failed to update transaction priority" });
+    }
+  });
+
   app.patch('/api/transactions/:id/status', isAuthenticated, async (req: any, res) => {
     try {
       const transactionId = parseInt(req.params.id);
