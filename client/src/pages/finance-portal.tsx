@@ -206,7 +206,9 @@ export default function FinancePortal() {
       ];
 
       for (const request of testRequests) {
-        await apiRequest("POST", "/api/settlement-requests", request);
+        // Remove priority field as it's not supported
+        const { priority, ...requestData } = request;
+        await apiRequest("POST", "/api/settlement-requests", requestData);
       }
     },
     onSuccess: () => {
