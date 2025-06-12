@@ -63,16 +63,20 @@ export default function FinancePortal() {
     retry: false,
   });
 
-  // Fetch settlement requests
+  // Fetch settlement requests with auto-refresh
   const { data: settlementRequests = [], isLoading: settlementsLoading } = useQuery({
     queryKey: ["/api/settlement-requests"],
     retry: false,
+    refetchInterval: 3000, // Auto-refresh every 3 seconds
+    refetchIntervalInBackground: true, // Keep refreshing when tab is not active
   });
 
-  // Fetch settlement breakdown
+  // Fetch settlement breakdown with auto-refresh
   const { data: settlementBreakdown } = useQuery({
     queryKey: ["/api/settlement-breakdown"],
     retry: false,
+    refetchInterval: 5000, // Auto-refresh every 5 seconds
+    refetchIntervalInBackground: true,
   });
 
   // Fetch branches
