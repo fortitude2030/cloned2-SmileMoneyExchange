@@ -8,59 +8,13 @@ export async function setupDevAuth(app: Express) {
   app.use(session({
     secret: process.env.SESSION_SECRET || 'dev-secret-key',
     resave: false,
-    saveUninitialized: true, // Enable for auto-login
+    saveUninitialized: false,
     cookie: {
       httpOnly: true,
       secure: false, // Set to true in production with HTTPS
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
     },
   }));
-
-  // Auto-login middleware for development - creates admin session if none exists
-  app.use(async (req, res, next) => {
-    const session = req.session as any;
-    
-    // Skip auto-login for login/logout endpoints
-    if (req.path.includes('/api/dev-login') || req.path.includes('/api/dev-logout')) {
-      return next();
-    }
-    
-    // If not authenticated, auto-login as admin for development
-    if (!session.authenticated) {
-      try {
-        const testUserId = 'test-admin-user';
-        const testEmail = 'admin@testco.com';
-        
-        let user = await storage.getUser(testUserId);
-        if (!user) {
-          user = await storage.upsertUser({
-            id: testUserId,
-            email: testEmail,
-            firstName: 'Admin',
-            lastName: 'User',
-            role: 'admin',
-            profileImageUrl: null,
-          });
-        }
-        
-        session.userId = user.id;
-        session.authenticated = true;
-        
-        // Save session explicitly
-        session.save((err: any) => {
-          if (err) {
-            console.error("Session save error:", err);
-          }
-          next();
-        });
-      } catch (error) {
-        console.error("Auto-login error:", error);
-        next();
-      }
-    } else {
-      next();
-    }
-  });
   // Development login endpoint
   app.post('/api/dev-login', async (req, res) => {
     try {
