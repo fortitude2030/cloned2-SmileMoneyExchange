@@ -50,10 +50,12 @@ export default function AdminDashboard() {
     }
   }, [isAuthenticated, isLoading, toast]);
 
-  // Fetch settlement requests for admin
+  // Fetch settlement requests for admin with auto-refresh
   const { data: settlementRequests = [], isLoading: settlementsLoading } = useQuery<SettlementRequest[]>({
     queryKey: ["/api/settlement-requests"],
     retry: false,
+    refetchInterval: 3000, // Auto-refresh every 3 seconds
+    refetchIntervalInBackground: true, // Keep refreshing when tab is not active
   });
 
   // Approve settlement mutation
