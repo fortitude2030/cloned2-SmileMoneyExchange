@@ -191,6 +191,8 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
   const handleCameraCapture = useCallback((documentId: string) => {
     const fileInput = document.getElementById(`file-input-${documentId}`) as HTMLInputElement;
     if (fileInput) {
+      // Reset the input value before clicking to prevent cache issues
+      fileInput.value = '';
       fileInput.click();
     }
   }, []);
@@ -304,12 +306,12 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
                 type="file"
                 className="hidden"
                 accept="image/*"
-                capture="user"
+                capture="environment"
                 id={`file-input-${document.id}`}
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) {
-                    console.log(`File selected: ${file.name}, size: ${file.size}, type: ${file.type}`);
+                    console.log(`VMF file selected: ${file.name}, size: ${file.size}, type: ${file.type}`);
                     
                     // Simplified validation - focus on file type and basic size check
                     if (!file.type.startsWith('image/')) {
@@ -318,6 +320,7 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
                         description: "Please select an image file from your camera.",
                         variant: "destructive",
                       });
+                      // Clear the input and return
                       e.target.value = '';
                       return;
                     }
@@ -328,14 +331,19 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
                         description: "The selected file appears to be invalid. Please try again.",
                         variant: "destructive",
                       });
+                      // Clear the input and return
                       e.target.value = '';
                       return;
                     }
+                    
+                    // Process the file immediately
+                    handleFileSelect(document.id, file);
                   }
                   
-                  handleFileSelect(document.id, file || null);
-                  // Reset the input value to allow capturing the same file again
-                  e.target.value = '';
+                  // Always reset the input value to prevent freezing
+                  setTimeout(() => {
+                    e.target.value = '';
+                  }, 100);
                 }}
               />
             </div>
