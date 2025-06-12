@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import type { SettlementRequest } from "@/../../shared/schema";
 
 interface ActionDialogState {
   isOpen: boolean;
@@ -50,7 +51,7 @@ export default function AdminDashboard() {
   }, [isAuthenticated, isLoading, toast]);
 
   // Fetch settlement requests for admin
-  const { data: settlementRequests = [], isLoading: settlementsLoading } = useQuery({
+  const { data: settlementRequests = [], isLoading: settlementsLoading } = useQuery<SettlementRequest[]>({
     queryKey: ["/api/settlement-requests"],
     retry: false,
   });
@@ -396,22 +397,22 @@ export default function AdminDashboard() {
             <div className="grid grid-cols-2 gap-4">
               <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                 <p className="text-2xl font-bold text-gray-800 dark:text-gray-200">
-                  {settlementRequests.length}
+                  {Array.isArray(settlementRequests) ? settlementRequests.length : 0}
                 </p>
                 <p className="text-gray-600 dark:text-gray-400 text-sm">Total Requests</p>
               </div>
               
               <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                 <p className="text-2xl font-bold text-gray-800 dark:text-gray-200">
-                  {settlementRequests.filter((r: any) => r.status === 'approved').length}
+                  {Array.isArray(settlementRequests) ? settlementRequests.filter((r) => r.status === 'approved').length : 0}
                 </p>
                 <p className="text-gray-600 dark:text-gray-400 text-sm">Approved</p>
               </div>
               
               <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                 <p className="text-2xl font-bold text-secondary">
-                  {settlementRequests.length > 0 ? 
-                    Math.round((settlementRequests.filter((r: any) => r.status === 'approved').length / settlementRequests.length) * 100) : 0
+                  {Array.isArray(settlementRequests) && settlementRequests.length > 0 ? 
+                    Math.round((settlementRequests.filter((r) => r.status === 'approved').length / settlementRequests.length) * 100) : 0
                   }%
                 </p>
                 <p className="text-gray-600 dark:text-gray-400 text-sm">Success Rate</p>
@@ -435,6 +436,82 @@ export default function AdminDashboard() {
           { id: "users", label: "Users", icon: "fas fa-users" },
         ]}
       />
+
+      {/* Action Dialog for Hold/Reject */}
+      <Dialog open={actionDialog.isOpen} onOpenChange={() => setActionDialog({ isOpen: false, settlementId: null, action: null, reason: '', reasonComment: '' })}>
+        <DialogContent className="w-full max-w-sm mx-4">
+          <DialogHeader>
+            <DialogTitle className="text-center">
+              {actionDialog.action === 'hold' ? 'Hold Settlement Request' : 'Reject Settlement Request'}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="reason">Reason *</Label>
+              <Select 
+                value={actionDialog.reason} 
+                onValueChange={(value) => setActionDialog(prev => ({ ...prev, reason: value, reasonComment: value === 'other' ? prev.reasonComment : '' }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a reason" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(actionDialog.action === 'hold' ? getHoldReasons() : getRejectReasons()).map((reason) => (
+                    <SelectItem key={reason.value} value={reason.value}>
+                      {reason.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {actionDialog.reason === 'other' && (
+              <div>
+                <Label htmlFor="reasonComment">Comment * (125 chars max)</Label>
+                <Textarea
+                  id="reasonComment"
+                  value={actionDialog.reasonComment}
+                  onChange={(e) => setActionDialog(prev => ({ ...prev, reasonComment: e.target.value }))}
+                  placeholder="Enter detailed reason..."
+                  maxLength={125}
+                  className="resize-none"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  {actionDialog.reasonComment.length}/125 characters
+                </p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="flex space-x-3 mt-6">
+            <Button 
+              onClick={() => setActionDialog({ isOpen: false, settlementId: null, action: null, reason: '', reasonComment: '' })}
+              variant="outline"
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSubmitAction}
+              disabled={!actionDialog.reason || (actionDialog.reason === 'other' && !actionDialog.reasonComment.trim()) || holdSettlement.isPending || rejectSettlement.isPending}
+              className={`flex-1 ${actionDialog.action === 'hold' ? 'bg-orange-600 hover:bg-orange-700' : 'bg-red-600 hover:bg-red-700'} text-white`}
+            >
+              {(holdSettlement.isPending || rejectSettlement.isPending) ? (
+                <>
+                  <i className="fas fa-spinner fa-spin mr-2"></i>
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <i className={`fas ${actionDialog.action === 'hold' ? 'fa-pause' : 'fa-times'} mr-2`}></i>
+                  {actionDialog.action === 'hold' ? 'Hold' : 'Reject'}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
