@@ -188,6 +188,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get settlement breakdown for finance portal
+  app.get('/api/settlement-breakdown', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (user?.role !== 'finance' || !user.organizationId) {
+        return res.status(403).json({ message: "Only finance officers can access settlement data" });
+      }
+
+      const breakdown = await storage.getSettlementBreakdown(user.organizationId);
+      const pendingTotal = await storage.getPendingSettlementsTotal(user.organizationId);
+      
+      res.json({
+        breakdown,
+        pendingTotal
+      });
+    } catch (error) {
+      console.error("Error fetching settlement breakdown:", error);
+      res.status(500).json({ message: "Failed to fetch settlement breakdown" });
+    }
+  });
+
   // Wallet routes
   app.get('/api/wallet', isAuthenticated, async (req: any, res) => {
     try {
@@ -489,6 +512,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (user?.role !== 'finance' || !user.organizationId) {
         return res.status(403).json({ message: "Only finance officers with organizations can create settlement requests" });
+      }
+
+      // Calculate true available balance
+      const financeWallet = await storage.getOrCreateWallet(userId);
+      const masterBalance = Math.floor(parseFloat(financeWallet.balance || '0'));
+      const pendingTotal = await storage.getPendingSettlementsTotal(user.organizationId);
+      const trueAvailable = masterBalance - pendingTotal;
+      
+      const requestAmount = Math.floor(parseFloat(req.body.amount || '0'));
+      
+      // Validate against true available balance
+      if (requestAmount > trueAvailable) {
+        return res.status(400).json({ 
+          message: `Insufficient funds. Available: ZMW ${trueAvailable.toLocaleString()}, Requested: ZMW ${requestAmount.toLocaleString()}`,
+          masterBalance,
+          pendingTotal,
+          trueAvailable,
+          requestAmount
+        });
       }
 
       const requestData = insertSettlementRequestSchema.parse({
