@@ -432,6 +432,23 @@ export default function AdminDashboard() {
                               <i className="fas fa-times mr-2"></i>Reject
                             </Button>
                           </div>
+                        ) : request.status === 'held' ? (
+                          <div className="flex space-x-3">
+                            <Button 
+                              onClick={() => approveSettlement.mutate(request.id)}
+                              disabled={approveSettlement.isPending}
+                              className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-medium"
+                            >
+                              <i className="fas fa-check mr-2"></i>Release & Approve
+                            </Button>
+                            <Button 
+                              onClick={() => handleOpenActionDialog(request.id, 'reject')}
+                              disabled={rejectSettlement.isPending}
+                              className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg font-medium"
+                            >
+                              <i className="fas fa-times mr-2"></i>Reject
+                            </Button>
+                          </div>
                         ) : (
                           <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
                             <p className="text-sm text-gray-600 dark:text-gray-400">
