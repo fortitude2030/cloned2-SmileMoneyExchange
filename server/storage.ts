@@ -215,8 +215,10 @@ export class DatabaseStorage implements IStorage {
     const now = new Date();
     const lastReset = new Date(wallet.lastResetDate);
     
-    // Check if it's a new day (after midnight)
-    const isNewDay = now.toDateString() !== lastReset.toDateString();
+    // Check if it's a new day (after midnight) - using local date comparison
+    const nowDateOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const lastResetDateOnly = new Date(lastReset.getFullYear(), lastReset.getMonth(), lastReset.getDate());
+    const isNewDay = nowDateOnly.getTime() !== lastResetDateOnly.getTime();
     
     if (isNewDay) {
       const user = await this.getUser(wallet.userId);

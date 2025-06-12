@@ -6,6 +6,8 @@ import path from "path";
 import fs from "fs";
 import { storage } from "./storage";
 import { setupDevAuth, isAuthenticated } from "./devAuth";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 import {
   insertOrganizationSchema,
   insertBranchSchema,
@@ -13,6 +15,8 @@ import {
   insertDocumentSchema,
   insertSettlementRequestSchema,
   insertQrCodeSchema,
+  users,
+  wallets,
 } from "@shared/schema";
 import crypto from "crypto";
 
@@ -273,6 +277,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error forcing daily reset:", error);
       res.status(500).json({ message: "Failed to force daily reset" });
+    }
+  });
+
+  // Simple wallet balance reset for testing (any user can reset their own wallet)
+  app.post('/api/wallet/force-reset', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Force reset by setting lastResetDate to yesterday
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      
+      await db
+        .update(wallets)
+        .set({ lastResetDate: yesterday })
+        .where(eq(wallets.userId, userId));
+      
+      // Get wallet and trigger reset
+      const wallet = await storage.getOrCreateWallet(userId);
+      const updatedWallet = await storage.getOrCreateWallet(userId);
+      
+      res.json({ 
+        message: "Wallet reset completed",
+        wallet: updatedWallet,
+        resetType: user.role === 'merchant' ? 'balance and daily collected' : 'daily transferred'
+      });
+    } catch (error) {
+      console.error("Error forcing wallet reset:", error);
+      res.status(500).json({ message: "Failed to force wallet reset" });
     }
   });
 
