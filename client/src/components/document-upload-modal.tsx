@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -23,9 +23,9 @@ interface UploadedDocument {
 }
 
 export default function DocumentUploadModal({ isOpen, onClose, transactionId }: DocumentUploadModalProps) {
-  const { toast } = useToast();
   const { user } = useAuth();
   const { stopTimer } = useTimer();
+  const { toast } = useToast();
   
   // Memoize documents based on user role to prevent re-renders
   const initialDocuments = useMemo(() => {
@@ -252,6 +252,9 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
       <DialogContent className="w-full max-w-sm mx-4">
         <DialogHeader>
           <DialogTitle className="text-center">Upload VMF Documents</DialogTitle>
+          <DialogDescription className="text-center text-sm text-gray-600 dark:text-gray-400">
+            Capture photos of your VMF documents to complete the transaction
+          </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4">
