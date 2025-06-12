@@ -75,6 +75,8 @@ export interface IStorage {
   
   // Finance operations
   getMerchantWalletsByOrganization(organizationId: number): Promise<(Wallet & { user: User })[]>;
+  getPendingSettlementsTotal(organizationId: number): Promise<number>;
+  getSettlementBreakdown(organizationId: number): Promise<{ status: string; total: number; count: number }[]>;
   
   // QR Code operations
   createQrCode(qrCodeData: InsertQrCode): Promise<QrCode>;
@@ -758,6 +760,52 @@ export class DatabaseStorage implements IStorage {
       );
 
     return merchantWallets;
+  }
+
+  async getPendingSettlementsTotal(organizationId: number): Promise<number> {
+    const pendingRequests = await db
+      .select({
+        amount: settlementRequests.amount
+      })
+      .from(settlementRequests)
+      .where(
+        and(
+          eq(settlementRequests.organizationId, organizationId),
+          eq(settlementRequests.status, 'pending')
+        )
+      );
+
+    const total = pendingRequests.reduce((sum, request) => 
+      sum + Math.floor(parseFloat(request.amount || '0')), 0);
+    
+    return total;
+  }
+
+  async getSettlementBreakdown(organizationId: number): Promise<{ status: string; total: number; count: number }[]> {
+    const allRequests = await db
+      .select({
+        status: settlementRequests.status,
+        amount: settlementRequests.amount
+      })
+      .from(settlementRequests)
+      .where(eq(settlementRequests.organizationId, organizationId));
+
+    // Group by status and calculate totals
+    const breakdown = allRequests.reduce((acc, request) => {
+      const status = request.status;
+      const amount = Math.floor(parseFloat(request.amount || '0'));
+      
+      if (!acc[status]) {
+        acc[status] = { status, total: 0, count: 0 };
+      }
+      
+      acc[status].total += amount;
+      acc[status].count += 1;
+      
+      return acc;
+    }, {} as Record<string, { status: string; total: number; count: number }>);
+
+    return Object.values(breakdown);
   }
 }
 
