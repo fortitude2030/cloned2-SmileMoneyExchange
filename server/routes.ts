@@ -555,8 +555,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.getUser(userId);
       
       if (user?.role === 'admin') {
-        // Admins see all pending requests
-        const requests = await storage.getPendingSettlementRequests();
+        // Admins see all recent requests (pending, approved, hold, rejected, completed)
+        const requests = await storage.getAllSettlementRequests();
         res.json(requests);
       } else if (user?.organizationId) {
         // Finance officers see their organization's requests

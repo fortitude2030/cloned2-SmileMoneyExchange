@@ -357,33 +357,49 @@ export default function AdminDashboard() {
                         <p className="font-bold text-xl text-gray-800 dark:text-gray-200">
                           {formatCurrency(request.amount)}
                         </p>
-                        {getPriorityBadge(request.priority)}
+                        <div className="flex flex-col items-end space-y-1">
+                          {getPriorityBadge(request.priority)}
+                          {getStatusBadge(request.status)}
+                        </div>
                       </div>
                     </div>
                     
-                    <div className="flex space-x-3">
-                      <Button 
-                        onClick={() => approveSettlement.mutate(request.id)}
-                        disabled={approveSettlement.isPending}
-                        className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-medium"
-                      >
-                        <i className="fas fa-check mr-2"></i>Approve
-                      </Button>
-                      <Button 
-                        onClick={() => handleOpenActionDialog(request.id, 'hold')}
-                        disabled={holdSettlement.isPending}
-                        className="flex-1 bg-orange-600 hover:bg-orange-700 text-white py-2 rounded-lg font-medium"
-                      >
-                        <i className="fas fa-pause mr-2"></i>Hold
-                      </Button>
-                      <Button 
-                        onClick={() => handleOpenActionDialog(request.id, 'reject')}
-                        disabled={rejectSettlement.isPending}
-                        className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg font-medium"
-                      >
-                        <i className="fas fa-times mr-2"></i>Reject
-                      </Button>
-                    </div>
+                    {/* Only show action buttons for pending requests */}
+                    {request.status === 'pending' ? (
+                      <div className="flex space-x-3">
+                        <Button 
+                          onClick={() => approveSettlement.mutate(request.id)}
+                          disabled={approveSettlement.isPending}
+                          className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-medium"
+                        >
+                          <i className="fas fa-check mr-2"></i>Approve
+                        </Button>
+                        <Button 
+                          onClick={() => handleOpenActionDialog(request.id, 'hold')}
+                          disabled={holdSettlement.isPending}
+                          className="flex-1 bg-orange-600 hover:bg-orange-700 text-white py-2 rounded-lg font-medium"
+                        >
+                          <i className="fas fa-pause mr-2"></i>Hold
+                        </Button>
+                        <Button 
+                          onClick={() => handleOpenActionDialog(request.id, 'reject')}
+                          disabled={rejectSettlement.isPending}
+                          className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg font-medium"
+                        >
+                          <i className="fas fa-times mr-2"></i>Reject
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {request.reviewedBy && request.reviewedAt ? (
+                            <>Processed by Admin on {new Date(request.reviewedAt).toLocaleDateString()}</>
+                          ) : (
+                            <>Status: {request.status.charAt(0).toUpperCase() + request.status.slice(1)}</>
+                          )}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

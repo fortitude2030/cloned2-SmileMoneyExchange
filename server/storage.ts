@@ -74,6 +74,7 @@ export interface IStorage {
   createSettlementRequest(request: InsertSettlementRequest): Promise<SettlementRequest>;
   getSettlementRequestsByOrganization(organizationId: number): Promise<SettlementRequest[]>;
   getPendingSettlementRequests(): Promise<SettlementRequest[]>;
+  getAllSettlementRequests(): Promise<SettlementRequest[]>;
   updateSettlementRequestStatus(id: number, status: string, reviewedBy?: string, holdReason?: string, rejectReason?: string, reasonComment?: string): Promise<void>;
   
   // Notification operations
@@ -625,6 +626,14 @@ export class DatabaseStorage implements IStorage {
       .from(settlementRequests)
       .where(eq(settlementRequests.status, "pending"))
       .orderBy(settlementRequests.priority, desc(settlementRequests.createdAt));
+  }
+
+  async getAllSettlementRequests(): Promise<SettlementRequest[]> {
+    return await db
+      .select()
+      .from(settlementRequests)
+      .orderBy(desc(settlementRequests.createdAt))
+      .limit(50); // Show last 50 requests to avoid overwhelming the admin
   }
 
   async updateSettlementRequestStatus(id: number, status: string, reviewedBy?: string, holdReason?: string, rejectReason?: string, reasonComment?: string): Promise<void> {
