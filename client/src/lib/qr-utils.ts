@@ -164,8 +164,9 @@ export function getQRParseError(qrData: string): string {
  */
 export function validatePaymentQR(paymentData: PaymentQRData): boolean {
   try {
-    // Amount validation
-    if (paymentData.amount <= 0 || paymentData.amount > 1000000) {
+    // Amount validation (convert string to number)
+    const amount = parseFloat(paymentData.amount);
+    if (isNaN(amount) || amount <= 0 || amount > 1000000) {
       return false;
     }
     
@@ -196,12 +197,15 @@ export function validatePaymentQR(paymentData: PaymentQRData): boolean {
  * @returns Promise<{ qrUrl: string; shareText: string }> - QR code URL and share text
  */
 export async function createShareablePaymentQR(
-  paymentData: PaymentQRData, 
+  transactionId: string,
+  amount: string,
+  type: string = 'cash_digitization',
   merchantName?: string
 ): Promise<{ qrUrl: string; shareText: string }> {
   try {
-    const qrUrl = await generatePaymentQR(paymentData);
-    const shareText = `Payment Request${merchantName ? ` from ${merchantName}` : ''}: ZMW ${paymentData.amount.toLocaleString()}`;
+    const qrUrl = await generatePaymentQR(transactionId, amount, type);
+    const numericAmount = parseFloat(amount);
+    const shareText = `Payment Request${merchantName ? ` from ${merchantName}` : ''}: ZMW ${numericAmount.toLocaleString()}`;
     
     return { qrUrl, shareText };
   } catch (error) {

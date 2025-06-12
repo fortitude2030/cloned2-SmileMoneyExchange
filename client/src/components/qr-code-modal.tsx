@@ -14,6 +14,7 @@ interface QRCodeModalProps {
 
 export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCodeModalProps) {
   const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
+  const [transactionId, setTransactionId] = useState<string>("");
   const [uniqueId] = useState(() => `QR${Date.now()}${Math.random().toString(36).substr(2, 9)}`);
   
   // Use global timer system
@@ -37,66 +38,73 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
     }
   }, [isActive, timeLeft]);
 
-  // Expire QR code immediately when modal is closed
+  // Reset state when modal is closed
   useEffect(() => {
     if (!isOpen) {
       setIsQrExpired(true);
+      setQrCodeUrl("");
+      setTransactionId("");
     }
   }, [isOpen]);
 
   const handleGenerateQR = async () => {
     try {
-      // Create a new QR transaction first, then generate QR code
-      const transactionData = {
-        type: 'qr_code_payment',
-        amount: Math.floor(parseFloat(amount)).toString(),
-        vmfNumber: vmfNumber,
-        description: `QR Payment - ${vmfNumber}`,
-        currency: 'ZMW'
-      };
+      // Only create transaction once, store the ID for refreshes
+      if (!transactionId) {
+        const transactionData = {
+          type: 'qr_code_payment',
+          amount: Math.floor(parseFloat(amount)).toString(),
+          vmfNumber: vmfNumber,
+          description: `QR Payment - ${vmfNumber}`,
+          currency: 'ZMW'
+        };
 
-      // Create the transaction
-      const transactionResponse = await fetch('/api/transactions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify(transactionData)
-      });
+        const transactionResponse = await fetch('/api/transactions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify(transactionData)
+        });
 
-      if (!transactionResponse.ok) {
-        const errorData = await transactionResponse.json();
-        throw new Error(errorData.message || 'Failed to create transaction');
+        if (!transactionResponse.ok) {
+          const errorData = await transactionResponse.json();
+          throw new Error(errorData.message || 'Failed to create transaction');
+        }
+
+        const transaction = await transactionResponse.json();
+        setTransactionId(transaction.transactionId);
       }
 
-      const transaction = await transactionResponse.json();
-
-      // Generate secure QR code for the new transaction
-      const qrResponse = await fetch('/api/qr-codes/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          transactionId: transaction.id
-        })
-      });
-
-      if (!qrResponse.ok) {
-        const errorData = await qrResponse.json();
-        throw new Error(errorData.message || 'Failed to generate QR code');
-      }
-
-      const qrData = await qrResponse.json();
-      setQrCodeUrl(qrData.qrImageUrl);
+      // Generate QR code client-side with fresh nonce and timestamp
+      const { generatePaymentQR } = await import('@/lib/qr-utils');
+      const qrDataUrl = await generatePaymentQR(
+        transactionId || 'pending',
+        Math.floor(parseFloat(amount)).toString(),
+        'qr_code_payment'
+      );
+      
+      setQrCodeUrl(qrDataUrl);
       
     } catch (error) {
       console.error("Error generating QR code:", error);
       setQrCodeUrl("");
     }
   };
+
+  // Auto-refresh QR code every 2 seconds while modal is open and timer is active
+  useEffect(() => {
+    if (!isOpen || isQrExpired || !isActive) return;
+
+    const interval = setInterval(() => {
+      if (transactionId) {
+        handleGenerateQR();
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [isOpen, isQrExpired, isActive, transactionId, amount]);
 
   const formatCurrency = (amount: string | number) => {
     const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
