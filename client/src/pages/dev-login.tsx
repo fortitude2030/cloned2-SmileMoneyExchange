@@ -14,7 +14,20 @@ export default function DevLogin() {
 
   const loginMutation = useMutation({
     mutationFn: async (role: string) => {
-      return await apiRequest("/api/dev-login", "POST", { role });
+      const response = await fetch('/api/dev-login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ role }),
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Login failed: ${response.statusText}`);
+      }
+      
+      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });

@@ -1064,6 +1064,19 @@ export class DatabaseStorage implements IStorage {
 
 
 
+  async getBankAccountById(id: number): Promise<BankAccount | undefined> {
+    const [account] = await db.select().from(bankAccounts).where(eq(bankAccounts.id, id));
+    return account;
+  }
+
+  async getBankAccountByNumber(accountNumber: string): Promise<BankAccount | undefined> {
+    const [account] = await db.select().from(bankAccounts).where(eq(bankAccounts.accountNumber, accountNumber));
+    return account;
+  }
+
+  async getBankAccountsByUserId(userId: string): Promise<BankAccount[]> {
+    return await db.select().from(bankAccounts).where(eq(bankAccounts.userId, userId));
+  }
 
   async updateAccountBalance(accountId: number, amount: string, type: 'credit' | 'debit'): Promise<void> {
     const account = await this.getBankAccountById(accountId);
