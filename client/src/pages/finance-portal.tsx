@@ -311,8 +311,27 @@ export default function FinancePortal() {
 
   const calculateTrueAvailable = () => {
     const masterBalance = Math.floor(parseFloat((wallet as any)?.balance || "0"));
-    const pendingTotal = (settlementBreakdown as any)?.pendingTotal || 0;
-    return masterBalance - pendingTotal;
+    const pendingTotal = Math.max(0, (settlementBreakdown as any)?.pendingTotal || 0);
+    
+    // Calculate settlement capacity (never exceed master balance)
+    const calculatedCapacity = masterBalance - pendingTotal;
+    const settlementCapacity = Math.min(calculatedCapacity, masterBalance);
+    
+    // Ensure settlement capacity is never negative or exceeds master balance
+    const result = Math.max(0, settlementCapacity);
+    
+    // Debug logging to track settlement capacity calculation
+    console.log("Settlement Capacity Debug:", {
+      masterBalance,
+      pendingTotal,
+      calculatedCapacity,
+      settlementCapacity,
+      result,
+      walletData: wallet,
+      settlementData: settlementBreakdown
+    });
+    
+    return result;
   };
 
   const getStatusBreakdown = () => {
