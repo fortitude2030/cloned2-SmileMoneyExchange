@@ -65,9 +65,9 @@ export default function AdminDashboard() {
     refetchInterval: 3000,
   });
 
-  // Filter pending requests
+  // Filter pending requests (include both pending and hold status as "pending approval")
   const pendingRequests = Array.isArray(settlementRequests) ? 
-    settlementRequests.filter((request: any) => request.status === 'pending') : [];
+    settlementRequests.filter((request: any) => request.status === 'pending' || request.status === 'hold') : [];
 
   // Filter and sort transactions
   const filteredTransactions = Array.isArray(transactions) ? 
