@@ -104,11 +104,11 @@ export default function CoreBankingDashboard() {
     mutationFn: async (transactionData: any) => {
       return await apiRequest("/api/banking/transactions", "POST", transactionData);
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/banking/accounts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/banking/transactions"] });
       
-      if (data.requiresManualReview) {
+      if (data?.requiresManualReview) {
         toast({
           title: "Transaction Pending Review",
           description: "Transaction requires manual compliance review",
@@ -209,7 +209,7 @@ export default function CoreBankingDashboard() {
                   <CreditCard className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{accounts?.length || 0}</div>
+                  <div className="text-2xl font-bold">{accounts ? accounts.length : 0}</div>
                   <p className="text-xs text-muted-foreground">Active bank accounts</p>
                 </CardContent>
               </Card>
@@ -222,9 +222,9 @@ export default function CoreBankingDashboard() {
                 <CardContent>
                   <div className="text-2xl font-bold">
                     {formatCurrency(
-                      accounts?.reduce((sum: number, acc: BankAccount) => 
+                      accounts ? accounts.reduce((sum: number, acc: BankAccount) => 
                         sum + parseFloat(acc.balance || "0"), 0
-                      ).toString() || "0"
+                      ).toString() : "0"
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground">Combined account balances</p>
@@ -257,7 +257,7 @@ export default function CoreBankingDashboard() {
                   <div className="text-center py-4">Loading accounts...</div>
                 ) : (
                   <div className="space-y-4">
-                    {accounts?.map((account: BankAccount) => (
+                    {accounts ? accounts.map((account: BankAccount) => (
                       <div key={account.id} className="flex items-center justify-between p-4 border rounded-lg">
                         <div className="flex items-center space-x-4">
                           <CreditCard className="h-8 w-8 text-blue-500" />
@@ -273,7 +273,7 @@ export default function CoreBankingDashboard() {
                           <div className="text-sm">{getStatusBadge(account.status)}</div>
                         </div>
                       </div>
-                    ))}
+                    )) : null}
                   </div>
                 )}
               </CardContent>
@@ -296,11 +296,11 @@ export default function CoreBankingDashboard() {
                         <SelectValue placeholder="Select source account" />
                       </SelectTrigger>
                       <SelectContent>
-                        {accounts?.map((account: BankAccount) => (
+                        {accounts ? accounts.map((account: BankAccount) => (
                           <SelectItem key={account.id} value={account.id.toString()}>
                             {account.accountNumber} ({formatCurrency(account.balance, account.currency)})
                           </SelectItem>
-                        ))}
+                        )) : null}
                       </SelectContent>
                     </Select>
                   </div>
@@ -398,7 +398,7 @@ export default function CoreBankingDashboard() {
 
                 {transactionsLoading ? (
                   <div className="text-center py-4">Loading transactions...</div>
-                ) : transactions?.length > 0 ? (
+                ) : transactions && transactions.length > 0 ? (
                   <div className="space-y-2">
                     {transactions.map((transaction: BankTransaction) => (
                       <div key={transaction.id} className="flex items-center justify-between p-3 border rounded">
