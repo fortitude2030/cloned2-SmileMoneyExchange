@@ -844,29 +844,48 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getSettlementBreakdown(organizationId: number): Promise<{ status: string; total: number; count: number }[]> {
-    // Calculate start of current month
+    // Calculate start of current month for filtering
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     
-    const allRequests = await db
+    // Get all requests for non-monthly statuses (pending, hold, completed)
+    const allTimeRequests = await db
       .select({
         status: settlementRequests.status,
         amount: settlementRequests.amount,
         createdAt: settlementRequests.createdAt
       })
       .from(settlementRequests)
-      .where(eq(settlementRequests.organizationId, organizationId));
+      .where(
+        and(
+          eq(settlementRequests.organizationId, organizationId),
+          not(inArray(settlementRequests.status, ['approved', 'rejected']))
+        )
+      );
+
+    // Get current month requests for approved and rejected
+    const monthlyRequests = await db
+      .select({
+        status: settlementRequests.status,
+        amount: settlementRequests.amount,
+        createdAt: settlementRequests.createdAt
+      })
+      .from(settlementRequests)
+      .where(
+        and(
+          eq(settlementRequests.organizationId, organizationId),
+          inArray(settlementRequests.status, ['approved', 'rejected']),
+          gte(settlementRequests.createdAt, startOfMonth)
+        )
+      );
+
+    // Combine both datasets
+    const combinedRequests = [...allTimeRequests, ...monthlyRequests];
 
     // Group by status and calculate totals
-    const breakdown = allRequests.reduce((acc, request) => {
+    const breakdown = combinedRequests.reduce((acc, request) => {
       const status = request.status;
       const amount = Math.floor(parseFloat(request.amount || '0'));
-      const requestDate = request.createdAt ? new Date(request.createdAt) : new Date();
-      
-      // For approved and rejected settlements, only include current month
-      if ((status === 'approved' || status === 'rejected') && requestDate < startOfMonth) {
-        return acc; // Skip settlements from previous months
-      }
       
       if (!acc[status]) {
         acc[status] = { status, total: 0, count: 0 };
