@@ -68,12 +68,12 @@ export default function CoreBankingDashboard() {
   });
 
   // Fetch bank accounts
-  const { data: accounts, isLoading: accountsLoading } = useQuery({
+  const { data: accounts, isLoading: accountsLoading } = useQuery<BankAccount[]>({
     queryKey: ["/api/banking/accounts"],
   });
 
   // Fetch transactions for selected account
-  const { data: transactions, isLoading: transactionsLoading } = useQuery({
+  const { data: transactions, isLoading: transactionsLoading } = useQuery<BankTransaction[]>({
     queryKey: ["/api/banking/transactions", selectedAccount],
     enabled: !!selectedAccount,
   });

@@ -23,6 +23,7 @@ import {
   insertAgentNetworkSchema,
   users,
   wallets,
+  rtgsTransactions,
 } from "@shared/schema";
 import { nfsGateway } from "./nfs-gateway";
 import { rtgsGateway } from "./rtgs-gateway";
@@ -1293,14 +1294,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Update local records if settled
       if (status.status === 'settled') {
-        const rtgsTransaction = await db.select()
+        const rtgsTransactionRecord = await db.select()
           .from(rtgsTransactions)
           .where(eq(rtgsTransactions.rtgsRef, rtgsRef))
           .limit(1);
           
-        if (rtgsTransaction[0]) {
-          await storage.updateRtgsTransactionStatus(rtgsTransaction[0].id, 'settled');
-          await storage.updateBankTransactionStatus(rtgsTransaction[0].bankTransactionId, 'completed');
+        if (rtgsTransactionRecord[0]) {
+          await storage.updateRtgsTransactionStatus(rtgsTransactionRecord[0].id, 'settled');
+          await storage.updateBankTransactionStatus(rtgsTransactionRecord[0].bankTransactionId, 'completed');
         }
       }
 
@@ -1394,8 +1395,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         reportType,
         reportPeriod,
         generatedFor: req.body.period,
-        status: 'generated',
-        filePath: reportResult.filePath
+        status: 'generated'
       });
 
       res.json(reportResult);

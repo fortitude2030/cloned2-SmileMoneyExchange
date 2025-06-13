@@ -12,6 +12,7 @@ import MerchantDashboard from "@/pages/merchant-dashboard";
 import CashierDashboard from "@/pages/cashier-dashboard";
 import FinancePortal from "@/pages/finance-portal";
 import AdminDashboard from "@/pages/admin-dashboard";
+import CoreBankingDashboard from "@/pages/core-banking-dashboard";
 
 function Router() {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -59,6 +60,7 @@ function Router() {
           <Route path="/finance" component={FinancePortal} />
           <Route path="/admin-dashboard" component={AdminDashboard} />
           <Route path="/admin" component={AdminDashboard} />
+          <Route path="/core-banking" component={CoreBankingDashboard} />
         </>
       )}
       <Route component={NotFound} />
