@@ -49,11 +49,11 @@ function Router() {
               case 'cashier':
                 return <CashierDashboard />;
               case 'finance':
-                return <FinancePortal />;
+                return <CoreBankingDashboard />;
               case 'admin':
-                return <AdminDashboard />;
+                return <CoreBankingDashboard />;
               default:
-                return <Landing />;
+                return <CoreBankingDashboard />;
             }
           }} />
           <Route path="/merchant-dashboard" component={MerchantDashboard} />

@@ -64,14 +64,21 @@ export default function Landing() {
               className="w-full bg-primary hover:bg-primary/90 text-white py-3 rounded-xl font-semibold"
               disabled={!selectedRole}
             >
-              Sign In to Smile Money
+              Access Core Banking
             </Button>
           </div>
 
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Secure fintech platform for merchants
+              Electronic Money Institution Platform
             </p>
+            <Button 
+              onClick={() => window.location.href = "/dev-login"}
+              variant="outline"
+              className="mt-2 text-sm"
+            >
+              Banking Operations Login
+            </Button>
           </div>
         </CardContent>
       </Card>
