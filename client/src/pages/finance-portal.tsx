@@ -22,7 +22,6 @@ const settlementSchema = z.object({
   amount: z.string().min(1, "Amount is required").transform((val) => Math.floor(parseFloat(val)).toString()),
   bankName: z.string().min(1, "Bank name is required"),
   accountNumber: z.string().min(1, "Account number is required"),
-  priority: z.string().default("medium"),
 });
 
 export default function FinancePortal() {
@@ -128,7 +127,6 @@ export default function FinancePortal() {
       return await apiRequest("POST", "/api/settlement-requests", {
         ...data,
         amount: Math.floor(parseFloat(data.amount)).toString(),
-        priority: data.priority || "medium",
       });
     },
     onSuccess: (data: any) => {
@@ -269,18 +267,7 @@ export default function FinancePortal() {
     }
   };
 
-  const getPriorityBadge = (priority: string) => {
-    switch (priority) {
-      case 'high':
-        return <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 font-medium border border-red-300">High Priority</Badge>;
-      case 'medium':
-        return <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 font-medium border border-yellow-300">Medium Priority</Badge>;
-      case 'low':
-        return <Badge className="bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200 font-medium border border-gray-300">Low Priority</Badge>;
-      default:
-        return <Badge className="bg-gray-100 text-gray-800 font-medium border">{priority}</Badge>;
-    }
-  };
+
 
   const calculateTotalMerchantCollections = () => {
     return (merchantWallets as any[]).reduce((total: number, merchantWallet: any) => 
@@ -335,10 +322,7 @@ export default function FinancePortal() {
 
   const getStatusBreakdown = () => {
     if (!(settlementBreakdown as any)?.breakdown) return [];
-    return (settlementBreakdown as any).breakdown.map((item: any) => ({
-      ...item,
-      priority: item.status === 'pending' ? 'medium' : 'low' // Default priority for display
-    }));
+    return (settlementBreakdown as any).breakdown;
   };
 
   if (isLoading) {
@@ -661,20 +645,6 @@ export default function FinancePortal() {
                       )}
                     </div>
                     
-                    <div>
-                      <Label htmlFor="priority">Priority</Label>
-                      <Select onValueChange={(value) => settlementForm.setValue("priority", value)} defaultValue="medium">
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select priority" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="high">High</SelectItem>
-                          <SelectItem value="medium">Medium</SelectItem>
-                          <SelectItem value="low">Low</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
                     <Button type="submit" disabled={createSettlementRequest.isPending} className="w-full">
                       {createSettlementRequest.isPending ? "Creating..." : "Create Request"}
                     </Button>
@@ -739,7 +709,7 @@ export default function FinancePortal() {
                       <p className="text-gray-600 dark:text-gray-400 text-xs">
                         Submitted: {new Date(request.createdAt).toLocaleDateString()}
                       </p>
-                      {getPriorityBadge(request.priority)}
+
                     </div>
                     
                     {/* Display hold/reject reasons */}
