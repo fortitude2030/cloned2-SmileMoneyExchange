@@ -861,7 +861,7 @@ export class DatabaseStorage implements IStorage {
     const breakdown = allRequests.reduce((acc, request) => {
       const status = request.status;
       const amount = Math.floor(parseFloat(request.amount || '0'));
-      const requestDate = new Date(request.createdAt);
+      const requestDate = request.createdAt ? new Date(request.createdAt) : new Date();
       
       // For approved and rejected settlements, only include current month
       if ((status === 'approved' || status === 'rejected') && requestDate < startOfMonth) {

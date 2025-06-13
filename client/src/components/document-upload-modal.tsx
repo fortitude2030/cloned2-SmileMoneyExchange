@@ -20,6 +20,7 @@ interface UploadedDocument {
   name: string;
   file?: File;
   uploaded: boolean;
+  previewUrl?: string;
 }
 
 export default function DocumentUploadModal({ isOpen, onClose, transactionId }: DocumentUploadModalProps) {
@@ -46,6 +47,17 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
       setDocuments(initialDocuments);
     }
   }, [isOpen, initialDocuments]);
+
+  // Cleanup preview URLs on unmount
+  useEffect(() => {
+    return () => {
+      documents.forEach(doc => {
+        if (doc.previewUrl) {
+          URL.revokeObjectURL(doc.previewUrl);
+        }
+      });
+    };
+  }, [documents]);
 
   // Upload document mutation
   const uploadDocument = useMutation({
@@ -154,39 +166,14 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
       return;
     }
 
-    // Enhanced validation for fresh camera captures
-    const now = Date.now();
-    const fileDate = file.lastModified || now;
-    const timeDiff = now - fileDate;
-    
-    // Relaxed validation criteria for better compatibility
-    const isFreshPhoto = timeDiff < 300000; // Within last 5 minutes (increased from 1 minute)
-    const hasReasonableSize = file.size > 10000 && file.size < 25000000; // 10KB - 25MB (relaxed limits)
-    
-    if (!isFreshPhoto) {
-      console.warn(`Photo timestamp validation failed: ${timeDiff}ms old`);
-      toast({
-        title: "Fresh Photo Recommended",
-        description: "For best results, please capture a new photo using your camera.",
-        variant: "destructive",
-      });
-      // Don't return - allow the upload to continue
-    }
-    
-    if (!hasReasonableSize) {
-      toast({
-        title: "Invalid Photo Size",
-        description: "Photo must be between 10KB and 25MB. Please try again.",
-        variant: "destructive",
-      });
-      return;
-    }
+    // Create preview URL for the captured image
+    const previewUrl = URL.createObjectURL(file);
 
-    // Update document state
+    // Update document state with preview
     setDocuments(prev => 
       prev.map(doc => 
         doc.id === documentId 
-          ? { ...doc, file, uploaded: false }
+          ? { ...doc, file, uploaded: false, previewUrl }
           : doc
       )
     );
@@ -254,6 +241,13 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
   };
 
   const handleClose = () => {
+    // Clean up preview URLs to prevent memory leaks
+    documents.forEach(doc => {
+      if (doc.previewUrl) {
+        URL.revokeObjectURL(doc.previewUrl);
+      }
+    });
+    
     // Reset state when closing - use memoized initial documents
     setDocuments(initialDocuments);
     onClose();
@@ -281,13 +275,29 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
               }`}>
                 {document.uploaded ? (
                   <div className="text-center">
-                    <i className="fas fa-check-circle text-3xl text-success mb-2"></i>
+                    {document.previewUrl && (
+                      <div className="mb-3">
+                        <img 
+                          src={document.previewUrl} 
+                          alt="Captured document" 
+                          className="w-full max-w-32 h-24 object-cover rounded-lg mx-auto border-2 border-success"
+                        />
+                      </div>
+                    )}
+                    <i className="fas fa-check-circle text-2xl text-success mb-2"></i>
                     <p className="text-success text-sm font-medium">{document.name}</p>
                     <p className="text-success text-xs">Successfully uploaded</p>
                   </div>
-                ) : uploadDocument.isPending ? (
+                ) : document.previewUrl ? (
                   <div className="text-center">
-                    <i className="fas fa-spinner fa-spin text-3xl text-primary mb-2"></i>
+                    <div className="mb-3">
+                      <img 
+                        src={document.previewUrl} 
+                        alt="Captured document" 
+                        className="w-full max-w-32 h-24 object-cover rounded-lg mx-auto border-2 border-primary"
+                      />
+                    </div>
+                    <i className="fas fa-spinner fa-spin text-2xl text-primary mb-2"></i>
                     <p className="text-primary text-sm font-medium">Uploading...</p>
                     <p className="text-primary text-xs">Please wait</p>
                   </div>
