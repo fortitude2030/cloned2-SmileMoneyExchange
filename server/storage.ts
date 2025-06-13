@@ -822,7 +822,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPendingSettlementsTotal(organizationId: number): Promise<number> {
-    const pendingRequests = await db
+    const processingRequests = await db
       .select({
         amount: settlementRequests.amount
       })
@@ -830,11 +830,14 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(settlementRequests.organizationId, organizationId),
-          eq(settlementRequests.status, 'pending')
+          or(
+            eq(settlementRequests.status, 'pending'),
+            eq(settlementRequests.status, 'hold')
+          )
         )
       );
 
-    const total = pendingRequests.reduce((sum, request) => 
+    const total = processingRequests.reduce((sum, request) => 
       sum + Math.floor(parseFloat(request.amount || '0')), 0);
     
     return total;

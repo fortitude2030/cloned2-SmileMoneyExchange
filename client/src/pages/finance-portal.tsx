@@ -412,7 +412,7 @@ export default function FinancePortal() {
                 </p>
               </div>
               <div className="text-center">
-                <p className="text-orange-600 dark:text-orange-400">Pending</p>
+                <p className="text-orange-600 dark:text-orange-400">Processing</p>
                 <p className="font-semibold text-orange-800 dark:text-orange-200">
                   -{formatCurrency((settlementBreakdown as any)?.pendingTotal || 0)}
                 </p>
