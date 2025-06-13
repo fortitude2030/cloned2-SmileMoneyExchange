@@ -140,6 +140,7 @@ export default function AdminDashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/settlement-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/settlement-breakdown'] });
       toast({
         title: "Settlement request approved",
         description: "The settlement request has been approved successfully.",
@@ -161,6 +162,7 @@ export default function AdminDashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/settlement-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/settlement-breakdown'] });
       toast({
         title: "Settlement request released",
         description: "The settlement request has been released and approved successfully.",

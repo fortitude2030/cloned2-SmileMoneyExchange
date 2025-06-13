@@ -312,15 +312,15 @@ export default function FinancePortal() {
 
   const calculateSettlementCapacity = () => {
     const todaysCollections = Math.floor(parseFloat((wallet as any)?.todaysCollections || "0"));
-    const pendingTotal = Math.max(0, (settlementBreakdown as any)?.pendingTotal || 0);
+    const todaysUsage = Math.max(0, (settlementBreakdown as any)?.todaysUsage || 0);
     
-    // Finance Portal: Settlement Capacity = Today's Collections - Processing
-    const settlementCapacity = Math.max(0, todaysCollections - pendingTotal);
+    // Finance Portal: Settlement Capacity = Today's Collections - Today's Usage (pending + hold + approved)
+    const settlementCapacity = Math.max(0, todaysCollections - todaysUsage);
     
     // Debug logging for finance portal calculations
     console.log("Finance Settlement Capacity Debug:", {
       todaysCollections,
-      pendingTotal,
+      todaysUsage,
       settlementCapacity,
       walletData: wallet,
       settlementData: settlementBreakdown
@@ -428,9 +428,9 @@ export default function FinancePortal() {
                 </p>
               </div>
               <div className="text-center">
-                <p className="text-orange-600 dark:text-orange-400">Processing</p>
+                <p className="text-orange-600 dark:text-orange-400">Today's Usage</p>
                 <p className="font-semibold text-orange-800 dark:text-orange-200">
-                  -{formatCurrency((settlementBreakdown as any)?.pendingTotal || 0)}
+                  -{formatCurrency((settlementBreakdown as any)?.todaysUsage || 0)}
                 </p>
               </div>
               <div className="text-center">
