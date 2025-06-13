@@ -677,6 +677,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId,
         organizationId: user.organizationId,
         status: "pending", // Default status for new settlement requests
+        priority: "medium", // Default priority for finance portal requests
       });
       
       const request = await storage.createSettlementRequest(requestData);
