@@ -309,29 +309,28 @@ export default function FinancePortal() {
     };
   };
 
-  const calculateTrueAvailable = () => {
-    const masterBalance = Math.floor(parseFloat((wallet as any)?.balance || "0"));
+  const calculateSettlementCapacity = () => {
+    const todaysCollections = Math.floor(parseFloat((wallet as any)?.todaysCollections || "0"));
     const pendingTotal = Math.max(0, (settlementBreakdown as any)?.pendingTotal || 0);
     
-    // Calculate settlement capacity (never exceed master balance)
-    const calculatedCapacity = masterBalance - pendingTotal;
-    const settlementCapacity = Math.min(calculatedCapacity, masterBalance);
+    // Finance Portal: Settlement Capacity = Today's Collections - Processing
+    const settlementCapacity = Math.max(0, todaysCollections - pendingTotal);
     
-    // Ensure settlement capacity is never negative or exceeds master balance
-    const result = Math.max(0, settlementCapacity);
-    
-    // Debug logging to track settlement capacity calculation
-    console.log("Settlement Capacity Debug:", {
-      masterBalance,
+    // Debug logging for finance portal calculations
+    console.log("Finance Settlement Capacity Debug:", {
+      todaysCollections,
       pendingTotal,
-      calculatedCapacity,
       settlementCapacity,
-      result,
       walletData: wallet,
       settlementData: settlementBreakdown
     });
     
-    return result;
+    return settlementCapacity;
+  };
+
+  const getOrganizationFunds = () => {
+    // Organization funds = persistent wallet balance (different from settlement capacity)
+    return Math.floor(parseFloat((wallet as any)?.balance || "0"));
   };
 
   const getStatusBreakdown = () => {
@@ -412,22 +411,22 @@ export default function FinancePortal() {
           </Card>
         </div>
 
-        {/* Reserved Balance Breakdown */}
+        {/* Settlement Capacity Card */}
         <Card className="shadow-sm border border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-950 mb-6">
           <CardContent className="p-4">
             <div className="text-center mb-3">
               <p className="text-green-700 dark:text-green-300 text-sm font-medium">SETTLEMENT CAPACITY</p>
               <h2 className="text-2xl font-bold text-green-800 dark:text-green-200">
-                {formatCurrency(calculateTrueAvailable())}
+                {formatCurrency(calculateSettlementCapacity())}
               </h2>
-              <p className="text-green-600 dark:text-green-400 text-xs">True Available Balance</p>
+              <p className="text-green-600 dark:text-green-400 text-xs">Available for New Settlements</p>
             </div>
             
             <div className="grid grid-cols-3 gap-2 text-xs">
               <div className="text-center">
-                <p className="text-green-600 dark:text-green-400">Master Balance</p>
-                <p className="font-semibold text-green-800 dark:text-green-200">
-                  {formatCurrency((wallet as any)?.balance || "0")}
+                <p className="text-blue-600 dark:text-blue-400">Today's Collections</p>
+                <p className="font-semibold text-blue-800 dark:text-blue-200">
+                  {formatCurrency((wallet as any)?.todaysCollections || "0")}
                 </p>
               </div>
               <div className="text-center">
@@ -439,9 +438,22 @@ export default function FinancePortal() {
               <div className="text-center">
                 <p className="text-green-600 dark:text-green-400">Available</p>
                 <p className="font-semibold text-green-800 dark:text-green-200">
-                  {formatCurrency(calculateTrueAvailable())}
+                  {formatCurrency(calculateSettlementCapacity())}
                 </p>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Organization Funds Display */}
+        <Card className="shadow-sm border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-950 mb-6">
+          <CardContent className="p-4">
+            <div className="text-center">
+              <p className="text-blue-700 dark:text-blue-300 text-sm font-medium">ORGANIZATION FUNDS</p>
+              <h3 className="text-xl font-bold text-blue-800 dark:text-blue-200">
+                {formatCurrency(getOrganizationFunds())}
+              </h3>
+              <p className="text-blue-600 dark:text-blue-400 text-xs">Total Wallet Balance</p>
             </div>
           </CardContent>
         </Card>

@@ -207,10 +207,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/wallet', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
       const wallet = await storage.getOrCreateWallet(userId);
       
       // Get today's transaction totals
       const todayTotals = await storage.getTodayTransactionTotals(userId);
+      
+      // For finance users, include organization-wide today's collections
+      let todaysCollections = 0;
+      if (user?.role === 'finance' && user.organizationId) {
+        todaysCollections = await storage.getTodaysCollectionsByOrganization(user.organizationId);
+      }
       
       // Disable caching for real-time balance updates
       res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
@@ -222,6 +229,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...wallet,
         todayCompleted: todayTotals.completed,
         todayTotal: todayTotals.total,
+        todaysCollections, // Organization-wide collections for finance users
+        userRole: user?.role,
         timestamp: new Date().getTime() // Force cache busting
       });
     } catch (error) {

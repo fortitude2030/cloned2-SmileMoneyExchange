@@ -87,6 +87,7 @@ export interface IStorage {
   getMerchantWalletsByOrganization(organizationId: number): Promise<(Wallet & { user: User })[]>;
   getPendingSettlementsTotal(organizationId: number): Promise<number>;
   getSettlementBreakdown(organizationId: number): Promise<{ status: string; total: number; count: number }[]>;
+  getTodaysCollectionsByOrganization(organizationId: number): Promise<number>;
   
   // QR Code operations
   createQrCode(qrCodeData: InsertQrCode): Promise<QrCode>;
@@ -898,6 +899,32 @@ export class DatabaseStorage implements IStorage {
     }, {} as Record<string, { status: string; total: number; count: number }>);
 
     return Object.values(breakdown);
+  }
+
+  async getTodaysCollectionsByOrganization(organizationId: number): Promise<number> {
+    // Get start of today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Get all merchant wallets for this organization
+    const merchantWallets = await db
+      .select({
+        dailyCollected: wallets.dailyCollected
+      })
+      .from(wallets)
+      .innerJoin(users, eq(wallets.userId, users.id))
+      .where(
+        and(
+          eq(users.organizationId, organizationId),
+          eq(users.role, 'merchant')
+        )
+      );
+
+    // Sum up all daily collections from merchants
+    const todaysTotal = merchantWallets.reduce((sum, wallet) => 
+      sum + Math.floor(parseFloat(wallet.dailyCollected || '0')), 0);
+    
+    return todaysTotal;
   }
 
   // Notification operations
