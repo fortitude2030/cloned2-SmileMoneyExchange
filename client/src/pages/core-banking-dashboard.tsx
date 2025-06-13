@@ -314,11 +314,11 @@ export default function CoreBankingDashboard() {
                         <SelectValue placeholder="Select destination account" />
                       </SelectTrigger>
                       <SelectContent>
-                        {accounts?.map((account: BankAccount) => (
+                        {accounts ? accounts.map((account: BankAccount) => (
                           <SelectItem key={account.id} value={account.id.toString()}>
                             {account.accountNumber} ({formatCurrency(account.balance, account.currency)})
                           </SelectItem>
-                        ))}
+                        )) : null}
                       </SelectContent>
                     </Select>
                   </div>

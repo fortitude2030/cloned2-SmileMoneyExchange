@@ -13,6 +13,7 @@ import CashierDashboard from "@/pages/cashier-dashboard";
 import FinancePortal from "@/pages/finance-portal";
 import AdminDashboard from "@/pages/admin-dashboard";
 import CoreBankingDashboard from "@/pages/core-banking-dashboard";
+import DevLogin from "@/pages/dev-login";
 
 function Router() {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -33,7 +34,10 @@ function Router() {
   return (
     <Switch>
       {!isAuthenticated ? (
-        <Route path="/" component={Landing} />
+        <>
+          <Route path="/" component={Landing} />
+          <Route path="/dev-login" component={DevLogin} />
+        </>
       ) : (
         <>
           <Route path="/" component={() => {
