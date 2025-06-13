@@ -422,15 +422,15 @@ export default function FinancePortal() {
             
             <div className="grid grid-cols-3 gap-2 text-xs">
               <div className="text-center">
-                <p className="text-blue-600 dark:text-blue-400">Today's Collections</p>
+                <p className="text-blue-600 dark:text-blue-400">Today's Usage</p>
                 <p className="font-semibold text-blue-800 dark:text-blue-200">
-                  {formatCurrency((wallet as any)?.todaysCollections || "0")}
+                  {formatCurrency((settlementBreakdown as any)?.todaysUsage || 0)}
                 </p>
               </div>
               <div className="text-center">
-                <p className="text-orange-600 dark:text-orange-400">Today's Usage</p>
+                <p className="text-orange-600 dark:text-orange-400">Pending</p>
                 <p className="font-semibold text-orange-800 dark:text-orange-200">
-                  -{formatCurrency((settlementBreakdown as any)?.todaysUsage || 0)}
+                  -{formatCurrency((settlementBreakdown as any)?.pendingTotal || 0)}
                 </p>
               </div>
               <div className="text-center">
