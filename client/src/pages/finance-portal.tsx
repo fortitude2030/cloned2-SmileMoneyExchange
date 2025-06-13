@@ -298,13 +298,13 @@ export default function FinancePortal() {
   const validateSettlementAmount = (amount: string) => {
     const requestedAmount = Math.floor(parseFloat(amount || "0"));
     const todaysCollections = Math.floor(parseFloat((wallet as any)?.todaysCollections || "0"));
-    const pendingTotal = (settlementBreakdown as any)?.pendingTotal || 0;
-    const settlementCapacity = Math.max(0, todaysCollections - pendingTotal);
+    const todaysUsage = (settlementBreakdown as any)?.todaysUsage || 0;
+    const settlementCapacity = Math.max(0, todaysCollections - todaysUsage);
     
     return {
       isValid: requestedAmount <= settlementCapacity,
       todaysCollections,
-      pendingTotal,
+      todaysUsage,
       settlementCapacity,
       requestedAmount
     };

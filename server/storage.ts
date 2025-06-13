@@ -86,6 +86,7 @@ export interface IStorage {
   // Finance operations
   getMerchantWalletsByOrganization(organizationId: number): Promise<(Wallet & { user: User })[]>;
   getPendingSettlementsTotal(organizationId: number): Promise<number>;
+  getTodaysSettlementUsage(organizationId: number): Promise<number>;
   getSettlementBreakdown(organizationId: number): Promise<{ status: string; total: number; count: number }[]>;
   getTodaysCollectionsByOrganization(organizationId: number): Promise<number>;
   
@@ -839,6 +840,35 @@ export class DatabaseStorage implements IStorage {
       );
 
     const total = processingRequests.reduce((sum, request) => 
+      sum + Math.floor(parseFloat(request.amount || '0')), 0);
+    
+    return total;
+  }
+
+  async getTodaysSettlementUsage(organizationId: number): Promise<number> {
+    // Get start of today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Get all settlements from today (pending, hold, and approved)
+    const todaysRequests = await db
+      .select({
+        amount: settlementRequests.amount
+      })
+      .from(settlementRequests)
+      .where(
+        and(
+          eq(settlementRequests.organizationId, organizationId),
+          gte(settlementRequests.createdAt, today),
+          or(
+            eq(settlementRequests.status, 'pending'),
+            eq(settlementRequests.status, 'hold'),
+            eq(settlementRequests.status, 'approved')
+          )
+        )
+      );
+
+    const total = todaysRequests.reduce((sum, request) => 
       sum + Math.floor(parseFloat(request.amount || '0')), 0);
     
     return total;

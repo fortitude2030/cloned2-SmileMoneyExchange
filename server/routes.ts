@@ -192,10 +192,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const breakdown = await storage.getSettlementBreakdown(user.organizationId);
       const pendingTotal = await storage.getPendingSettlementsTotal(user.organizationId);
+      const todaysUsage = await storage.getTodaysSettlementUsage(user.organizationId);
       
       res.json({
         breakdown,
-        pendingTotal
+        pendingTotal,
+        todaysUsage
       });
     } catch (error) {
       console.error("Error fetching settlement breakdown:", error);
@@ -656,8 +658,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Calculate settlement capacity based on today's collections for finance users
       const todaysCollections = await storage.getTodaysCollectionsByOrganization(user.organizationId);
-      const pendingTotal = await storage.getPendingSettlementsTotal(user.organizationId);
-      const settlementCapacity = Math.max(0, todaysCollections - pendingTotal);
+      const todaysUsage = await storage.getTodaysSettlementUsage(user.organizationId);
+      const settlementCapacity = Math.max(0, todaysCollections - todaysUsage);
       
       const requestAmount = Math.floor(parseFloat(req.body.amount || '0'));
       
@@ -666,7 +668,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ 
           message: `Insufficient settlement capacity. Available: ZMW ${settlementCapacity.toLocaleString()}, Requested: ZMW ${requestAmount.toLocaleString()}`,
           todaysCollections,
-          pendingTotal,
+          todaysUsage,
           settlementCapacity,
           requestAmount
         });
