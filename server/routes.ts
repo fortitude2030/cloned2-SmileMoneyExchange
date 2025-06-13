@@ -15,9 +15,18 @@ import {
   insertDocumentSchema,
   insertSettlementRequestSchema,
   insertQrCodeSchema,
+  insertBankAccountSchema,
+  insertBankTransactionSchema,
+  insertNfsTransactionSchema,
+  insertRtgsTransactionSchema,
+  insertComplianceCheckSchema,
+  insertAgentNetworkSchema,
   users,
   wallets,
 } from "@shared/schema";
+import { nfsGateway } from "./nfs-gateway";
+import { rtgsGateway } from "./rtgs-gateway";
+import { complianceEngine } from "./compliance-engine";
 import crypto from "crypto";
 
 // Optimized image processing - minimal conversion for faster uploads
@@ -1083,6 +1092,316 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating test settlement requests:", error);
       res.status(500).json({ message: "Failed to create test settlement requests" });
+    }
+  });
+
+  // Core Banking API Routes
+  
+  // Account Management
+  app.post('/api/banking/accounts', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const validatedData = insertBankAccountSchema.parse({ ...req.body, userId });
+      
+      const account = await storage.createBankAccount(validatedData);
+      res.status(201).json(account);
+    } catch (error) {
+      console.error("Error creating bank account:", error);
+      res.status(500).json({ message: "Failed to create bank account" });
+    }
+  });
+
+  app.get('/api/banking/accounts', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const accounts = await storage.getBankAccountsByUserId(userId);
+      res.json(accounts);
+    } catch (error) {
+      console.error("Error fetching bank accounts:", error);
+      res.status(500).json({ message: "Failed to fetch bank accounts" });
+    }
+  });
+
+  app.get('/api/banking/accounts/:accountNumber', isAuthenticated, async (req: any, res) => {
+    try {
+      const { accountNumber } = req.params;
+      const account = await storage.getBankAccountByNumber(accountNumber);
+      
+      if (!account) {
+        return res.status(404).json({ message: "Account not found" });
+      }
+      
+      res.json(account);
+    } catch (error) {
+      console.error("Error fetching bank account:", error);
+      res.status(500).json({ message: "Failed to fetch bank account" });
+    }
+  });
+
+  // Transaction Processing
+  app.post('/api/banking/transactions', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const transactionData = insertBankTransactionSchema.parse(req.body);
+      
+      // Compliance screening
+      const screeningResult = await complianceEngine.screenTransaction({
+        userId,
+        amount: parseFloat(transactionData.amount),
+        currency: transactionData.currency || "ZMW",
+        type: transactionData.transactionType,
+        beneficiaryName: req.body.beneficiaryName,
+        beneficiaryCountry: req.body.beneficiaryCountry
+      });
+
+      if (!screeningResult.approved && !screeningResult.requiresManualReview) {
+        return res.status(400).json({ 
+          message: "Transaction blocked by compliance screening",
+          alerts: screeningResult.alerts
+        });
+      }
+
+      // Create transaction
+      const transaction = await storage.createBankTransaction(transactionData);
+
+      // Update account balances if not requiring manual review
+      if (screeningResult.approved) {
+        if (transactionData.fromAccountId) {
+          await storage.updateAccountBalance(transactionData.fromAccountId, transactionData.amount, 'debit');
+        }
+        if (transactionData.toAccountId) {
+          await storage.updateAccountBalance(transactionData.toAccountId, transactionData.amount, 'credit');
+        }
+        await storage.updateBankTransactionStatus(transaction.id, 'completed');
+      }
+
+      // Create compliance record
+      await storage.createComplianceCheck({
+        userId,
+        transactionId: transaction.id,
+        checkType: 'aml',
+        status: screeningResult.approved ? 'passed' : 'manual_review',
+        riskScore: screeningResult.riskScore,
+        alerts: screeningResult.alerts.map(a => a.description)
+      });
+
+      res.status(201).json({ 
+        transaction, 
+        complianceStatus: screeningResult,
+        requiresManualReview: screeningResult.requiresManualReview
+      });
+    } catch (error) {
+      console.error("Error processing transaction:", error);
+      res.status(500).json({ message: "Failed to process transaction" });
+    }
+  });
+
+  app.get('/api/banking/transactions', isAuthenticated, async (req: any, res) => {
+    try {
+      const { accountId } = req.query;
+      
+      if (!accountId) {
+        return res.status(400).json({ message: "Account ID is required" });
+      }
+
+      const transactions = await storage.getBankTransactionsByAccountId(parseInt(accountId as string));
+      res.json(transactions);
+    } catch (error) {
+      console.error("Error fetching transactions:", error);
+      res.status(500).json({ message: "Failed to fetch transactions" });
+    }
+  });
+
+  // NFS Integration Endpoints
+  app.post('/api/nfs/process', async (req, res) => {
+    try {
+      const nfsRequest = req.body;
+      const response = await nfsGateway.processNFSRequest(nfsRequest);
+      
+      // Log NFS transaction
+      if (nfsRequest.bankTransactionId) {
+        await storage.createNfsTransaction({
+          bankTransactionId: nfsRequest.bankTransactionId,
+          nfsMessageType: nfsRequest.messageType,
+          stan: nfsRequest.stan,
+          rrn: nfsRequest.rrn,
+          responseCode: response.responseCode,
+          terminalId: nfsRequest.terminalId,
+          merchantId: nfsRequest.merchantId,
+          cardNumber: nfsRequest.cardNumber,
+          processingCode: nfsRequest.processingCode,
+          authCode: response.authCode,
+          rawMessage: JSON.stringify(nfsRequest)
+        });
+      }
+
+      res.json(response);
+    } catch (error) {
+      console.error("NFS processing error:", error);
+      res.status(500).json({ responseCode: '96', responseMessage: 'System Error' });
+    }
+  });
+
+  // RTGS Integration Endpoints
+  app.post('/api/rtgs/submit', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      // Only finance users can submit RTGS payments
+      if (user?.role !== 'finance') {
+        return res.status(403).json({ message: "Access denied. Finance role required." });
+      }
+
+      const rtgsPayment = req.body;
+      const response = await rtgsGateway.submitRTGSPayment(rtgsPayment);
+      
+      // Create bank transaction record
+      if (response.status === 'accepted') {
+        const bankTransaction = await storage.createBankTransaction({
+          amount: rtgsPayment.amount,
+          currency: rtgsPayment.currency,
+          transactionType: 'rtgs_transfer',
+          channel: 'rtgs',
+          status: 'pending',
+          description: `RTGS transfer to ${rtgsPayment.receiverBank}`,
+          externalRef: response.rtgsRef
+        });
+
+        // Create RTGS transaction record
+        await storage.createRtgsTransaction({
+          bankTransactionId: bankTransaction.id,
+          rtgsRef: response.rtgsRef,
+          senderBank: rtgsPayment.senderBank,
+          receiverBank: rtgsPayment.receiverBank,
+          messageType: rtgsPayment.messageType,
+          status: 'pending'
+        });
+      }
+
+      res.json(response);
+    } catch (error) {
+      console.error("RTGS submission error:", error);
+      res.status(500).json({ message: "Failed to submit RTGS payment" });
+    }
+  });
+
+  app.get('/api/rtgs/status/:rtgsRef', isAuthenticated, async (req: any, res) => {
+    try {
+      const { rtgsRef } = req.params;
+      const status = await rtgsGateway.checkRTGSStatus(rtgsRef);
+      
+      // Update local records if settled
+      if (status.status === 'settled') {
+        const rtgsTransaction = await db.select()
+          .from(rtgsTransactions)
+          .where(eq(rtgsTransactions.rtgsRef, rtgsRef))
+          .limit(1);
+          
+        if (rtgsTransaction[0]) {
+          await storage.updateRtgsTransactionStatus(rtgsTransaction[0].id, 'settled');
+          await storage.updateBankTransactionStatus(rtgsTransaction[0].bankTransactionId, 'completed');
+        }
+      }
+
+      res.json(status);
+    } catch (error) {
+      console.error("RTGS status check error:", error);
+      res.status(500).json({ message: "Failed to check RTGS status" });
+    }
+  });
+
+  // Agent Network Management
+  app.post('/api/agents', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      // Only admin users can create agents
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Admin role required." });
+      }
+
+      const agentData = insertAgentNetworkSchema.parse({ ...req.body, userId: req.body.userId });
+      
+      // Generate unique agent code
+      const agentCode = `AGT${Date.now().toString().slice(-6)}`;
+      const agent = await storage.createAgentNetwork({ ...agentData, agentCode });
+      
+      res.status(201).json(agent);
+    } catch (error) {
+      console.error("Error creating agent:", error);
+      res.status(500).json({ message: "Failed to create agent" });
+    }
+  });
+
+  app.get('/api/agents/:agentCode', isAuthenticated, async (req: any, res) => {
+    try {
+      const { agentCode } = req.params;
+      const agent = await storage.getAgentNetworkByCode(agentCode);
+      
+      if (!agent) {
+        return res.status(404).json({ message: "Agent not found" });
+      }
+      
+      res.json(agent);
+    } catch (error) {
+      console.error("Error fetching agent:", error);
+      res.status(500).json({ message: "Failed to fetch agent" });
+    }
+  });
+
+  // Compliance and Reporting
+  app.get('/api/compliance/checks/:userId', isAuthenticated, async (req: any, res) => {
+    try {
+      const requestingUser = await storage.getUser(req.user.claims.sub);
+      
+      // Only admin and finance users can view compliance checks
+      if (!['admin', 'finance'].includes(requestingUser?.role || '')) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { userId } = req.params;
+      const checks = await storage.getComplianceChecksByUserId(userId);
+      res.json(checks);
+    } catch (error) {
+      console.error("Error fetching compliance checks:", error);
+      res.status(500).json({ message: "Failed to fetch compliance checks" });
+    }
+  });
+
+  app.post('/api/regulatory/reports', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      // Only finance and admin users can generate reports
+      if (!['admin', 'finance'].includes(user?.role || '')) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { reportType, reportPeriod } = req.body;
+      
+      let reportResult;
+      if (reportType === 'boz_return') {
+        reportResult = await complianceEngine.generateBoZReport(reportPeriod, req.body.period);
+      } else {
+        return res.status(400).json({ message: "Unsupported report type" });
+      }
+
+      // Store report record
+      await storage.createRegulatoryReport({
+        reportType,
+        reportPeriod,
+        generatedFor: req.body.period,
+        status: 'generated',
+        filePath: reportResult.filePath
+      });
+
+      res.json(reportResult);
+    } catch (error) {
+      console.error("Error generating regulatory report:", error);
+      res.status(500).json({ message: "Failed to generate regulatory report" });
     }
   });
 
