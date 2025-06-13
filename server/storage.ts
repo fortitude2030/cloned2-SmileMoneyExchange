@@ -1277,6 +1277,205 @@ export class DatabaseStorage implements IStorage {
       .where(eq(regulatoryReports.reportType, type))
       .orderBy(desc(regulatoryReports.createdAt));
   }
+
+  // Core Banking Operations Implementation
+  
+  // Account Management
+  async createBankAccount(account: InsertBankAccount): Promise<BankAccount> {
+    const [bankAccount] = await db
+      .insert(bankAccounts)
+      .values({
+        ...account,
+        accountNumber: `ACC${Date.now()}${Math.floor(Math.random() * 1000)}`,
+        balance: "0",
+        availableBalance: "0",
+        status: "active"
+      })
+      .returning();
+    return bankAccount;
+  }
+
+  async getBankAccountById(id: number): Promise<BankAccount | undefined> {
+    const [account] = await db
+      .select()
+      .from(bankAccounts)
+      .where(eq(bankAccounts.id, id));
+    return account;
+  }
+
+  async getBankAccountByNumber(accountNumber: string): Promise<BankAccount | undefined> {
+    const [account] = await db
+      .select()
+      .from(bankAccounts)
+      .where(eq(bankAccounts.accountNumber, accountNumber));
+    return account;
+  }
+
+  async getBankAccountsByUserId(userId: string): Promise<BankAccount[]> {
+    return await db
+      .select()
+      .from(bankAccounts)
+      .where(eq(bankAccounts.userId, userId))
+      .orderBy(desc(bankAccounts.createdAt));
+  }
+
+  async updateAccountBalance(accountId: number, amount: string, type: 'credit' | 'debit'): Promise<void> {
+    const account = await this.getBankAccountById(accountId);
+    if (!account) throw new Error("Account not found");
+
+    const currentBalance = parseFloat(account.balance || "0");
+    const changeAmount = parseFloat(amount);
+    const newBalance = type === 'credit' 
+      ? currentBalance + changeAmount 
+      : currentBalance - changeAmount;
+
+    await db
+      .update(bankAccounts)
+      .set({ 
+        balance: newBalance.toString(),
+        availableBalance: newBalance.toString(),
+        updatedAt: new Date()
+      })
+      .where(eq(bankAccounts.id, accountId));
+  }
+
+  // Transaction Processing
+  async createBankTransaction(transaction: InsertBankTransaction): Promise<BankTransaction> {
+    const [bankTransaction] = await db
+      .insert(bankTransactions)
+      .values({
+        ...transaction,
+        transactionRef: `TXN${Date.now()}${Math.floor(Math.random() * 1000)}`,
+        status: transaction.status || "pending"
+      })
+      .returning();
+    return bankTransaction;
+  }
+
+  async getBankTransactionById(id: number): Promise<BankTransaction | undefined> {
+    const [transaction] = await db
+      .select()
+      .from(bankTransactions)
+      .where(eq(bankTransactions.id, id));
+    return transaction;
+  }
+
+  async getBankTransactionByRef(ref: string): Promise<BankTransaction | undefined> {
+    const [transaction] = await db
+      .select()
+      .from(bankTransactions)
+      .where(eq(bankTransactions.transactionRef, ref));
+    return transaction;
+  }
+
+  async getBankTransactionsByAccountId(accountId: number): Promise<BankTransaction[]> {
+    return await db
+      .select()
+      .from(bankTransactions)
+      .where(or(
+        eq(bankTransactions.fromAccountId, accountId),
+        eq(bankTransactions.toAccountId, accountId)
+      ))
+      .orderBy(desc(bankTransactions.createdAt));
+  }
+
+  async updateBankTransactionStatus(id: number, status: string): Promise<void> {
+    await db
+      .update(bankTransactions)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(bankTransactions.id, id));
+  }
+
+  // NFS Integration
+  async createNfsTransaction(nfsData: InsertNfsTransaction): Promise<NfsTransaction> {
+    const [nfsTransaction] = await db
+      .insert(nfsTransactions)
+      .values(nfsData)
+      .returning();
+    return nfsTransaction;
+  }
+
+  async getNfsTransactionByBankTransactionId(bankTransactionId: number): Promise<NfsTransaction | undefined> {
+    const [nfsTransaction] = await db
+      .select()
+      .from(nfsTransactions)
+      .where(eq(nfsTransactions.bankTransactionId, bankTransactionId));
+    return nfsTransaction;
+  }
+
+  // RTGS Integration
+  async createRtgsTransaction(rtgsData: InsertRtgsTransaction): Promise<RtgsTransaction> {
+    const [rtgsTransaction] = await db
+      .insert(rtgsTransactions)
+      .values(rtgsData)
+      .returning();
+    return rtgsTransaction;
+  }
+
+  async getRtgsTransactionByBankTransactionId(bankTransactionId: number): Promise<RtgsTransaction | undefined> {
+    const [rtgsTransaction] = await db
+      .select()
+      .from(rtgsTransactions)
+      .where(eq(rtgsTransactions.bankTransactionId, bankTransactionId));
+    return rtgsTransaction;
+  }
+
+  async updateRtgsTransactionStatus(id: number, status: string): Promise<void> {
+    await db
+      .update(rtgsTransactions)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(rtgsTransactions.id, id));
+  }
+
+  // Compliance
+  async createComplianceCheck(check: InsertComplianceCheck): Promise<ComplianceCheck> {
+    const [complianceCheck] = await db
+      .insert(complianceChecks)
+      .values(check)
+      .returning();
+    return complianceCheck;
+  }
+
+  async getComplianceChecksByUserId(userId: string): Promise<ComplianceCheck[]> {
+    return await db
+      .select()
+      .from(complianceChecks)
+      .where(eq(complianceChecks.userId, userId))
+      .orderBy(desc(complianceChecks.createdAt));
+  }
+
+  async getComplianceChecksByTransactionId(transactionId: number): Promise<ComplianceCheck[]> {
+    return await db
+      .select()
+      .from(complianceChecks)
+      .where(eq(complianceChecks.transactionId, transactionId))
+      .orderBy(desc(complianceChecks.createdAt));
+  }
+
+  // Agent Network
+  async createAgentNetwork(agent: InsertAgentNetwork): Promise<AgentNetwork> {
+    const [agentNetwork] = await db
+      .insert(agentNetworks)
+      .values(agent)
+      .returning();
+    return agentNetwork;
+  }
+
+  async getAgentNetworkByCode(agentCode: string): Promise<AgentNetwork | undefined> {
+    const [agent] = await db
+      .select()
+      .from(agentNetworks)
+      .where(eq(agentNetworks.agentCode, agentCode));
+    return agent;
+  }
+
+  async getAgentNetworksByUserId(userId: string): Promise<AgentNetwork[]> {
+    return await db
+      .select()
+      .from(agentNetworks)
+      .where(eq(agentNetworks.userId, userId))
+      .orderBy(desc(agentNetworks.createdAt));
+  }
 }
 
 export const storage = new DatabaseStorage();
