@@ -50,32 +50,44 @@ export default function FinancePortal() {
     retry: false,
   });
 
-  // Fetch merchant wallets
+  // Fetch merchant wallets with unified refresh interval
   const { data: merchantWallets = [], isLoading: merchantWalletsLoading } = useQuery({
     queryKey: ["/api/merchant-wallets"],
     retry: false,
+    refetchInterval: 2000, // Unified 2-second refresh
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    staleTime: 0,
   });
 
-  // Fetch wallet
+  // Fetch wallet with real-time updates
   const { data: wallet } = useQuery({
     queryKey: ["/api/wallet"],
     retry: false,
+    refetchInterval: 2000, // Refresh every 2 seconds for real-time capacity updates
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    staleTime: 0,
   });
 
-  // Fetch settlement requests with auto-refresh
+  // Fetch settlement requests with unified refresh interval
   const { data: settlementRequests = [], isLoading: settlementsLoading } = useQuery({
     queryKey: ["/api/settlement-requests"],
     retry: false,
-    refetchInterval: 30000, // Auto-refresh every 30 seconds
-    refetchIntervalInBackground: false, // Only refresh when tab is active
+    refetchInterval: 2000, // Unified 2-second refresh
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    staleTime: 0,
   });
 
-  // Fetch settlement breakdown with auto-refresh
+  // Fetch settlement breakdown with unified refresh interval
   const { data: settlementBreakdown } = useQuery({
     queryKey: ["/api/settlement-breakdown"],
     retry: false,
-    refetchInterval: 60000, // Auto-refresh every 60 seconds
-    refetchIntervalInBackground: false,
+    refetchInterval: 2000, // Unified 2-second refresh
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    staleTime: 0,
   });
 
   // Fetch branches
@@ -96,7 +108,6 @@ export default function FinancePortal() {
       amount: "",
       bankName: "",
       accountNumber: "",
-      priority: "medium",
     },
   });
 
@@ -135,8 +146,11 @@ export default function FinancePortal() {
         title: "Settlement Request Created",
         description: `Settlement request for ZMW ${amount} submitted successfully`,
       });
+      // Invalidate all finance portal data for immediate updates
       queryClient.invalidateQueries({ queryKey: ["/api/settlement-requests"] });
       queryClient.invalidateQueries({ queryKey: ["/api/settlement-breakdown"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/wallet"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/merchant-wallets"] });
       setShowSettlementDialog(false);
       settlementForm.reset();
     },

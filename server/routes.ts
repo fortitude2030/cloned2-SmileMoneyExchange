@@ -654,21 +654,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Only finance officers with organizations can create settlement requests" });
       }
 
-      // Calculate true available balance
-      const financeWallet = await storage.getOrCreateWallet(userId);
-      const masterBalance = Math.floor(parseFloat(financeWallet.balance || '0'));
+      // Calculate settlement capacity based on today's collections for finance users
+      const todaysCollections = await storage.getTodaysCollectionsByOrganization(user.organizationId);
       const pendingTotal = await storage.getPendingSettlementsTotal(user.organizationId);
-      const trueAvailable = masterBalance - pendingTotal;
+      const settlementCapacity = Math.max(0, todaysCollections - pendingTotal);
       
       const requestAmount = Math.floor(parseFloat(req.body.amount || '0'));
       
-      // Validate against true available balance
-      if (requestAmount > trueAvailable) {
+      // Validate against settlement capacity
+      if (requestAmount > settlementCapacity) {
         return res.status(400).json({ 
-          message: `Insufficient funds. Available: ZMW ${trueAvailable.toLocaleString()}, Requested: ZMW ${requestAmount.toLocaleString()}`,
-          masterBalance,
+          message: `Insufficient settlement capacity. Available: ZMW ${settlementCapacity.toLocaleString()}, Requested: ZMW ${requestAmount.toLocaleString()}`,
+          todaysCollections,
           pendingTotal,
-          trueAvailable,
+          settlementCapacity,
           requestAmount
         });
       }
