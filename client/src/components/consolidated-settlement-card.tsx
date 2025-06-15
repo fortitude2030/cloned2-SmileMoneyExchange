@@ -15,10 +15,6 @@ interface MonthlySettlementData {
   lastUpdated: string;
 }
 
-interface WalletData {
-  balance: string;
-}
-
 export function ConsolidatedSettlementCard() {
   const [period, setPeriod] = useState<'weekly' | 'monthly' | 'yearly'>('monthly');
 
@@ -29,12 +25,7 @@ export function ConsolidatedSettlementCard() {
       if (!response.ok) throw new Error('Failed to fetch settlement data');
       return response.json();
     },
-    refetchInterval: 30000,
-  });
-
-  const { data: walletData } = useQuery<WalletData>({
-    queryKey: ['/api/wallet'],
-    refetchInterval: 30000,
+    refetchInterval: 30000, // Refresh every 30 seconds
   });
 
   const formatCurrency = (amount: number) => {
@@ -175,10 +166,9 @@ export function ConsolidatedSettlementCard() {
               </div>
             </div>
 
-            {/* Total Volume and Organization Funds - Two Column Layout */}
+            {/* Total Summary */}
             <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Total Volume Column */}
+              <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-blue-700 dark:text-blue-400">Total Volume</p>
                   <p className="text-3xl font-bold text-blue-900 dark:text-blue-300">
@@ -187,22 +177,13 @@ export function ConsolidatedSettlementCard() {
                   <p className="text-xs text-blue-600 dark:text-blue-500">
                     {settlementData.approvedCount + settlementData.rejectedCount + settlementData.pendingCount} total requests
                   </p>
-                  <p className="text-xs text-blue-600 dark:text-blue-500 mt-1">
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-blue-600 dark:text-blue-500">
                     Success Rate: {settlementData.approvedCount + settlementData.rejectedCount > 0 ? 
                       Math.round((settlementData.approvedCount / (settlementData.approvedCount + settlementData.rejectedCount)) * 100) : 0}%
                   </p>
-                </div>
-                
-                {/* Organization Funds Column */}
-                <div>
-                  <p className="text-sm font-medium text-blue-700 dark:text-blue-400">Organization Funds</p>
-                  <p className="text-3xl font-bold text-blue-900 dark:text-blue-300">
-                    {walletData ? formatCurrency(Math.floor(parseFloat(walletData.balance || '0'))) : 'Loading...'}
-                  </p>
                   <p className="text-xs text-blue-600 dark:text-blue-500">
-                    Total Wallet Balance
-                  </p>
-                  <p className="text-xs text-blue-600 dark:text-blue-500 mt-1">
                     Last updated: {new Date(settlementData.lastUpdated).toLocaleTimeString()}
                   </p>
                 </div>

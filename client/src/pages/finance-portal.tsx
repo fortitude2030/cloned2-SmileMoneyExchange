@@ -6,6 +6,7 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import MobileHeader from "@/components/mobile-header";
 import MobileNav from "@/components/mobile-nav";
+import { ConsolidatedSettlementCard } from "@/components/consolidated-settlement-card";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -409,41 +410,78 @@ export default function FinancePortal() {
           </Card>
         </div>
 
-        {/* Settlement Capacity Card */}
-        <Card className="shadow-sm border border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-950 mb-6">
+        {/* Consolidated Monthly Settlement Card */}
+        <div className="mb-6">
+          <ConsolidatedSettlementCard />
+        </div>
+
+        {/* Organization Funds Display */}
+        <Card className="shadow-sm border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-950 mb-6">
           <CardContent className="p-4">
-            <div className="text-center mb-3">
-              <p className="text-green-700 dark:text-green-300 text-sm font-medium">SETTLEMENT CAPACITY</p>
-              <h2 className="text-2xl font-bold text-green-800 dark:text-green-200">
-                {formatCurrency(calculateSettlementCapacity())}
-              </h2>
-              <p className="text-green-600 dark:text-green-400 text-xs">Available for New Settlements</p>
-            </div>
-            
-            <div className="grid grid-cols-3 gap-2 text-xs">
-              <div className="text-center">
-                <p className="text-blue-600 dark:text-blue-400">Today's Usage</p>
-                <p className="font-semibold text-blue-800 dark:text-blue-200">
-                  {formatCurrency((settlementBreakdown as any)?.todaysUsage || 0)}
-                </p>
-              </div>
-              <div className="text-center">
-                <p className="text-orange-600 dark:text-orange-400">Pending</p>
-                <p className="font-semibold text-orange-800 dark:text-orange-200">
-                  -{formatCurrency((settlementBreakdown as any)?.pendingTotal || 0)}
-                </p>
-              </div>
-              <div className="text-center">
-                <p className="text-green-600 dark:text-green-400">Available</p>
-                <p className="font-semibold text-green-800 dark:text-green-200">
-                  {formatCurrency(calculateSettlementCapacity())}
-                </p>
-              </div>
+            <div className="text-center">
+              <p className="text-blue-700 dark:text-blue-300 text-sm font-medium">ORGANIZATION FUNDS</p>
+              <h3 className="text-xl font-bold text-blue-800 dark:text-blue-200">
+                {formatCurrency(getOrganizationFunds())}
+              </h3>
+              <p className="text-blue-600 dark:text-blue-400 text-xs">Total Wallet Balance</p>
             </div>
           </CardContent>
         </Card>
 
-
+        {/* Settlement Status Pipeline */}
+        <Card className="shadow-sm border border-blue-200 dark:border-blue-700 mb-6">
+          <CardContent className="p-4">
+            <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4">Settlement Pipeline</h3>
+            
+            {getStatusBreakdown().length === 0 ? (
+              <div className="text-center py-4">
+                <p className="text-gray-500 dark:text-gray-400 text-sm">No settlement requests found</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {getStatusBreakdown().map((statusItem: any) => (
+                  <div key={statusItem.status} className={`p-3 rounded-lg border ${
+                    statusItem.status === 'pending' ? 'border-orange-300 bg-orange-50 dark:bg-orange-950' :
+                    statusItem.status === 'approved' ? 'border-blue-300 bg-blue-50 dark:bg-blue-950' :
+                    statusItem.status === 'completed' ? 'border-green-300 bg-green-50 dark:bg-green-950' :
+                    statusItem.status === 'rejected' ? 'border-red-300 bg-red-50 dark:bg-red-950' :
+                    'border-gray-300 bg-gray-50 dark:bg-gray-800'
+                  }`}>
+                    <div className="text-center">
+                      <p className={`text-sm font-medium ${
+                        statusItem.status === 'pending' ? 'text-orange-700 dark:text-orange-300' :
+                        statusItem.status === 'approved' ? 'text-blue-700 dark:text-blue-300' :
+                        statusItem.status === 'completed' ? 'text-green-700 dark:text-green-300' :
+                        statusItem.status === 'rejected' ? 'text-red-700 dark:text-red-300' :
+                        'text-gray-700 dark:text-gray-300'
+                      }`}>
+                        {statusItem.status.charAt(0).toUpperCase() + statusItem.status.slice(1)}
+                      </p>
+                      <p className={`text-lg font-bold ${
+                        statusItem.status === 'pending' ? 'text-orange-800 dark:text-orange-200' :
+                        statusItem.status === 'approved' ? 'text-blue-800 dark:text-blue-200' :
+                        statusItem.status === 'completed' ? 'text-green-800 dark:text-green-200' :
+                        statusItem.status === 'rejected' ? 'text-red-800 dark:text-red-200' :
+                        'text-gray-800 dark:text-gray-200'
+                      }`}>
+                        {formatCurrency(statusItem.total)}
+                      </p>
+                      <p className={`text-xs ${
+                        statusItem.status === 'pending' ? 'text-orange-600 dark:text-orange-400' :
+                        statusItem.status === 'approved' ? 'text-blue-600 dark:text-blue-400' :
+                        statusItem.status === 'completed' ? 'text-green-600 dark:text-green-400' :
+                        statusItem.status === 'rejected' ? 'text-red-600 dark:text-red-400' :
+                        'text-gray-600 dark:text-gray-400'
+                      }`}>
+                        {statusItem.count} request{statusItem.count !== 1 ? 's' : ''}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Merchant Wallets */}
         <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
