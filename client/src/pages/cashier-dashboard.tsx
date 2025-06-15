@@ -1137,7 +1137,7 @@ export default function CashierDashboard() {
                               setSelectedTransaction(transaction);
                               setShowDocumentViewer(true);
                             }}
-                            className="p-2 h-10 w-10 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900 border border-blue-200"
+                            className="p-2 h-10 w-10 bg-orange-500 hover:bg-orange-600 text-white border border-orange-600 shadow-sm"
                             title="View VMF Documents"
                           >
                             <i className="fas fa-file-image text-lg"></i>
