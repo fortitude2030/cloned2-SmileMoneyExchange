@@ -1011,7 +1011,7 @@ export class DatabaseStorage implements IStorage {
         startDate = new Date(now.getFullYear(), now.getMonth(), 1);
         break;
       case 'yearly':
-        startDate = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+        startDate = new Date(now.getFullYear(), 0, 1); // January 1st of current year
         break;
       default:
         startDate = new Date(now.getFullYear(), now.getMonth(), 1);

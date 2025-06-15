@@ -41,7 +41,7 @@ export function ConsolidatedSettlementCard() {
     switch (period) {
       case 'weekly': return 'Last 7 Days';
       case 'monthly': return 'This Month';
-      case 'yearly': return 'Last 12 Months';
+      case 'yearly': return 'Year to Date (YTD)';
       default: return 'This Month';
     }
   };
@@ -177,7 +177,7 @@ export function ConsolidatedSettlementCard() {
                 <p>Weekly data shows settlements from the last 7 days</p>
               )}
               {period === 'yearly' && (
-                <p>Yearly data shows settlements from the last 12 months</p>
+                <p>YTD data shows settlements from January 1st to current date</p>
               )}
             </div>
           </div>
