@@ -1,12 +1,12 @@
-import { useState, useRef, useCallback, useMemo, useEffect } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { isUnauthorizedError } from "@/lib/authUtils";
 import { useAuth } from "@/hooks/useAuth";
 import { useTimer } from "@/contexts/timer-context";
+import CameraCapture from "@/components/camera-capture";
+import { useDocumentUpload } from "@/hooks/useDocumentUpload";
 
 interface DocumentUploadModalProps {
   isOpen: boolean;
@@ -14,13 +14,11 @@ interface DocumentUploadModalProps {
   transactionId?: number;
 }
 
-interface UploadedDocument {
+interface DocumentType {
   id: string;
   type: string;
   name: string;
-  file?: File;
   uploaded: boolean;
-  previewUrl?: string;
 }
 
 export default function DocumentUploadModal({ isOpen, onClose, transactionId }: DocumentUploadModalProps) {
@@ -28,197 +26,66 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
   const { stopTimer } = useTimer();
   const { toast } = useToast();
   
-  // Memoize documents based on user role to prevent re-renders
-  const initialDocuments = useMemo(() => {
+  // Determine required documents based on user role
+  const requiredDocuments = useMemo(() => {
     if ((user as any)?.role === 'merchant') {
       return [{ id: "merchant", type: "vmf_merchant", name: "Merchant Copy", uploaded: false }];
     } else if ((user as any)?.role === 'cashier') {
       return [{ id: "cashbag", type: "vmf_cashbag", name: "Cashier Copy", uploaded: false }];
     }
-    // Fallback for other roles
     return [{ id: "merchant", type: "vmf_merchant", name: "Merchant Copy", uploaded: false }];
   }, [(user as any)?.role]);
   
-  const [documents, setDocuments] = useState<UploadedDocument[]>(initialDocuments);
+  const [documents, setDocuments] = useState<DocumentType[]>(requiredDocuments);
 
-  // Reset documents when modal opens or user role changes
-  useEffect(() => {
-    if (isOpen) {
-      setDocuments(prev => {
-        // Only update if documents actually changed to prevent unnecessary re-renders
-        const newDocs = initialDocuments;
-        if (JSON.stringify(prev) !== JSON.stringify(newDocs)) {
-          return newDocs;
-        }
-        return prev;
-      });
-    }
-  }, [isOpen, initialDocuments]);
-
-  // Cleanup preview URLs on unmount
-  useEffect(() => {
-    return () => {
-      documents.forEach(doc => {
-        if (doc.previewUrl) {
-          URL.revokeObjectURL(doc.previewUrl);
-        }
-      });
-    };
-  }, [documents]);
-
-  // Upload document mutation
-  const uploadDocument = useMutation({
-    mutationFn: async ({ file, type }: { file: File; type: string }) => {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("type", type);
-      if (transactionId) {
-        formData.append("transactionId", transactionId.toString());
-      }
-
-      const response = await fetch("/api/documents", {
-        method: "POST",
-        body: formData,
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(`${response.status}: ${text}`);
-      }
-
-      return await response.json();
-    },
-    onSuccess: (_, variables) => {
-      toast({
-        title: "Success",
-        description: "Document uploaded successfully",
-      });
-      
+  // Initialize upload handler with robust error handling
+  const { uploadFile, isUploading } = useDocumentUpload({
+    transactionId,
+    onSuccess: (uploadedDoc) => {
+      // Find which document was uploaded and mark it as complete
       setDocuments(prev => {
         const updated = prev.map(doc => 
-          doc.type === variables.type 
+          doc.type === uploadedDoc.type 
             ? { ...doc, uploaded: true }
             : doc
         );
         
-        // Show completion notice but require manual confirmation
+        // Check if all documents are uploaded
         if (updated.every(doc => doc.uploaded)) {
-          console.log("All documents uploaded - manual completion required");
-          
-          // Use setTimeout to avoid state update during render cycle
           setTimeout(() => {
             toast({
-              title: "Photos Captured",
-              description: "All VMF documents uploaded. Please verify photos and click Complete Transaction.",
+              title: "All Photos Captured",
+              description: "Please verify photos and click Complete Transaction.",
             });
-          }, 0);
+          }, 100);
         }
         
         return updated;
       });
-      
-      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
     },
     onError: (error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-      
-      console.error("Upload error:", error);
-      
-      // Extract error message from server response
-      let errorMessage = "Failed to upload document. Please try again.";
-      if (error instanceof Error) {
-        if (error.message.includes("File too large")) {
-          errorMessage = "Photo is too large. Please try taking the photo again.";
-        } else if (error.message.includes("File too small")) {
-          errorMessage = "Photo is too small. Please take the photo again.";
-        } else if (error.message.includes("Only JPEG and PNG")) {
-          errorMessage = "Please capture a photo using your camera.";
-        } else if (error.message.includes("No file uploaded")) {
-          errorMessage = "No photo was captured. Please try again.";
-        } else if (error.message) {
-          errorMessage = error.message;
-        }
-      }
-      
-      toast({
-        title: "Upload Failed",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    },
+      console.error("Document upload failed:", error);
+    }
   });
 
-  const handleFileSelect = useCallback((documentId: string, file: File | null) => {
-    if (!file) return;
-
-    // Validate file type - only images allowed for security
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
-    if (!allowedTypes.includes(file.type)) {
-      toast({
-        title: "Invalid File Type",
-        description: "Please capture a photo using your camera.",
-        variant: "destructive",
-      });
-      return;
+  // Reset documents when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setDocuments(requiredDocuments);
     }
+  }, [isOpen, requiredDocuments]);
 
-    // Validate file size (10MB limit to match server)
-    if (file.size > 10 * 1024 * 1024) {
-      toast({
-        title: "File Too Large", 
-        description: "Photo must be smaller than 10MB. Try taking the photo again.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    // Minimum file size check
-    if (file.size < 1000) {
-      toast({
-        title: "Invalid Photo",
-        description: "Photo file is too small. Please take the photo again.",
-        variant: "destructive", 
-      });
-      return;
-    }
-
-    // Create preview URL for the captured image
-    const previewUrl = URL.createObjectURL(file);
-
-    // Update document state with preview
-    setDocuments(prev => 
-      prev.map(doc => 
-        doc.id === documentId 
-          ? { ...doc, file, uploaded: false, previewUrl }
-          : doc
-      )
-    );
-
-    // Find the document type and upload
+  // Handle successful photo capture
+  const handlePhotoCapture = useCallback((documentId: string, file: File) => {
     const document = documents.find(doc => doc.id === documentId);
     if (document) {
-      uploadDocument.mutate({ file, type: document.type });
+      uploadFile(file, document.type);
     }
-  }, [documents, uploadDocument, toast]);
+  }, [documents, uploadFile]);
 
-  const handleCameraCapture = useCallback((documentId: string) => {
-    const fileInput = document.getElementById(`file-input-${documentId}`) as HTMLInputElement;
-    if (fileInput) {
-      // Reset the input value before clicking to prevent cache issues
-      fileInput.value = '';
-      fileInput.click();
-    }
+  // Handle upload errors
+  const handleUploadError = useCallback((documentId: string, error: string) => {
+    console.error(`Upload error for document ${documentId}:`, error);
   }, []);
 
 
@@ -267,18 +134,11 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
     onClose();
   };
 
-  const handleClose = () => {
-    // Clean up preview URLs to prevent memory leaks
-    documents.forEach(doc => {
-      if (doc.previewUrl) {
-        URL.revokeObjectURL(doc.previewUrl);
-      }
-    });
-    
-    // Reset state when closing - use memoized initial documents
-    setDocuments(initialDocuments);
+  const handleClose = useCallback(() => {
+    // Reset state when closing
+    setDocuments(requiredDocuments);
     onClose();
-  };
+  }, [requiredDocuments, onClose]);
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
