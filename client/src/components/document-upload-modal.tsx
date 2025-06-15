@@ -44,7 +44,14 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
   // Reset documents when modal opens or user role changes
   useEffect(() => {
     if (isOpen) {
-      setDocuments(initialDocuments);
+      setDocuments(prev => {
+        // Only update if documents actually changed to prevent unnecessary re-renders
+        const newDocs = initialDocuments;
+        if (JSON.stringify(prev) !== JSON.stringify(newDocs)) {
+          return newDocs;
+        }
+        return prev;
+      });
     }
   }, [isOpen, initialDocuments]);
 
