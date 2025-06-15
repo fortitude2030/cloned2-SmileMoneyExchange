@@ -61,7 +61,7 @@ export function ConsolidatedSettlementTotalVolume() {
         <TrendingUp className="h-4 w-4 text-gray-600 dark:text-gray-400" />
         <p className="text-gray-700 dark:text-gray-300 text-sm font-medium">TOTAL VOLUME</p>
       </div>
-      <h2 className="text-3xl font-bold text-gray-800 dark:text-gray-200 mb-1">
+      <h2 className="text-3xl font-bold dark:text-gray-200 mb-1 text-[#14532d]">
         {formatCurrency(totalVolume)}
       </h2>
       <p className="text-gray-600 dark:text-gray-400 text-xs mb-2">
