@@ -100,6 +100,7 @@ export default function FinancePortal() {
 
   // State for management tab
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [settlementFilter, setSettlementFilter] = useState("all");
   const [showCreateBranchModal, setShowCreateBranchModal] = useState(false);
   const [showEditOrgModal, setShowEditOrgModal] = useState(false);
 
@@ -341,6 +342,38 @@ export default function FinancePortal() {
     return (settlementBreakdown as any).breakdown;
   };
 
+  const getFilteredSettlementRequests = () => {
+    if (!settlementRequests || !(settlementRequests as any[]).length) return [];
+    
+    const requests = settlementRequests as any[];
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const lastWeek = new Date(today);
+    lastWeek.setDate(lastWeek.getDate() - 7);
+
+    switch (settlementFilter) {
+      case "today":
+        return requests.filter(request => {
+          const requestDate = new Date(request.createdAt);
+          return requestDate >= today;
+        });
+      case "yesterday":
+        return requests.filter(request => {
+          const requestDate = new Date(request.createdAt);
+          return requestDate >= yesterday && requestDate < today;
+        });
+      case "last7days":
+        return requests.filter(request => {
+          const requestDate = new Date(request.createdAt);
+          return requestDate >= lastWeek;
+        });
+      default:
+        return requests;
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -535,16 +568,20 @@ export default function FinancePortal() {
             <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold text-gray-800 dark:text-gray-200">Settlement Requests</h3>
-                  <div className="flex gap-2">
-                    <Button 
-                      onClick={() => createTestSettlementRequests.mutate()}
-                      disabled={createTestSettlementRequests.isPending}
-                      variant="outline"
-                      className="text-xs px-3 py-1"
+                  <div className="flex items-center gap-3">
+                    <h3 className="font-semibold text-gray-800 dark:text-gray-200">Settlement Requests</h3>
+                    <select
+                      value={settlementFilter}
+                      onChange={(e) => setSettlementFilter(e.target.value)}
+                      className="text-xs border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      {createTestSettlementRequests.isPending ? "Creating..." : "Add Test Data"}
-                    </Button>
+                      <option value="all">All Time</option>
+                      <option value="today">Today</option>
+                      <option value="yesterday">Yesterday</option>
+                      <option value="last7days">Last 7 Days</option>
+                    </select>
+                  </div>
+                  <div>
                     <Dialog open={showSettlementDialog} onOpenChange={setShowSettlementDialog}>
                       <DialogTrigger asChild>
                         <Button className="bg-accent text-white px-4 py-2 rounded-lg text-sm font-medium">
@@ -618,7 +655,7 @@ export default function FinancePortal() {
                       </div>
                     ))}
                   </div>
-                ) : (settlementRequests as any[]).length === 0 ? (
+                ) : getFilteredSettlementRequests().length === 0 ? (
                   <div className="text-center py-8">
                     <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
                       <i className="fas fa-university text-gray-400 text-xl"></i>
@@ -628,7 +665,7 @@ export default function FinancePortal() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {(settlementRequests as any[]).map((request: any) => (
+                    {getFilteredSettlementRequests().map((request: any) => (
                       <div key={request.id} className={`border-2 rounded-lg p-4 shadow-md ${
                         request.status === 'pending' ? 'border-orange-400 bg-orange-50 dark:bg-orange-950 dark:border-orange-600' :
                         request.status === 'approved' ? 'border-blue-400 bg-blue-50 dark:bg-blue-950 dark:border-blue-600' :
