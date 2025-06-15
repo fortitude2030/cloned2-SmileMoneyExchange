@@ -102,6 +102,8 @@ export default function FinancePortal() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [settlementFilter, setSettlementFilter] = useState("today");
   const [showCreateBranchModal, setShowCreateBranchModal] = useState(false);
+  const [showEditBranchModal, setShowEditBranchModal] = useState(false);
+  const [selectedBranch, setSelectedBranch] = useState<any>(null);
   const [showEditOrgModal, setShowEditOrgModal] = useState(false);
 
   // Settlement form
@@ -125,6 +127,17 @@ export default function FinancePortal() {
 
   // Branch form
   const branchForm = useForm({
+    resolver: zodResolver(branchSchema),
+    defaultValues: {
+      name: "",
+      location: "",
+      address: "",
+      contactPhone: "",
+      managerName: "",
+    },
+  });
+
+  const editBranchForm = useForm({
     resolver: zodResolver(branchSchema),
     defaultValues: {
       name: "",
@@ -196,6 +209,31 @@ export default function FinancePortal() {
     },
     onError: (error: any) => {
       const errorMessage = error?.response?.data?.message || "Failed to create branch";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Update branch mutation
+  const updateBranch = useMutation({
+    mutationFn: async (data: z.infer<typeof branchSchema> & { id: number }) => {
+      return await apiRequest("PUT", `/api/branches/${data.id}`, data);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Branch updated successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/branches"] });
+      setShowEditBranchModal(false);
+      setSelectedBranch(null);
+      editBranchForm.reset();
+    },
+    onError: (error: any) => {
+      const errorMessage = error?.response?.data?.message || "Failed to update branch";
       toast({
         title: "Error",
         description: errorMessage,
@@ -375,6 +413,18 @@ export default function FinancePortal() {
           return requestDate >= today;
         });
     }
+  };
+
+  const handleEditBranch = (branch: any) => {
+    setSelectedBranch(branch);
+    editBranchForm.reset({
+      name: branch.name || "",
+      location: branch.location || "",
+      address: branch.address || "",
+      contactPhone: branch.contactPhone || "",
+      managerName: branch.managerName || "",
+    });
+    setShowEditBranchModal(true);
   };
 
   if (isLoading) {
@@ -806,13 +856,24 @@ export default function FinancePortal() {
                       <div key={branch.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
                         <div className="flex justify-between items-start mb-2">
                           <h4 className="font-medium text-gray-800 dark:text-gray-200">{branch.name}</h4>
-                          <span className={`px-2 py-1 rounded-full text-xs ${
-                            branch.isActive 
-                              ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                              : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                          }`}>
-                            {branch.isActive ? 'Active' : 'Inactive'}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEditBranch(branch)}
+                              className="text-xs px-2 py-1"
+                            >
+                              <i className="fas fa-edit mr-1"></i>
+                              Edit
+                            </Button>
+                            <span className={`px-2 py-1 rounded-full text-xs ${
+                              branch.isActive 
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                            }`}>
+                              {branch.isActive ? 'Active' : 'Inactive'}
+                            </span>
+                          </div>
                         </div>
                         <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
                           <i className="fas fa-map-marker-alt mr-2"></i>
@@ -925,6 +986,94 @@ export default function FinancePortal() {
                 className="bg-green-600 hover:bg-green-700"
               >
                 {createBranch.isPending ? "Creating..." : "Create Branch"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Branch Modal */}
+      <Dialog open={showEditBranchModal} onOpenChange={setShowEditBranchModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Branch</DialogTitle>
+            <DialogDescription>
+              Update branch information for your organization
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="editBranchName">Branch Name</Label>
+              <Input 
+                id="editBranchName"
+                placeholder="Enter branch name"
+                value={editBranchForm.watch("name")}
+                onChange={(e) => editBranchForm.setValue("name", e.target.value)}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="editBranchLocation">Location</Label>
+              <Input 
+                id="editBranchLocation"
+                placeholder="City, District"
+                value={editBranchForm.watch("location")}
+                onChange={(e) => editBranchForm.setValue("location", e.target.value)}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="editBranchAddress">Address (Optional)</Label>
+              <Input 
+                id="editBranchAddress"
+                placeholder="Full address"
+                value={editBranchForm.watch("address")}
+                onChange={(e) => editBranchForm.setValue("address", e.target.value)}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="editManagerName">Manager Name (Optional)</Label>
+                <Input 
+                  id="editManagerName"
+                  placeholder="Branch manager"
+                  value={editBranchForm.watch("managerName")}
+                  onChange={(e) => editBranchForm.setValue("managerName", e.target.value)}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="editContactPhone">Contact Phone (Optional)</Label>
+                <Input 
+                  id="editContactPhone"
+                  placeholder="+260 XXX XXX XXX"
+                  value={editBranchForm.watch("contactPhone")}
+                  onChange={(e) => editBranchForm.setValue("contactPhone", e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowEditBranchModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  const formData = editBranchForm.getValues();
+                  if (formData.name && formData.location && selectedBranch) {
+                    updateBranch.mutate({ ...formData, id: selectedBranch.id });
+                  }
+                }}
+                disabled={updateBranch.isPending}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {updateBranch.isPending ? "Updating..." : "Update Branch"}
               </Button>
             </div>
           </div>
