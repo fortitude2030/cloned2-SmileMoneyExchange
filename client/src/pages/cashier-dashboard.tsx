@@ -9,7 +9,6 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import MobileHeader from "@/components/mobile-header";
 import MobileNav from "@/components/mobile-nav";
 import SimpleDocumentUpload from "@/components/simple-document-upload";
-import DocumentViewerModal from "@/components/document-viewer-modal";
 import QRScannerComponent from "@/components/qr-scanner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -108,8 +107,6 @@ export default function CashierDashboard() {
   // Use global timer system
   const { timeLeft, isActive, hasInteraction, startTimer, markInteraction, stopTimer, setTimeoutCallback } = useTimer();
   const [showAllTransactions, setShowAllTransactions] = useState(false);
-  const [showDocumentViewer, setShowDocumentViewer] = useState(false);
-  const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
   const [showQRScanner, setShowQRScanner] = useState(false);
   
   // QR processing states
@@ -117,6 +114,10 @@ export default function CashierDashboard() {
   const [qrAmount, setQrAmount] = useState("");
   const [qrVmfNumber, setQrVmfNumber] = useState("");
   const [activeQrTransaction, setActiveQrTransaction] = useState<any>(null);
+
+
+
+
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -1096,7 +1097,6 @@ export default function CashierDashboard() {
               <div className="space-y-3">
                 {(showAllTransactions ? (Array.isArray(transactions) ? transactions.slice(0, 30) : []) : (Array.isArray(transactions) ? transactions.slice(0, 5) : [])).map((transaction: any) => {
                   const dateTime = formatDateTime(transaction.createdAt);
-
                   return (
                     <div key={transaction.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                       <div className="flex-1">
@@ -1117,32 +1117,16 @@ export default function CashierDashboard() {
                           </p>
                         </div>
                       </div>
-                      <div className="text-right flex items-center space-x-2">
-                        <div>
-                          <p className={`font-semibold text-sm ${
-                            transaction.status === 'completed' ? 'text-green-600' :
-                            transaction.status === 'pending' ? 'text-orange-600' :
-                            transaction.status === 'rejected' ? 'text-red-600' :
-                            'text-gray-600 dark:text-gray-400'
-                          }`}>
-                            {formatCurrency(transaction.amount)}
-                          </p>
-                          {getStatusBadge(transaction.status, transaction.rejectionReason)}
-                        </div>
-                        {transaction.status === 'completed' && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedTransaction(transaction);
-                              setShowDocumentViewer(true);
-                            }}
-                            className="p-2 h-10 w-10 bg-orange-500 hover:bg-orange-600 text-white border border-orange-600 shadow-sm"
-                            title="View VMF Documents"
-                          >
-                            <i className="fas fa-file-image text-lg"></i>
-                          </Button>
-                        )}
+                      <div className="text-right">
+                        <p className={`font-semibold text-sm ${
+                          transaction.status === 'completed' ? 'text-green-600' :
+                          transaction.status === 'pending' ? 'text-orange-600' :
+                          transaction.status === 'rejected' ? 'text-red-600' :
+                          'text-gray-600 dark:text-gray-400'
+                        }`}>
+                          {formatCurrency(transaction.amount)}
+                        </p>
+                        {getStatusBadge(transaction.status, transaction.rejectionReason)}
                       </div>
                     </div>
                   );
@@ -1464,17 +1448,6 @@ export default function CashierDashboard() {
             });
           }
         }}
-      />
-
-      {/* Document Viewer Modal */}
-      <DocumentViewerModal
-        isOpen={showDocumentViewer}
-        onClose={() => {
-          setShowDocumentViewer(false);
-          setSelectedTransaction(null);
-        }}
-        transactionId={selectedTransaction?.id || 0}
-        transactionNumber={selectedTransaction?.transactionId || ""}
       />
     </div>
   );
