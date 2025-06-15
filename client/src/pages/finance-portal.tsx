@@ -378,6 +378,17 @@ export default function FinancePortal() {
             Dashboard
           </button>
           <button
+            onClick={() => setActiveTab("settlements")}
+            className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+              activeTab === "settlements"
+                ? "bg-blue-600 text-white shadow-sm"
+                : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+            }`}
+          >
+            <i className="fas fa-university mr-2"></i>
+            Settlements
+          </button>
+          <button
             onClick={() => setActiveTab("management")}
             className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all ${
               activeTab === "management"
@@ -513,164 +524,171 @@ export default function FinancePortal() {
           </CardContent>
         </Card>
 
-        {/* Settlement Requests */}
-        <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-gray-800 dark:text-gray-200">Settlement Requests</h3>
-              <div className="flex gap-2">
-                <Button 
-                  onClick={() => createTestSettlementRequests.mutate()}
-                  disabled={createTestSettlementRequests.isPending}
-                  variant="outline"
-                  className="text-xs px-3 py-1"
-                >
-                  {createTestSettlementRequests.isPending ? "Creating..." : "Add Test Data"}
-                </Button>
-                <Dialog open={showSettlementDialog} onOpenChange={setShowSettlementDialog}>
-                  <DialogTrigger asChild>
-                    <Button className="bg-accent text-white px-4 py-2 rounded-lg text-sm font-medium">
-                      <i className="fas fa-plus mr-2"></i>New Settlement
+
+          </>
+        )}
+
+        {/* Settlements Tab */}
+        {activeTab === "settlements" && (
+          <>
+            {/* Settlement Requests */}
+            <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold text-gray-800 dark:text-gray-200">Settlement Requests</h3>
+                  <div className="flex gap-2">
+                    <Button 
+                      onClick={() => createTestSettlementRequests.mutate()}
+                      disabled={createTestSettlementRequests.isPending}
+                      variant="outline"
+                      className="text-xs px-3 py-1"
+                    >
+                      {createTestSettlementRequests.isPending ? "Creating..." : "Add Test Data"}
                     </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Create Settlement Request</DialogTitle>
-                    <DialogDescription>
-                      Request a settlement to transfer funds to your bank account
-                    </DialogDescription>
-                  </DialogHeader>
-                  <form onSubmit={settlementForm.handleSubmit((data) => createSettlementRequest.mutate(data))} className="space-y-4">
-                    <div>
-                      <Label htmlFor="amount">Amount</Label>
-                      <Input
-                        {...settlementForm.register("amount")}
-                        placeholder="Enter amount"
-                        type="number"
-                      />
-                      {settlementForm.formState.errors.amount && (
-                        <p className="text-sm text-destructive">{settlementForm.formState.errors.amount.message}</p>
-                      )}
-                    </div>
-                    <div>
-                      <Label htmlFor="bankName">Bank Name</Label>
-                      <Input
-                        {...settlementForm.register("bankName")}
-                        placeholder="e.g., Standard Bank"
-                      />
-                      {settlementForm.formState.errors.bankName && (
-                        <p className="text-sm text-destructive">{settlementForm.formState.errors.bankName.message}</p>
-                      )}
-                    </div>
-                    <div>
-                      <Label htmlFor="accountNumber">Account Number</Label>
-                      <Input
-                        {...settlementForm.register("accountNumber")}
-                        placeholder="Enter account number"
-                      />
-                      {settlementForm.formState.errors.accountNumber && (
-                        <p className="text-sm text-destructive">{settlementForm.formState.errors.accountNumber.message}</p>
-                      )}
-                    </div>
-                    
-                    <Button type="submit" disabled={createSettlementRequest.isPending} className="w-full">
-                      {createSettlementRequest.isPending ? "Creating..." : "Create Request"}
-                    </Button>
-                  </form>
-                </DialogContent>
-              </Dialog>
-              </div>
-            </div>
-            
-            {settlementsLoading ? (
-              <div className="space-y-3">
-                {[1, 2].map((i) => (
-                  <div key={i} className="border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 rounded-lg p-4 animate-pulse">
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <div className="w-32 h-4 bg-gray-300 dark:bg-gray-700 rounded mb-1"></div>
+                    <Dialog open={showSettlementDialog} onOpenChange={setShowSettlementDialog}>
+                      <DialogTrigger asChild>
+                        <Button className="bg-accent text-white px-4 py-2 rounded-lg text-sm font-medium">
+                          <i className="fas fa-plus mr-2"></i>New Settlement
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Create Settlement Request</DialogTitle>
+                        <DialogDescription>
+                          Request a settlement to transfer funds to your bank account
+                        </DialogDescription>
+                      </DialogHeader>
+                      <form onSubmit={settlementForm.handleSubmit((data) => createSettlementRequest.mutate(data))} className="space-y-4">
+                        <div>
+                          <Label htmlFor="amount">Amount</Label>
+                          <Input
+                            {...settlementForm.register("amount")}
+                            placeholder="Enter amount"
+                            type="number"
+                          />
+                          {settlementForm.formState.errors.amount && (
+                            <p className="text-sm text-destructive">{settlementForm.formState.errors.amount.message}</p>
+                          )}
+                        </div>
+                        <div>
+                          <Label htmlFor="bankName">Bank Name</Label>
+                          <Input
+                            {...settlementForm.register("bankName")}
+                            placeholder="e.g., Standard Bank"
+                          />
+                          {settlementForm.formState.errors.bankName && (
+                            <p className="text-sm text-destructive">{settlementForm.formState.errors.bankName.message}</p>
+                          )}
+                        </div>
+                        <div>
+                          <Label htmlFor="accountNumber">Account Number</Label>
+                          <Input
+                            {...settlementForm.register("accountNumber")}
+                            placeholder="Enter account number"
+                          />
+                          {settlementForm.formState.errors.accountNumber && (
+                            <p className="text-sm text-destructive">{settlementForm.formState.errors.accountNumber.message}</p>
+                          )}
+                        </div>
+                        
+                        <Button type="submit" disabled={createSettlementRequest.isPending} className="w-full">
+                          {createSettlementRequest.isPending ? "Creating..." : "Create Request"}
+                        </Button>
+                      </form>
+                    </DialogContent>
+                  </Dialog>
+                  </div>
+                </div>
+                
+                {settlementsLoading ? (
+                  <div className="space-y-3">
+                    {[1, 2].map((i) => (
+                      <div key={i} className="border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 rounded-lg p-4 animate-pulse">
+                        <div className="flex items-center justify-between mb-2">
+                          <div>
+                            <div className="w-32 h-4 bg-gray-300 dark:bg-gray-700 rounded mb-1"></div>
+                            <div className="w-24 h-3 bg-gray-300 dark:bg-gray-700 rounded"></div>
+                          </div>
+                          <div className="text-right">
+                            <div className="w-20 h-5 bg-gray-300 dark:bg-gray-700 rounded mb-1"></div>
+                            <div className="w-16 h-4 bg-gray-300 dark:bg-gray-700 rounded"></div>
+                          </div>
+                        </div>
                         <div className="w-24 h-3 bg-gray-300 dark:bg-gray-700 rounded"></div>
                       </div>
-                      <div className="text-right">
-                        <div className="w-20 h-5 bg-gray-300 dark:bg-gray-700 rounded mb-1"></div>
-                        <div className="w-16 h-4 bg-gray-300 dark:bg-gray-700 rounded"></div>
-                      </div>
-                    </div>
-                    <div className="w-24 h-3 bg-gray-300 dark:bg-gray-700 rounded"></div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            ) : (settlementRequests as any[]).length === 0 ? (
-              <div className="text-center py-8">
-                <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <i className="fas fa-university text-gray-400 text-xl"></i>
-                </div>
-                <p className="text-gray-600 dark:text-gray-400">No settlement requests</p>
-                <p className="text-gray-500 dark:text-gray-500 text-sm">Create your first settlement request</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {(settlementRequests as any[]).map((request: any) => (
-                  <div key={request.id} className={`border-2 rounded-lg p-4 shadow-md ${
-                    request.status === 'pending' ? 'border-orange-400 bg-orange-50 dark:bg-orange-950 dark:border-orange-600' :
-                    request.status === 'approved' ? 'border-blue-400 bg-blue-50 dark:bg-blue-950 dark:border-blue-600' :
-                    request.status === 'completed' ? 'border-green-400 bg-green-50 dark:bg-green-950 dark:border-green-600' :
-                    request.status === 'hold' ? 'border-yellow-400 bg-yellow-50 dark:bg-yellow-950 dark:border-yellow-600' :
-                    request.status === 'rejected' ? 'border-red-400 bg-red-50 dark:bg-red-950 dark:border-red-600' :
-                    'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800'
-                  }`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <h4 className="font-medium text-gray-800 dark:text-gray-200 text-sm">Bank Settlement Request</h4>
-                        <p className="text-gray-600 dark:text-gray-400 text-xs">
-                          To: {request.bankName} - ACC: ****{request.accountNumber.slice(-4)}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-lg text-gray-800 dark:text-gray-200">
-                          {formatCurrency(request.amount)}
-                        </p>
-                        {getStatusBadge(request.status)}
-                      </div>
+                ) : (settlementRequests as any[]).length === 0 ? (
+                  <div className="text-center py-8">
+                    <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <i className="fas fa-university text-gray-400 text-xl"></i>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <p className="text-gray-600 dark:text-gray-400 text-xs">
-                        Submitted: {new Date(request.createdAt).toLocaleDateString()}
-                      </p>
+                    <p className="text-gray-600 dark:text-gray-400">No settlement requests</p>
+                    <p className="text-gray-500 dark:text-gray-500 text-sm">Create your first settlement request</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {(settlementRequests as any[]).map((request: any) => (
+                      <div key={request.id} className={`border-2 rounded-lg p-4 shadow-md ${
+                        request.status === 'pending' ? 'border-orange-400 bg-orange-50 dark:bg-orange-950 dark:border-orange-600' :
+                        request.status === 'approved' ? 'border-blue-400 bg-blue-50 dark:bg-blue-950 dark:border-blue-600' :
+                        request.status === 'completed' ? 'border-green-400 bg-green-50 dark:bg-green-950 dark:border-green-600' :
+                        request.status === 'hold' ? 'border-yellow-400 bg-yellow-50 dark:bg-yellow-950 dark:border-yellow-600' :
+                        request.status === 'rejected' ? 'border-red-400 bg-red-50 dark:bg-red-950 dark:border-red-600' :
+                        'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800'
+                      }`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <div>
+                            <h4 className="font-medium text-gray-800 dark:text-gray-200 text-sm">Bank Settlement Request</h4>
+                            <p className="text-gray-600 dark:text-gray-400 text-xs">
+                              To: {request.bankName} - ACC: ****{request.accountNumber.slice(-4)}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-lg text-gray-800 dark:text-gray-200">
+                              {formatCurrency(request.amount)}
+                            </p>
+                            {getStatusBadge(request.status)}
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <p className="text-gray-600 dark:text-gray-400 text-xs">
+                            Submitted: {new Date(request.createdAt).toLocaleDateString()}
+                          </p>
 
-                    </div>
-                    
-                    {/* Display hold/reject reasons */}
-                    {(request.status === 'hold' || request.status === 'rejected') && (request.holdReason || request.rejectReason) && (
-                      <div className="mt-3 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg border-l-4 border-yellow-400">
-                        <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                          {request.status === 'hold' ? 'Hold Reason:' : 'Rejection Reason:'}
-                        </p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {request.status === 'hold' ? 
-                            (request.holdReason === 'settlement_cover' ? 'Approved - In Queue' : 
-                             request.holdReason?.replace(/_/g, ' ').replace(/\b\w/g, (letter: string) => letter.toUpperCase())) :
-                            request.rejectReason?.replace(/_/g, ' ').replace(/\b\w/g, (letter: string) => letter.toUpperCase())
-                          }
-                        </p>
-                        {request.reasonComment && (
-                          <p className="text-sm text-gray-500 dark:text-gray-500 mt-1 italic">
-                            "{request.reasonComment}"
-                          </p>
-                        )}
-                        {request.reviewedBy && request.reviewedAt && (
-                          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                            Reviewed by Admin on {new Date(request.reviewedAt).toLocaleDateString()}
-                          </p>
+                        </div>
+                        
+                        {/* Display hold/reject reasons */}
+                        {(request.status === 'hold' || request.status === 'rejected') && (request.holdReason || request.rejectReason) && (
+                          <div className="mt-3 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg border-l-4 border-yellow-400">
+                            <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                              {request.status === 'hold' ? 'Hold Reason:' : 'Rejection Reason:'}
+                            </p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              {request.status === 'hold' ? 
+                                (request.holdReason === 'settlement_cover' ? 'Approved - In Queue' : 
+                                 request.holdReason?.replace(/_/g, ' ').replace(/\b\w/g, (letter: string) => letter.toUpperCase())) :
+                                request.rejectReason?.replace(/_/g, ' ').replace(/\b\w/g, (letter: string) => letter.toUpperCase())
+                              }
+                            </p>
+                            {request.reasonComment && (
+                              <p className="text-sm text-gray-500 dark:text-gray-500 mt-1 italic">
+                                "{request.reasonComment}"
+                              </p>
+                            )}
+                            {request.reviewedBy && request.reviewedAt && (
+                              <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                                Reviewed by Admin on {new Date(request.reviewedAt).toLocaleDateString()}
+                              </p>
+                            )}
+                          </div>
                         )}
                       </div>
-                    )}
+                    ))}
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                )}
+              </CardContent>
+            </Card>
           </>
         )}
 
