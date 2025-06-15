@@ -89,6 +89,7 @@ export interface IStorage {
   getPendingSettlementsTotal(organizationId: number): Promise<number>;
   getTodaysSettlementUsage(organizationId: number): Promise<number>;
   getSettlementBreakdown(organizationId: number): Promise<{ status: string; total: number; count: number }[]>;
+  getMonthlySettlementBreakdown(organizationId: number, period: 'weekly' | 'monthly' | 'yearly'): Promise<{ approved: number; rejected: number; pending: number; approvedCount: number; rejectedCount: number; pendingCount: number }>;
   getTodaysCollectionsByOrganization(organizationId: number): Promise<number>;
   
   // QR Code operations
@@ -938,6 +939,72 @@ export class DatabaseStorage implements IStorage {
     }, {} as Record<string, { status: string; total: number; count: number }>);
 
     return Object.values(breakdown);
+  }
+
+  async getMonthlySettlementBreakdown(organizationId: number, period: 'weekly' | 'monthly' | 'yearly'): Promise<{ approved: number; rejected: number; pending: number; approvedCount: number; rejectedCount: number; pendingCount: number }> {
+    // Calculate date range based on period
+    const now = new Date();
+    let startDate: Date;
+    
+    switch (period) {
+      case 'weekly':
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case 'monthly':
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        break;
+      case 'yearly':
+        startDate = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+        break;
+      default:
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    }
+
+    // Get settlement requests within the period
+    const requests = await db
+      .select({
+        status: settlementRequests.status,
+        amount: settlementRequests.amount,
+      })
+      .from(settlementRequests)
+      .where(
+        and(
+          eq(settlementRequests.organizationId, organizationId),
+          gte(settlementRequests.createdAt, startDate)
+        )
+      );
+
+    // Calculate totals by status
+    const breakdown = {
+      approved: 0,
+      rejected: 0,
+      pending: 0,
+      approvedCount: 0,
+      rejectedCount: 0,
+      pendingCount: 0,
+    };
+
+    requests.forEach(request => {
+      const amount = Math.floor(parseFloat(request.amount || '0'));
+      
+      switch (request.status) {
+        case 'approved':
+          breakdown.approved += amount;
+          breakdown.approvedCount++;
+          break;
+        case 'rejected':
+          breakdown.rejected += amount;
+          breakdown.rejectedCount++;
+          break;
+        case 'pending':
+        case 'hold':
+          breakdown.pending += amount;
+          breakdown.pendingCount++;
+          break;
+      }
+    });
+
+    return breakdown;
   }
 
   async getTodaysCollectionsByOrganization(organizationId: number): Promise<number> {
