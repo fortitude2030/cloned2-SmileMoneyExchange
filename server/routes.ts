@@ -205,30 +205,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Monthly settlement breakdown with filtering
-  app.get('/api/monthly-settlement-breakdown', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      
-      if (user?.role !== 'finance' || !user.organizationId) {
-        return res.status(403).json({ message: "Only finance officers can access settlement data" });
-      }
-
-      const period = (req.query.period as 'weekly' | 'monthly' | 'yearly') || 'monthly';
-      const breakdown = await storage.getMonthlySettlementBreakdown(user.organizationId, period);
-      
-      res.json({
-        ...breakdown,
-        period,
-        lastUpdated: new Date().toISOString()
-      });
-    } catch (error) {
-      console.error("Error fetching monthly settlement breakdown:", error);
-      res.status(500).json({ message: "Failed to fetch monthly settlement breakdown" });
-    }
-  });
-
   // Wallet routes
   app.get('/api/wallet', isAuthenticated, async (req: any, res) => {
     try {
