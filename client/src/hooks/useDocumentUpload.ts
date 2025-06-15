@@ -38,7 +38,7 @@ export function useDocumentUpload({ transactionId, onSuccess, onError }: UseDocu
       file: File; 
       type: string; 
       retryCount?: number;
-    }) => {
+    }): Promise<any> => {
       const maxRetries = 3;
       
       if (retryCount >= maxRetries) {

@@ -8,7 +8,7 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import MobileHeader from "@/components/mobile-header";
 import MobileNav from "@/components/mobile-nav";
-import DocumentUploadModal from "@/components/document-upload-modal";
+import SimpleDocumentUpload from "@/components/simple-document-upload";
 import QRScannerComponent from "@/components/qr-scanner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -1420,7 +1420,7 @@ export default function CashierDashboard() {
         expectedAmount={currentTransaction?.amount}
       />
 
-      <DocumentUploadModal
+      <SimpleDocumentUpload
         isOpen={showUploadModal}
         transactionId={activeTransaction?.id || activeQrTransaction?.id}
         onClose={() => {

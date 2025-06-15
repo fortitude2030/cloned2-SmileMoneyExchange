@@ -152,107 +152,40 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
         
         <div className="space-y-4">
           {documents.map((document) => (
-            <div key={document.id}>
-              <div className={`upload-zone transition-all ${
-                document.uploaded 
-                  ? 'border-success bg-success/5' 
-                  : uploadDocument.isPending 
-                    ? 'border-primary bg-primary/5' 
-                    : ''
-              }`}>
-                {document.uploaded ? (
-                  <div className="text-center">
-                    {document.previewUrl && (
-                      <div className="mb-3">
-                        <img 
-                          src={document.previewUrl} 
-                          alt="Captured document" 
-                          className="w-full max-w-32 h-24 object-cover rounded-lg mx-auto border-2 border-success"
-                        />
-                      </div>
-                    )}
-                    <i className="fas fa-check-circle text-2xl text-success mb-2"></i>
-                    <p className="text-success text-sm font-medium">{document.name}</p>
-                    <p className="text-success text-xs">Successfully uploaded</p>
-                  </div>
-                ) : document.previewUrl ? (
-                  <div className="text-center">
-                    <div className="mb-3">
-                      <img 
-                        src={document.previewUrl} 
-                        alt="Captured document" 
-                        className="w-full max-w-32 h-24 object-cover rounded-lg mx-auto border-2 border-primary"
-                      />
-                    </div>
-                    <i className="fas fa-spinner fa-spin text-2xl text-primary mb-2"></i>
-                    <p className="text-primary text-sm font-medium">Uploading...</p>
-                    <p className="text-primary text-xs">Please wait</p>
-                  </div>
-                ) : (
-                  <div className="text-center">
-                    <i className="fas fa-file-image text-3xl text-gray-400 mb-2"></i>
-                    <p className="text-gray-600 dark:text-gray-400 text-sm font-medium">{document.name}</p>
-                    <p className="text-gray-500 dark:text-gray-500 text-xs mb-3">Take a real-time photo of the document</p>
-                    
-                    <div className="flex justify-center">
-                      <Button
-                        onClick={() => handleCameraCapture(document.id)}
-                        size="sm"
-                        className="bg-primary hover:bg-primary/90 text-white"
-                      >
-                        <i className="fas fa-camera mr-1"></i>
-                        Take Photo
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-              
-              {/* Hidden file input for camera capture only */}
-              <input
-                type="file"
-                className="hidden"
-                accept="image/*"
-                capture="environment"
-                id={`file-input-${document.id}`}
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    console.log(`VMF file selected: ${file.name}, size: ${file.size}, type: ${file.type}`);
-                    
-                    // Simplified validation - focus on file type and basic size check
-                    if (!file.type.startsWith('image/')) {
-                      toast({
-                        title: "Invalid File Type",
-                        description: "Please select an image file from your camera.",
-                        variant: "destructive",
-                      });
-                      // Clear the input and return
-                      e.target.value = '';
-                      return;
-                    }
-                    
-                    if (file.size < 1000) { // Less than 1KB is likely invalid
-                      toast({
-                        title: "File Too Small",
-                        description: "The selected file appears to be invalid. Please try again.",
-                        variant: "destructive",
-                      });
-                      // Clear the input and return
-                      e.target.value = '';
-                      return;
-                    }
-                    
-                    // Process the file immediately
-                    handleFileSelect(document.id, file);
-                  }
+            <div key={document.id} className={`upload-zone transition-all p-4 border rounded-lg ${
+              document.uploaded 
+                ? 'border-green-500 bg-green-50 dark:bg-green-900/20' 
+                : isUploading 
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
+                  : 'border-gray-300 dark:border-gray-600'
+            }`}>
+              {document.uploaded ? (
+                <div className="text-center">
+                  <i className="fas fa-check-circle text-2xl text-green-600 mb-2"></i>
+                  <p className="text-green-600 text-sm font-medium">{document.name}</p>
+                  <p className="text-green-600 text-xs">Successfully uploaded</p>
+                </div>
+              ) : isUploading ? (
+                <div className="text-center">
+                  <i className="fas fa-spinner fa-spin text-2xl text-blue-600 mb-2"></i>
+                  <p className="text-blue-600 text-sm font-medium">Uploading...</p>
+                  <p className="text-blue-600 text-xs">Please wait</p>
+                </div>
+              ) : (
+                <div className="text-center">
+                  <i className="fas fa-file-image text-3xl text-gray-400 mb-2"></i>
+                  <p className="text-gray-600 dark:text-gray-400 text-sm font-medium">{document.name}</p>
+                  <p className="text-gray-500 dark:text-gray-500 text-xs mb-3">Take a real-time photo of the document</p>
                   
-                  // Always reset the input value to prevent freezing
-                  setTimeout(() => {
-                    e.target.value = '';
-                  }, 100);
-                }}
-              />
+                  <CameraCapture
+                    onCapture={(file) => handlePhotoCapture(document.id, file)}
+                    onError={(error) => handleUploadError(document.id, error)}
+                    maxSizeKB={1024}
+                    quality={0.8}
+                    disabled={isUploading}
+                  />
+                </div>
+              )}
             </div>
           ))}
           
@@ -261,15 +194,16 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
               onClick={handleClose} 
               variant="outline"
               className="flex-1"
+              disabled={isUploading}
             >
               Cancel
             </Button>
             <Button 
               onClick={handleCompleteUpload}
-              disabled={uploadDocument.isPending || !documents.every(doc => doc.uploaded)}
+              disabled={isUploading || !documents.every(doc => doc.uploaded)}
               className="flex-1 bg-primary hover:bg-primary/90 text-white"
             >
-              {uploadDocument.isPending ? (
+              {isUploading ? (
                 <>
                   <i className="fas fa-spinner fa-spin mr-2"></i>
                   Uploading...
