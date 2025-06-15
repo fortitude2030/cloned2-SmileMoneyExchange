@@ -100,7 +100,7 @@ export default function FinancePortal() {
 
   // State for management tab
   const [activeTab, setActiveTab] = useState("dashboard");
-  const [settlementFilter, setSettlementFilter] = useState("all");
+  const [settlementFilter, setSettlementFilter] = useState("today");
   const [showCreateBranchModal, setShowCreateBranchModal] = useState(false);
   const [showEditOrgModal, setShowEditOrgModal] = useState(false);
 
@@ -370,7 +370,10 @@ export default function FinancePortal() {
           return requestDate >= lastWeek;
         });
       default:
-        return requests;
+        return requests.filter(request => {
+          const requestDate = new Date(request.createdAt);
+          return requestDate >= today;
+        });
     }
   };
 
@@ -575,7 +578,6 @@ export default function FinancePortal() {
                       onChange={(e) => setSettlementFilter(e.target.value)}
                       className="text-xs border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="all">All Time</option>
                       <option value="today">Today</option>
                       <option value="yesterday">Yesterday</option>
                       <option value="last7days">Last 7 Days</option>
