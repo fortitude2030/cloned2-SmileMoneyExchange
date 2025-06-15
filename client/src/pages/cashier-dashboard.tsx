@@ -9,6 +9,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import MobileHeader from "@/components/mobile-header";
 import MobileNav from "@/components/mobile-nav";
 import SimpleDocumentUpload from "@/components/simple-document-upload";
+import DocumentViewerModal from "@/components/document-viewer-modal";
 import QRScannerComponent from "@/components/qr-scanner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -114,6 +115,10 @@ export default function CashierDashboard() {
   const [qrAmount, setQrAmount] = useState("");
   const [qrVmfNumber, setQrVmfNumber] = useState("");
   const [activeQrTransaction, setActiveQrTransaction] = useState<any>(null);
+  
+  // Document viewer state
+  const [showDocumentViewer, setShowDocumentViewer] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
 
 
 
@@ -1448,6 +1453,17 @@ export default function CashierDashboard() {
             });
           }
         }}
+      />
+
+      {/* Document Viewer Modal */}
+      <DocumentViewerModal
+        isOpen={showDocumentViewer}
+        onClose={() => {
+          setShowDocumentViewer(false);
+          setSelectedTransaction(null);
+        }}
+        transactionId={selectedTransaction?.id}
+        transactionNumber={selectedTransaction?.transactionId}
       />
     </div>
   );

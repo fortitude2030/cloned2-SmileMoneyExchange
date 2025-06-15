@@ -1088,6 +1088,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if user has permission to view this document
+      if (!document.transactionId) {
+        return res.status(404).json({ message: "Document not linked to transaction" });
+      }
+      
       const transaction = await storage.getTransactionById(document.transactionId);
       if (!transaction) {
         return res.status(404).json({ message: "Transaction not found" });
@@ -1141,9 +1145,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const user = await storage.getUser(userId);
       const canView = 
-        transaction.senderId === userId || 
-        transaction.receiverId === userId ||
-        transaction.cashierId === userId ||
+        transaction.fromUserId === userId || 
+        transaction.toUserId === userId ||
         user?.role === 'admin' ||
         user?.role === 'finance';
 
