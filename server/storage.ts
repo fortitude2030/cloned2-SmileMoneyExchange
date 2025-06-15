@@ -43,6 +43,7 @@ export interface IStorage {
   // Branch operations
   createBranch(branch: InsertBranch): Promise<Branch>;
   getBranchesByOrganization(organizationId: number): Promise<Branch[]>;
+  updateBranch(branchId: number, data: Partial<InsertBranch>): Promise<Branch>;
   updateBranchBalance(branchId: number, balance: string): Promise<void>;
   
   // Wallet operations
@@ -173,6 +174,20 @@ export class DatabaseStorage implements IStorage {
       .from(branches)
       .where(eq(branches.organizationId, organizationId))
       .orderBy(branches.name);
+  }
+
+  async updateBranch(branchId: number, data: Partial<InsertBranch>): Promise<Branch> {
+    const [updatedBranch] = await db
+      .update(branches)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(branches.id, branchId))
+      .returning();
+    
+    if (!updatedBranch) {
+      throw new Error("Branch not found");
+    }
+    
+    return updatedBranch;
   }
 
   async updateBranchBalance(branchId: number, balance: string): Promise<void> {

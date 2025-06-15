@@ -162,6 +162,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put('/api/branches/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      const branchId = parseInt(req.params.id);
+      
+      if (user?.role !== 'finance') {
+        return res.status(403).json({ message: "Only finance officers can update branches" });
+      }
+
+      if (!user?.organizationId) {
+        return res.status(400).json({ message: "User must belong to an organization" });
+      }
+
+      // Get the branch to ensure it belongs to the user's organization
+      const branches = await storage.getBranchesByOrganization(user.organizationId);
+      const branchExists = branches.find(b => b.id === branchId);
+      
+      if (!branchExists) {
+        return res.status(404).json({ message: "Branch not found or access denied" });
+      }
+
+      const updatedBranch = await storage.updateBranch(branchId, req.body);
+      res.json(updatedBranch);
+    } catch (error) {
+      console.error("Error updating branch:", error);
+      res.status(400).json({ message: "Failed to update branch" });
+    }
+  });
+
   // Fetch merchant wallets for finance portal
   app.get('/api/merchant-wallets', isAuthenticated, async (req: any, res) => {
     try {
