@@ -117,19 +117,19 @@ export function ConsolidatedSettlementCard() {
           <div className="space-y-6">
             {/* Summary Stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Today's Collections + Pending */}
-              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+              {/* Approved */}
+              <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-blue-700 dark:text-blue-400">Collections + Pending</p>
-                    <p className="text-2xl font-bold text-blue-900 dark:text-blue-300">
-                      {formatCurrency(settlementData.approved + settlementData.pending)}
+                    <p className="text-sm font-medium text-green-700 dark:text-green-400">Approved</p>
+                    <p className="text-2xl font-bold text-green-900 dark:text-green-300">
+                      {formatCurrency(settlementData.approved)}
                     </p>
-                    <p className="text-xs text-blue-600 dark:text-blue-500">
-                      {settlementData.approvedCount + settlementData.pendingCount} requests
+                    <p className="text-xs text-green-600 dark:text-green-500">
+                      {settlementData.approvedCount} requests
                     </p>
                   </div>
-                  <TrendingUp className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+                  <TrendingUp className="h-8 w-8 text-green-600 dark:text-green-400" />
                 </div>
               </div>
 
@@ -149,19 +149,19 @@ export function ConsolidatedSettlementCard() {
                 </div>
               </div>
 
-              {/* Total Volume */}
-              <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg border border-purple-200 dark:border-purple-800">
+              {/* Pending */}
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg border border-yellow-200 dark:border-yellow-800">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-purple-700 dark:text-purple-400">Total Volume</p>
-                    <p className="text-2xl font-bold text-purple-900 dark:text-purple-300">
-                      {formatCurrency(settlementData.approved + settlementData.rejected + settlementData.pending)}
+                    <p className="text-sm font-medium text-yellow-700 dark:text-yellow-400">Pending</p>
+                    <p className="text-2xl font-bold text-yellow-900 dark:text-yellow-300">
+                      {formatCurrency(settlementData.pending)}
                     </p>
-                    <p className="text-xs text-purple-600 dark:text-purple-500">
-                      {settlementData.approvedCount + settlementData.rejectedCount + settlementData.pendingCount} total requests
+                    <p className="text-xs text-yellow-600 dark:text-yellow-500">
+                      {settlementData.pendingCount} requests
                     </p>
                   </div>
-                  <Calendar className="h-8 w-8 text-purple-600 dark:text-purple-400" />
+                  <Clock className="h-8 w-8 text-yellow-600 dark:text-yellow-400" />
                 </div>
               </div>
             </div>

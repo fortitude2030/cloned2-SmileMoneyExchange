@@ -6,7 +6,6 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import MobileHeader from "@/components/mobile-header";
 import MobileNav from "@/components/mobile-nav";
-import { ConsolidatedSettlementCard } from "@/components/consolidated-settlement-card";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -410,10 +409,39 @@ export default function FinancePortal() {
           </Card>
         </div>
 
-        {/* Consolidated Monthly Settlement Card */}
-        <div className="mb-6">
-          <ConsolidatedSettlementCard />
-        </div>
+        {/* Settlement Capacity Card */}
+        <Card className="shadow-sm border border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-950 mb-6">
+          <CardContent className="p-4">
+            <div className="text-center mb-3">
+              <p className="text-green-700 dark:text-green-300 text-sm font-medium">SETTLEMENT CAPACITY</p>
+              <h2 className="text-2xl font-bold text-green-800 dark:text-green-200">
+                {formatCurrency(calculateSettlementCapacity())}
+              </h2>
+              <p className="text-green-600 dark:text-green-400 text-xs">Available for New Settlements</p>
+            </div>
+            
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              <div className="text-center">
+                <p className="text-blue-600 dark:text-blue-400">Today's Usage</p>
+                <p className="font-semibold text-blue-800 dark:text-blue-200">
+                  {formatCurrency((settlementBreakdown as any)?.todaysUsage || 0)}
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-orange-600 dark:text-orange-400">Pending</p>
+                <p className="font-semibold text-orange-800 dark:text-orange-200">
+                  -{formatCurrency((settlementBreakdown as any)?.pendingTotal || 0)}
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-green-600 dark:text-green-400">Available</p>
+                <p className="font-semibold text-green-800 dark:text-green-200">
+                  {formatCurrency(calculateSettlementCapacity())}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Organization Funds Display */}
         <Card className="shadow-sm border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-950 mb-6">
