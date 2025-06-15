@@ -177,9 +177,26 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateBranch(branchId: number, data: Partial<InsertBranch>): Promise<Branch> {
+    // Convert empty strings to null for optional fields
+    const updateData: any = {
+      ...data,
+      updatedAt: new Date()
+    };
+    
+    // Handle optional fields - convert empty strings to null
+    if (data.address !== undefined) {
+      updateData.address = data.address === "" ? null : data.address;
+    }
+    if (data.contactPhone !== undefined) {
+      updateData.contactPhone = data.contactPhone === "" ? null : data.contactPhone;
+    }
+    if (data.managerName !== undefined) {
+      updateData.managerName = data.managerName === "" ? null : data.managerName;
+    }
+
     const [updatedBranch] = await db
       .update(branches)
-      .set({ ...data, updatedAt: new Date() })
+      .set(updateData)
       .where(eq(branches.id, branchId))
       .returning();
     

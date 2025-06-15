@@ -1067,7 +1067,16 @@ export default function FinancePortal() {
                 onClick={() => {
                   const formData = editBranchForm.getValues();
                   if (formData.name && formData.location && selectedBranch) {
-                    updateBranch.mutate({ ...formData, id: selectedBranch.id });
+                    // Clean up form data - convert empty strings to undefined for optional fields
+                    const cleanedData = {
+                      name: formData.name,
+                      location: formData.location,
+                      address: formData.address || undefined,
+                      contactPhone: formData.contactPhone || undefined,
+                      managerName: formData.managerName || undefined,
+                      id: selectedBranch.id
+                    };
+                    updateBranch.mutate(cleanedData);
                   }
                 }}
                 disabled={updateBranch.isPending}
