@@ -1071,6 +1071,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Document viewing endpoint
+  app.get("/api/documents/:id/view", isAuthenticated, async (req: any, res) => {
+    try {
+      const documentId = parseInt(req.params.id);
+      const userId = req.user.claims.sub;
+      
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      // Get document info
+      const document = await storage.getDocumentById(documentId);
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+
+      // Check if user has permission to view this document
+      const transaction = await storage.getTransactionById(document.transactionId);
+      if (!transaction) {
+        return res.status(404).json({ message: "Transaction not found" });
+      }
+
+      // Allow access if user is involved in the transaction or is admin/finance
+      const user = await storage.getUser(userId);
+      const canView = 
+        transaction.fromUserId === userId || 
+        transaction.toUserId === userId ||
+        user?.role === 'admin' ||
+        user?.role === 'finance';
+
+      if (!canView) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Serve the file
+      const filePath = path.join(__dirname, "../uploads", document.filename);
+      
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ message: "File not found" });
+      }
+
+      // Set appropriate headers
+      res.setHeader('Content-Type', document.mimeType || 'image/jpeg');
+      res.setHeader('Content-Disposition', `inline; filename="${document.filename}"`);
+      res.setHeader('Cache-Control', 'private, max-age=3600');
+      
+      // Stream the file
+      const fileStream = fs.createReadStream(filePath);
+      fileStream.pipe(res);
+      
+    } catch (error) {
+      console.error("Error serving document:", error);
+      res.status(500).json({ message: "Failed to serve document" });
+    }
+  });
+
+  // Get documents by transaction ID
+  app.get("/api/documents/transaction/:transactionId", isAuthenticated, async (req: any, res) => {
+    try {
+      const transactionId = parseInt(req.params.transactionId);
+      const userId = req.user.claims.sub;
+      
+      // Check if user has permission to view transaction documents
+      const transaction = await storage.getTransactionById(transactionId);
+      if (!transaction) {
+        return res.status(404).json({ message: "Transaction not found" });
+      }
+
+      const user = await storage.getUser(userId);
+      const canView = 
+        transaction.senderId === userId || 
+        transaction.receiverId === userId ||
+        transaction.cashierId === userId ||
+        user?.role === 'admin' ||
+        user?.role === 'finance';
+
+      if (!canView) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const documents = await storage.getDocumentsByTransactionId(transactionId);
+      
+      // Return document metadata with view URLs
+      const documentsWithUrls = documents.map(doc => ({
+        ...doc,
+        viewUrl: `/api/documents/${doc.id}/view`,
+        thumbnailUrl: `/api/documents/${doc.id}/view` // Could implement thumbnail generation
+      }));
+      
+      res.json(documentsWithUrls);
+    } catch (error) {
+      console.error("Error fetching documents:", error);
+      res.status(500).json({ message: "Failed to fetch documents" });
+    }
+  });
+
   // Create HTTP server
   const httpServer = createServer(app);
 

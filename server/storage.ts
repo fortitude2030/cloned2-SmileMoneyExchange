@@ -69,6 +69,7 @@ export interface IStorage {
   
   // Document operations
   createDocument(document: InsertDocument): Promise<Document>;
+  getDocumentById(id: number): Promise<Document | undefined>;
   getDocumentsByTransactionId(transactionId: number): Promise<Document[]>;
   
   // Settlement operations
@@ -608,6 +609,14 @@ export class DatabaseStorage implements IStorage {
       .insert(documents)
       .values(documentData)
       .returning();
+    return document;
+  }
+
+  async getDocumentById(id: number): Promise<Document | undefined> {
+    const [document] = await db
+      .select()
+      .from(documents)
+      .where(eq(documents.id, id));
     return document;
   }
 
