@@ -155,6 +155,30 @@ export class DatabaseStorage implements IStorage {
     return org ? [org] : [];
   }
 
+  async updateOrganization(organizationId: number, data: Partial<InsertOrganization>): Promise<Organization> {
+    // Handle optional fields - convert empty strings to null
+    const updateData: any = {
+      ...data,
+      updatedAt: new Date()
+    };
+    
+    if (data.description !== undefined) {
+      updateData.description = data.description === "" ? null : data.description;
+    }
+
+    const [updatedOrganization] = await db
+      .update(organizations)
+      .set(updateData)
+      .where(eq(organizations.id, organizationId))
+      .returning();
+    
+    if (!updatedOrganization) {
+      throw new Error("Organization not found");
+    }
+    
+    return updatedOrganization;
+  }
+
   // Branch operations
   async createBranch(branchData: InsertBranch): Promise<Branch> {
     const branchWithIdentifier = {
