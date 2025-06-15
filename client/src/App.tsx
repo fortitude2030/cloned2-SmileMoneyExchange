@@ -12,8 +12,6 @@ import MerchantDashboard from "@/pages/merchant-dashboard";
 import CashierDashboard from "@/pages/cashier-dashboard";
 import FinancePortal from "@/pages/finance-portal";
 import AdminDashboard from "@/pages/admin-dashboard";
-import CoreBankingDashboard from "@/pages/core-banking-dashboard";
-import DevLogin from "@/pages/dev-login";
 
 function Router() {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -34,10 +32,7 @@ function Router() {
   return (
     <Switch>
       {!isAuthenticated ? (
-        <>
-          <Route path="/" component={Landing} />
-          <Route path="/dev-login" component={DevLogin} />
-        </>
+        <Route path="/" component={Landing} />
       ) : (
         <>
           <Route path="/" component={() => {
@@ -49,11 +44,11 @@ function Router() {
               case 'cashier':
                 return <CashierDashboard />;
               case 'finance':
-                return <CoreBankingDashboard />;
+                return <FinancePortal />;
               case 'admin':
-                return <CoreBankingDashboard />;
+                return <AdminDashboard />;
               default:
-                return <CoreBankingDashboard />;
+                return <Landing />;
             }
           }} />
           <Route path="/merchant-dashboard" component={MerchantDashboard} />
@@ -64,7 +59,6 @@ function Router() {
           <Route path="/finance" component={FinancePortal} />
           <Route path="/admin-dashboard" component={AdminDashboard} />
           <Route path="/admin" component={AdminDashboard} />
-          <Route path="/core-banking" component={CoreBankingDashboard} />
         </>
       )}
       <Route component={NotFound} />

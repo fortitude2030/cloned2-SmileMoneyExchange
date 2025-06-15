@@ -37,8 +37,8 @@ export default function Landing() {
             <div className="mx-auto w-20 h-20 bg-primary rounded-2xl flex items-center justify-center mb-4">
               <i className="fas fa-mobile-alt text-white text-3xl"></i>
             </div>
-            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">EMI Core Banking</h1>
-            <p className="text-gray-600 dark:text-gray-400">Electronic Money Institution Platform</p>
+            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">Smile Money</h1>
+            <p className="text-gray-600 dark:text-gray-400">Secure Digital Cash Platform</p>
           </div>
 
           <div className="space-y-6">
@@ -64,21 +64,14 @@ export default function Landing() {
               className="w-full bg-primary hover:bg-primary/90 text-white py-3 rounded-xl font-semibold"
               disabled={!selectedRole}
             >
-              Access Core Banking
+              Sign In to Smile Money
             </Button>
           </div>
 
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Electronic Money Institution Platform
+              Secure fintech platform for merchants
             </p>
-            <Button 
-              onClick={() => window.location.href = "/dev-login"}
-              variant="outline"
-              className="mt-2 text-sm"
-            >
-              Banking Operations Login
-            </Button>
           </div>
         </CardContent>
       </Card>
