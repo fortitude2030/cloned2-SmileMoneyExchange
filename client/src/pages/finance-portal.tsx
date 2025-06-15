@@ -7,6 +7,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import MobileHeader from "@/components/mobile-header";
 import MobileNav from "@/components/mobile-nav";
 import { ConsolidatedSettlementCard } from "@/components/consolidated-settlement-card";
+import { ConsolidatedSettlementTotalVolume } from "@/components/consolidated-settlement-total-volume";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -392,23 +393,30 @@ export default function FinancePortal() {
         {/* Dashboard Tab */}
         {activeTab === "dashboard" && (
           <>
-            {/* Daily Activity Overview */}
-        <div className="grid grid-cols-1 gap-4 mb-6">
-          {/* Today's Activity Card */}
-          <Card className="shadow-sm border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-950">
-            <CardContent className="p-4">
-              <div className="text-center">
-                <p className="text-blue-700 dark:text-blue-300 text-sm font-medium mb-1">TODAY'S COLLECTIONS</p>
-                <h2 className="text-3xl font-bold text-blue-800 dark:text-blue-200 mb-1">
-                  {formatCurrency(calculateTotalMerchantCollections())}
-                </h2>
-                <p className="text-blue-600 dark:text-blue-400 text-xs">
-                  Collected across {(merchantWallets as any[]).filter(m => parseFloat(m.dailyCollected || '0') > 0).length} active merchants
-                </p>
+            {/* Daily Activity & Settlement Overview */}
+        <Card className="shadow-sm border border-blue-200 dark:border-blue-700 mb-6">
+          <CardContent className="p-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Today's Collections Column */}
+              <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg">
+                <div className="text-center">
+                  <p className="text-blue-700 dark:text-blue-300 text-sm font-medium mb-1">TODAY'S COLLECTIONS</p>
+                  <h2 className="text-3xl font-bold text-blue-800 dark:text-blue-200 mb-1">
+                    {formatCurrency(calculateTotalMerchantCollections())}
+                  </h2>
+                  <p className="text-blue-600 dark:text-blue-400 text-xs">
+                    Collected across {(merchantWallets as any[]).filter(m => parseFloat(m.dailyCollected || '0') > 0).length} active merchants
+                  </p>
+                </div>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+
+              {/* Total Volume Column - Using ConsolidatedSettlementCard data */}
+              <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+                <ConsolidatedSettlementTotalVolume />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Consolidated Monthly Settlement Card */}
         <div className="mb-6">
