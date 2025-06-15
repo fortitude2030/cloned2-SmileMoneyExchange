@@ -423,18 +423,7 @@ export default function FinancePortal() {
           <ConsolidatedSettlementCard />
         </div>
 
-        {/* Organization Funds Display */}
-        <Card className="shadow-sm border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-950 mb-6">
-          <CardContent className="p-4">
-            <div className="text-center">
-              <p className="text-blue-700 dark:text-blue-300 text-sm font-medium">ORGANIZATION FUNDS</p>
-              <h3 className="text-xl font-bold text-blue-800 dark:text-blue-200">
-                {formatCurrency(getOrganizationFunds())}
-              </h3>
-              <p className="text-blue-600 dark:text-blue-400 text-xs">Total Wallet Balance</p>
-            </div>
-          </CardContent>
-        </Card>
+        
 
         {/* Merchant Wallets */}
         <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
