@@ -46,7 +46,7 @@ const upload = multer({
     if (mimetype && extname) {
       return cb(null, true);
     } else {
-      cb(new Error('Only camera images are allowed'));
+      return cb(new Error('Only camera images are allowed'));
     }
   },
 });
@@ -671,7 +671,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Document upload routes with error handling
   app.post('/api/documents', isAuthenticated, (req: any, res, next) => {
-    upload.single('file')(req, res, (err) => {
+    const uploadHandler = upload.single('file');
+    uploadHandler(req, res, (err: any) => {
       if (err) {
         console.error('Multer upload error:', err);
         if (err.code === 'LIMIT_FILE_SIZE') {
