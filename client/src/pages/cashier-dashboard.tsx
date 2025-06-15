@@ -1096,6 +1096,7 @@ export default function CashierDashboard() {
               <div className="space-y-3">
                 {(showAllTransactions ? (Array.isArray(transactions) ? transactions.slice(0, 30) : []) : (Array.isArray(transactions) ? transactions.slice(0, 5) : [])).map((transaction: any) => {
                   const dateTime = formatDateTime(transaction.createdAt);
+
                   return (
                     <div key={transaction.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                       <div className="flex-1">
@@ -1136,10 +1137,10 @@ export default function CashierDashboard() {
                               setSelectedTransaction(transaction);
                               setShowDocumentViewer(true);
                             }}
-                            className="p-1 h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                            className="p-1 h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900"
                             title="View Documents"
                           >
-                            <i className="fas fa-file-image text-xs"></i>
+                            <i className="fas fa-file-image text-sm"></i>
                           </Button>
                         )}
                       </div>
@@ -1472,8 +1473,8 @@ export default function CashierDashboard() {
           setShowDocumentViewer(false);
           setSelectedTransaction(null);
         }}
-        transactionId={selectedTransaction?.id}
-        transactionNumber={selectedTransaction?.transactionId}
+        transactionId={selectedTransaction?.id || 0}
+        transactionNumber={selectedTransaction?.transactionId || ""}
       />
     </div>
   );
