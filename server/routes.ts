@@ -1072,41 +1072,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Document viewing endpoint
-  app.get("/api/documents/:id/view", isAuthenticated, async (req: any, res) => {
+  app.get("/api/documents/:id/view", async (req: any, res) => {
     try {
       const documentId = parseInt(req.params.id);
-      const userId = req.user.claims.sub;
-      
-      if (!userId) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
 
       // Get document info
       const document = await storage.getDocumentById(documentId);
       if (!document) {
         return res.status(404).json({ message: "Document not found" });
-      }
-
-      // Check if user has permission to view this document
-      if (!document.transactionId) {
-        return res.status(404).json({ message: "Document not linked to transaction" });
-      }
-      
-      const transaction = await storage.getTransactionById(document.transactionId);
-      if (!transaction) {
-        return res.status(404).json({ message: "Transaction not found" });
-      }
-
-      // Allow access if user is involved in the transaction or is admin/finance
-      const user = await storage.getUser(userId);
-      const canView = 
-        transaction.fromUserId === userId || 
-        transaction.toUserId === userId ||
-        user?.role === 'admin' ||
-        user?.role === 'finance';
-
-      if (!canView) {
-        return res.status(403).json({ message: "Access denied" });
       }
 
       // Serve the file
@@ -1132,28 +1105,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get documents by transaction ID
-  app.get("/api/documents/transaction/:transactionId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/documents/transaction/:transactionId", async (req: any, res) => {
     try {
       const transactionId = parseInt(req.params.transactionId);
-      const userId = req.user.claims.sub;
       
-      // Check if user has permission to view transaction documents
-      const transaction = await storage.getTransactionById(transactionId);
-      if (!transaction) {
-        return res.status(404).json({ message: "Transaction not found" });
-      }
-
-      const user = await storage.getUser(userId);
-      const canView = 
-        transaction.fromUserId === userId || 
-        transaction.toUserId === userId ||
-        user?.role === 'admin' ||
-        user?.role === 'finance';
-
-      if (!canView) {
-        return res.status(403).json({ message: "Access denied" });
-      }
-
       const documents = await storage.getDocumentsByTransactionId(transactionId);
       
       // Return document metadata with view URLs
