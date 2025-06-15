@@ -125,6 +125,13 @@ export default function FinancePortal() {
     managerName: z.string().optional(),
   });
 
+  // Organization form schema
+  const organizationSchema = z.object({
+    name: z.string().min(1, "Organization name is required"),
+    type: z.string().min(1, "Organization type is required"),
+    description: z.string().optional(),
+  });
+
   // Branch form
   const branchForm = useForm({
     resolver: zodResolver(branchSchema),
@@ -145,6 +152,15 @@ export default function FinancePortal() {
       address: "",
       contactPhone: "",
       managerName: "",
+    },
+  });
+
+  const organizationForm = useForm({
+    resolver: zodResolver(organizationSchema),
+    defaultValues: {
+      name: "",
+      type: "",
+      description: "",
     },
   });
 
@@ -234,6 +250,30 @@ export default function FinancePortal() {
     },
     onError: (error: any) => {
       const errorMessage = error?.response?.data?.message || "Failed to update branch";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Update organization mutation
+  const updateOrganization = useMutation({
+    mutationFn: async (data: z.infer<typeof organizationSchema> & { id: number }) => {
+      return await apiRequest("PUT", `/api/organizations/${data.id}`, data);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Organization updated successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/organizations"] });
+      setShowEditOrgModal(false);
+      organizationForm.reset();
+    },
+    onError: (error: any) => {
+      const errorMessage = error?.response?.data?.message || "Failed to update organization";
       toast({
         title: "Error",
         description: errorMessage,
@@ -425,6 +465,18 @@ export default function FinancePortal() {
       managerName: branch.managerName || "",
     });
     setShowEditBranchModal(true);
+  };
+
+  const handleEditOrganization = () => {
+    const organization = (organizations as any[])[0];
+    if (organization) {
+      organizationForm.reset({
+        name: organization.name || "",
+        type: organization.type || "",
+        description: organization.description || "",
+      });
+      setShowEditOrgModal(true);
+    }
   };
 
   if (isLoading) {
@@ -792,7 +844,7 @@ export default function FinancePortal() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setShowEditOrgModal(true)}
+                    onClick={handleEditOrganization}
                   >
                     <i className="fas fa-edit mr-2"></i>
                     Edit
@@ -1083,6 +1135,89 @@ export default function FinancePortal() {
                 className="bg-blue-600 hover:bg-blue-700"
               >
                 {updateBranch.isPending ? "Updating..." : "Update Branch"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Organization Modal */}
+      <Dialog open={showEditOrgModal} onOpenChange={setShowEditOrgModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Organization</DialogTitle>
+            <DialogDescription>
+              Update organization information
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="editOrgName">Organization Name</Label>
+              <Input 
+                id="editOrgName"
+                placeholder="Enter organization name"
+                value={organizationForm.watch("name")}
+                onChange={(e) => organizationForm.setValue("name", e.target.value)}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="editOrgType">Organization Type</Label>
+              <Select 
+                value={organizationForm.watch("type")}
+                onValueChange={(value) => organizationForm.setValue("type", value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select organization type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="financial_institution">Financial Institution</SelectItem>
+                  <SelectItem value="microfinance">Microfinance</SelectItem>
+                  <SelectItem value="cooperative">Cooperative</SelectItem>
+                  <SelectItem value="bank">Bank</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="editOrgDescription">Description (Optional)</Label>
+              <Input 
+                id="editOrgDescription"
+                placeholder="Organization description"
+                value={organizationForm.watch("description")}
+                onChange={(e) => organizationForm.setValue("description", e.target.value)}
+              />
+            </div>
+
+            <div className="flex justify-end space-x-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowEditOrgModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  const formData = organizationForm.getValues();
+                  const organization = (organizations as any[])[0];
+                  if (formData.name && formData.type && organization) {
+                    // Clean up form data - convert empty strings to undefined for optional fields
+                    const cleanedData = {
+                      name: formData.name,
+                      type: formData.type,
+                      description: formData.description || undefined,
+                      id: organization.id
+                    };
+                    updateOrganization.mutate(cleanedData);
+                  }
+                }}
+                disabled={updateOrganization.isPending}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                {updateOrganization.isPending ? "Updating..." : "Update Organization"}
               </Button>
             </div>
           </div>

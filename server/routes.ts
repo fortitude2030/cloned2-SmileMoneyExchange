@@ -104,6 +104,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put('/api/organizations/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      const organizationId = parseInt(req.params.id);
+      
+      if (user?.role !== 'finance') {
+        return res.status(403).json({ message: "Only finance officers can update organizations" });
+      }
+
+      // Check if user belongs to this organization
+      if (user.organizationId !== organizationId) {
+        return res.status(403).json({ message: "Access denied to this organization" });
+      }
+
+      const updatedOrganization = await storage.updateOrganization(organizationId, req.body);
+      res.json(updatedOrganization);
+    } catch (error) {
+      console.error("Error updating organization:", error);
+      res.status(400).json({ message: "Failed to update organization" });
+    }
+  });
+
   // Branch routes
   app.post('/api/branches', isAuthenticated, async (req: any, res) => {
     try {

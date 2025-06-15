@@ -39,6 +39,7 @@ export interface IStorage {
   createOrganization(org: InsertOrganization): Promise<Organization>;
   getOrganizationById(id: number): Promise<Organization | undefined>;
   getOrganizationsByUserId(userId: string): Promise<Organization[]>;
+  updateOrganization(organizationId: number, data: Partial<InsertOrganization>): Promise<Organization>;
   
   // Branch operations
   createBranch(branch: InsertBranch): Promise<Branch>;
