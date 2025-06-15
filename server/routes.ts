@@ -609,40 +609,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   }, async (req: any, res) => {
     try {
+      console.log('Document upload request received:', {
+        file: req.file ? {
+          filename: req.file.filename,
+          originalname: req.file.originalname,
+          mimetype: req.file.mimetype,
+          size: req.file.size
+        } : 'No file',
+        body: req.body,
+        userId: req.user?.claims?.sub
+      });
+
       if (!req.file) {
+        console.error('No file uploaded in request');
         return res.status(400).json({ message: "No file uploaded" });
       }
 
       const userId = req.user.claims.sub;
-      let finalFilename = req.file.filename;
-      let finalMimeType = req.file.mimetype;
-      let finalSize = req.file.size;
-      
-      // Optimized processing - keep original format for faster uploads
-      const isImage = req.file.mimetype.startsWith('image/');
-      if (isImage) {
-        // Just keep the image as-is for faster processing
-        // No PDF conversion to eliminate processing bottleneck
-        finalFilename = req.file.filename;
-        finalMimeType = req.file.mimetype;
-        finalSize = req.file.size;
+      if (!userId) {
+        console.error('No user ID found in request');
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+
+      // Validate file type
+      const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+      if (!allowedMimeTypes.includes(req.file.mimetype)) {
+        console.error('Invalid file type:', req.file.mimetype);
+        return res.status(400).json({ message: "Only JPEG and PNG images are allowed" });
+      }
+
+      // Validate file size
+      if (req.file.size > 10 * 1024 * 1024) {
+        console.error('File too large:', req.file.size);
+        return res.status(400).json({ message: "File too large. Maximum size is 10MB" });
+      }
+
+      if (req.file.size < 1000) {
+        console.error('File too small:', req.file.size);
+        return res.status(400).json({ message: "File too small. Please capture a valid photo" });
       }
 
       const documentData = insertDocumentSchema.parse({
         userId,
         transactionId: req.body.transactionId ? parseInt(req.body.transactionId) : null,
-        filename: finalFilename,
+        filename: req.file.filename,
         originalName: req.file.originalname,
-        mimeType: finalMimeType,
-        size: finalSize,
+        mimeType: req.file.mimetype,
+        size: req.file.size,
         type: req.body.type || 'vmf_document',
       });
 
+      console.log('Creating document with data:', documentData);
       const document = await storage.createDocument(documentData);
+      console.log('Document created successfully:', document.id);
+      
       res.json(document);
     } catch (error) {
       console.error("Error uploading document:", error);
-      res.status(400).json({ message: "Failed to upload document" });
+      console.error("Error details:", {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : 'No stack trace',
+        file: req.file ? {
+          filename: req.file.filename,
+          size: req.file.size,
+          mimetype: req.file.mimetype
+        } : 'No file'
+      });
+      res.status(400).json({ 
+        message: "Failed to upload document",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
 

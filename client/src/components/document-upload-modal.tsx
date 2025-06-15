@@ -106,10 +106,13 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
         if (updated.every(doc => doc.uploaded)) {
           console.log("All documents uploaded - manual completion required");
           
-          toast({
-            title: "Photos Captured",
-            description: "All VMF documents uploaded. Please verify photos and click Complete Transaction.",
-          });
+          // Use setTimeout to avoid state update during render cycle
+          setTimeout(() => {
+            toast({
+              title: "Photos Captured",
+              description: "All VMF documents uploaded. Please verify photos and click Complete Transaction.",
+            });
+          }, 0);
         }
         
         return updated;
@@ -131,9 +134,26 @@ export default function DocumentUploadModal({ isOpen, onClose, transactionId }: 
       }
       
       console.error("Upload error:", error);
+      
+      // Extract error message from server response
+      let errorMessage = "Failed to upload document. Please try again.";
+      if (error instanceof Error) {
+        if (error.message.includes("File too large")) {
+          errorMessage = "Photo is too large. Please try taking the photo again.";
+        } else if (error.message.includes("File too small")) {
+          errorMessage = "Photo is too small. Please take the photo again.";
+        } else if (error.message.includes("Only JPEG and PNG")) {
+          errorMessage = "Please capture a photo using your camera.";
+        } else if (error.message.includes("No file uploaded")) {
+          errorMessage = "No photo was captured. Please try again.";
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+      }
+      
       toast({
         title: "Upload Failed",
-        description: "Failed to upload document. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     },
