@@ -166,29 +166,7 @@ export function ConsolidatedSettlementCard() {
               </div>
             </div>
 
-            {/* Total Summary */}
-            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-blue-700 dark:text-blue-400">Total Volume</p>
-                  <p className="text-3xl font-bold text-blue-900 dark:text-blue-300">
-                    {formatCurrency(settlementData.approved + settlementData.rejected + settlementData.pending)}
-                  </p>
-                  <p className="text-xs text-blue-600 dark:text-blue-500">
-                    {settlementData.approvedCount + settlementData.rejectedCount + settlementData.pendingCount} total requests
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs text-blue-600 dark:text-blue-500">
-                    Success Rate: {settlementData.approvedCount + settlementData.rejectedCount > 0 ? 
-                      Math.round((settlementData.approvedCount / (settlementData.approvedCount + settlementData.rejectedCount)) * 100) : 0}%
-                  </p>
-                  <p className="text-xs text-blue-600 dark:text-blue-500">
-                    Last updated: {new Date(settlementData.lastUpdated).toLocaleTimeString()}
-                  </p>
-                </div>
-              </div>
-            </div>
+            
 
             {/* Period Info */}
             <div className="text-center text-xs text-gray-500 dark:text-gray-400">
