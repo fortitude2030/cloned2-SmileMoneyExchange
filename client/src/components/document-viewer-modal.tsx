@@ -131,12 +131,12 @@ export default function DocumentViewerModal({
             <div className="text-center py-8">
               <p className="text-red-600 text-sm">Failed to load documents</p>
             </div>
-          ) : !documents || documents.length === 0 ? (
+          ) : !documents || !Array.isArray(documents) || documents.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-gray-500 text-sm">No documents found</p>
             </div>
           ) : (
-            documents.map((document: DocumentWithUrl) => (
+            (documents as DocumentWithUrl[]).map((document: DocumentWithUrl) => (
               <div key={document.id} className="border rounded-lg p-3 space-y-2">
                 <div className="flex items-center justify-between">
                   <div>
