@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import type { Wallet } from "@shared/schema";
 
 const settlementSchema = z.object({
   amount: z.string().min(1, "Amount is required").transform((val) => Math.floor(parseFloat(val)).toString()),
@@ -63,7 +64,7 @@ export default function FinancePortal() {
   });
 
   // Fetch wallet with faster updates
-  const { data: wallet } = useQuery({
+  const { data: wallet, isLoading: walletLoading } = useQuery<Wallet>({
     queryKey: ["/api/wallet"],
     retry: false,
     refetchInterval: 1000, // Faster 1-second refresh
@@ -721,7 +722,7 @@ export default function FinancePortal() {
                             {walletLoading ? (
                               <div className="w-20 h-5 bg-blue-200 dark:bg-blue-800 rounded animate-pulse"></div>
                             ) : (
-                              formatCurrency(wallet?.balance || '0')
+                              formatCurrency((wallet as Wallet)?.balance || '0')
                             )}
                           </span>
                         </div>
