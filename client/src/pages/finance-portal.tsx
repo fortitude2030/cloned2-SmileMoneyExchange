@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import type { Wallet } from "@shared/schema";
 
 const settlementSchema = z.object({
   amount: z.string().min(1, "Amount is required").transform((val) => Math.floor(parseFloat(val)).toString()),
@@ -52,41 +53,41 @@ export default function FinancePortal() {
     retry: false,
   });
 
-  // Fetch merchant wallets with unified refresh interval
+  // Fetch merchant wallets with faster refresh
   const { data: merchantWallets = [], isLoading: merchantWalletsLoading } = useQuery({
     queryKey: ["/api/merchant-wallets"],
     retry: false,
-    refetchInterval: 2000, // Unified 2-second refresh
+    refetchInterval: 1000, // Faster 1-second refresh
     refetchOnWindowFocus: true,
     refetchOnMount: true,
     staleTime: 0,
   });
 
-  // Fetch wallet with real-time updates
-  const { data: wallet } = useQuery({
+  // Fetch wallet with faster updates
+  const { data: wallet, isLoading: walletLoading } = useQuery<Wallet>({
     queryKey: ["/api/wallet"],
     retry: false,
-    refetchInterval: 2000, // Refresh every 2 seconds for real-time capacity updates
+    refetchInterval: 1000, // Faster 1-second refresh
     refetchOnWindowFocus: true,
     refetchOnMount: true,
     staleTime: 0,
   });
 
-  // Fetch settlement requests with unified refresh interval
+  // Fetch settlement requests with faster refresh
   const { data: settlementRequests = [], isLoading: settlementsLoading } = useQuery({
     queryKey: ["/api/settlement-requests"],
     retry: false,
-    refetchInterval: 2000, // Unified 2-second refresh
+    refetchInterval: 1000, // Faster 1-second refresh
     refetchOnWindowFocus: true,
     refetchOnMount: true,
     staleTime: 0,
   });
 
-  // Fetch settlement breakdown with unified refresh interval
+  // Fetch settlement breakdown with faster refresh
   const { data: settlementBreakdown } = useQuery({
     queryKey: ["/api/settlement-breakdown"],
     retry: false,
-    refetchInterval: 2000, // Unified 2-second refresh
+    refetchInterval: 1000, // Faster 1-second refresh
     refetchOnWindowFocus: true,
     refetchOnMount: true,
     staleTime: 0,
@@ -98,9 +99,20 @@ export default function FinancePortal() {
     retry: false,
   });
 
+  // Fetch transactions for finance user (use admin endpoint since finance sees all transactions)
+  const { data: transactions = [], isLoading: transactionsLoading } = useQuery({
+    queryKey: ["/api/admin/transactions"],
+    retry: false,
+    refetchInterval: 1000,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    staleTime: 0,
+  });
+
   // State for management tab
   const [activeTab, setActiveTab] = useState("dashboard");
   const [settlementFilter, setSettlementFilter] = useState("today");
+  const [transactionFilter, setTransactionFilter] = useState("today");
   const [showCreateBranchModal, setShowCreateBranchModal] = useState(false);
   const [showEditBranchModal, setShowEditBranchModal] = useState(false);
   const [selectedBranch, setSelectedBranch] = useState<any>(null);
@@ -172,17 +184,28 @@ export default function FinancePortal() {
         amount: Math.floor(parseFloat(data.amount)).toString(),
       });
     },
-    onSuccess: (data: any) => {
+    onSuccess: async (data: any) => {
       const amount = Math.floor(parseFloat(settlementForm.getValues('amount'))).toLocaleString();
       toast({
         title: "Settlement Request Created",
         description: `Settlement request for ZMW ${amount} submitted successfully`,
       });
-      // Invalidate all finance portal data for immediate updates
-      queryClient.invalidateQueries({ queryKey: ["/api/settlement-requests"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/settlement-breakdown"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/wallet"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/merchant-wallets"] });
+      
+      // Force immediate refetch of all related data
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["/api/settlement-requests"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/settlement-breakdown"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/wallet"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/merchant-wallets"] }),
+      ]);
+      
+      // Force immediate data refetch
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ["/api/settlement-requests"] }),
+        queryClient.refetchQueries({ queryKey: ["/api/settlement-breakdown"] }),
+        queryClient.refetchQueries({ queryKey: ["/api/wallet"] }),
+      ]);
+      
       setShowSettlementDialog(false);
       settlementForm.reset();
     },
@@ -343,6 +366,45 @@ export default function FinancePortal() {
     // Use Math.floor to truncate decimals without rounding
     const truncatedAmount = Math.floor(numericAmount);
     return `ZMW ${truncatedAmount.toLocaleString()}`;
+  };
+
+  // Helper function to get start of week (Monday)
+  const getStartOfWeek = (date: Date) => {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is Sunday
+    return new Date(d.setDate(diff));
+  };
+
+  // Helper function to get start of month
+  const getStartOfMonth = (date: Date) => {
+    return new Date(date.getFullYear(), date.getMonth(), 1);
+  };
+
+  // Filter transactions based on selected period
+  const getFilteredTransactions = () => {
+    if (!transactions) return [];
+    
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    return (transactions as any[]).filter((transaction: any) => {
+      const transactionDate = new Date(transaction.createdAt);
+      const transactionDateOnly = new Date(transactionDate.getFullYear(), transactionDate.getMonth(), transactionDate.getDate());
+      
+      switch (transactionFilter) {
+        case 'today':
+          return transactionDateOnly.getTime() === today.getTime();
+        case 'this_week':
+          const startOfWeek = getStartOfWeek(today);
+          return transactionDate >= startOfWeek;
+        case 'this_month':
+          const startOfMonth = getStartOfMonth(today);
+          return transactionDate >= startOfMonth;
+        default:
+          return true;
+      }
+    });
   };
 
   const getStatusBadge = (status: string) => {
@@ -662,6 +724,124 @@ export default function FinancePortal() {
           </CardContent>
         </Card>
 
+        {/* Transaction List */}
+        <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <h3 className="font-semibold text-gray-800 dark:text-gray-200">Transaction History</h3>
+                <select
+                  value={transactionFilter}
+                  onChange={(e) => setTransactionFilter(e.target.value)}
+                  className="text-xs border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="today">Today</option>
+                  <option value="this_week">This Week</option>
+                  <option value="this_month">This Month</option>
+                </select>
+              </div>
+              <div className="text-right">
+                <div className="text-lg font-bold text-gray-800 dark:text-gray-200">
+                  {getFilteredTransactions().length} transactions
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  Total: {formatCurrency(getFilteredTransactions().reduce((sum, t) => sum + parseFloat(t.amount || '0'), 0))}
+                </div>
+              </div>
+            </div>
+            
+            {transactionsLoading ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg animate-pulse">
+                    <div className="flex items-center">
+                      <div className="w-10 h-10 bg-gray-300 dark:bg-gray-700 rounded-lg mr-3"></div>
+                      <div>
+                        <div className="w-24 h-4 bg-gray-300 dark:bg-gray-700 rounded mb-1"></div>
+                        <div className="w-16 h-3 bg-gray-300 dark:bg-gray-700 rounded"></div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="w-20 h-4 bg-gray-300 dark:bg-gray-700 rounded mb-1"></div>
+                      <div className="w-16 h-3 bg-gray-300 dark:bg-gray-700 rounded"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : getFilteredTransactions().length === 0 ? (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <i className="fas fa-receipt text-gray-400 text-xl"></i>
+                </div>
+                <p className="text-gray-600 dark:text-gray-400">No transactions found</p>
+                <p className="text-gray-500 dark:text-gray-500 text-sm">
+                  {transactionFilter === 'today' ? 'No transactions today' :
+                   transactionFilter === 'this_week' ? 'No transactions this week' :
+                   'No transactions this month'}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {getFilteredTransactions().slice(0, 20).map((transaction: any) => (
+                  <div key={transaction.id} className={`flex items-center justify-between p-3 rounded-lg border ${
+                    transaction.status === 'completed' ? 'bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800' :
+                    transaction.status === 'pending' ? 'bg-orange-50 dark:bg-orange-950 border-orange-200 dark:border-orange-800' :
+                    transaction.status === 'qr_verification' ? 'bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800' :
+                    'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                  }`}>
+                    <div className="flex items-center">
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center mr-3 ${
+                        transaction.status === 'completed' ? 'bg-green-100 dark:bg-green-900' :
+                        transaction.status === 'pending' ? 'bg-orange-100 dark:bg-orange-900' :
+                        transaction.status === 'qr_verification' ? 'bg-blue-100 dark:bg-blue-900' :
+                        'bg-gray-100 dark:bg-gray-900'
+                      }`}>
+                        <i className={`fas ${
+                          transaction.status === 'completed' ? 'fa-check text-green-600' :
+                          transaction.status === 'pending' ? 'fa-clock text-orange-600' :
+                          transaction.status === 'qr_verification' ? 'fa-qrcode text-blue-600' :
+                          'fa-exchange-alt text-gray-600'
+                        }`}></i>
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-800 dark:text-gray-200 text-sm">
+                          {transaction.transactionId}
+                        </p>
+                        <p className="text-gray-600 dark:text-gray-400 text-xs">
+                          {new Date(transaction.createdAt).toLocaleDateString()} at {new Date(transaction.createdAt).toLocaleTimeString('en-GB', { 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold text-gray-800 dark:text-gray-200 text-sm">
+                        {formatCurrency(transaction.amount)}
+                      </p>
+                      <Badge className={`text-xs ${
+                        transaction.status === 'completed' ? 'bg-green-600 text-white' :
+                        transaction.status === 'pending' ? 'bg-orange-600 text-white' :
+                        transaction.status === 'qr_verification' ? 'bg-blue-600 text-white' :
+                        'bg-gray-600 text-white'
+                      }`}>
+                        {transaction.status === 'qr_verification' ? 'QR Verify' : 
+                         transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+                {getFilteredTransactions().length > 20 && (
+                  <div className="text-center py-2">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Showing first 20 of {getFilteredTransactions().length} transactions
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
           </>
         )}
@@ -699,6 +879,25 @@ export default function FinancePortal() {
                           Request a settlement to transfer funds to your bank account
                         </DialogDescription>
                       </DialogHeader>
+                      
+                      {/* Available Funds Display */}
+                      <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                            Available Funds for Settlement
+                          </span>
+                          <span className="text-lg font-bold text-blue-900 dark:text-blue-100">
+                            {walletLoading ? (
+                              <div className="w-20 h-5 bg-blue-200 dark:bg-blue-800 rounded animate-pulse"></div>
+                            ) : (
+                              formatCurrency((wallet as Wallet)?.balance || '0')
+                            )}
+                          </span>
+                        </div>
+                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                          This is your organization's fund balance available for settlement requests
+                        </p>
+                      </div>
                       <form onSubmit={settlementForm.handleSubmit((data) => createSettlementRequest.mutate(data))} className="space-y-4">
                         <div>
                           <Label htmlFor="amount">Amount</Label>
