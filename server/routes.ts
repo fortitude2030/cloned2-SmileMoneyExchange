@@ -519,23 +519,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
-      console.log(`GET /api/transactions - User: ${userId}, Role: ${user?.role}`);
-      
       let transactions;
       if (user?.role === 'cashier') {
         // Cashiers see all transactions they've processed, including timed-out/rejected ones
         transactions = await storage.getAllTransactionsByCashier(userId);
-        console.log(`Cashier transactions: ${transactions.length}`);
-      } else if (user?.role === 'finance') {
-        // Finance users see all transactions in their organization
-        transactions = await storage.getAllTransactions();
-        console.log(`Finance transactions: ${transactions.length}`);
-        // Filter by organization if needed (for multi-org support later)
-        // For now, return all transactions since we have single org setup
       } else {
         // Other users see transactions with standard filtering
         transactions = await storage.getTransactionsByUserId(userId);
-        console.log(`User transactions: ${transactions.length}`);
       }
       
       res.json(transactions);
@@ -545,14 +535,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin endpoint to view all transactions (also accessible by finance users)
+  // Admin endpoint to view all transactions
   app.get('/api/admin/transactions', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
-      if (user?.role !== 'admin' && user?.role !== 'finance') {
-        return res.status(403).json({ message: "Only admin and finance users can view all transactions" });
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Only admin users can view all transactions" });
       }
       
       const transactions = await storage.getAllTransactions();
@@ -780,20 +770,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Only finance officers with organizations can create settlement requests" });
       }
 
-      // Calculate settlement capacity based on today's collections for finance users
-      const todaysCollections = await storage.getTodaysCollectionsByOrganization(user.organizationId);
-      const todaysUsage = await storage.getTodaysSettlementUsage(user.organizationId);
-      const settlementCapacity = Math.max(0, todaysCollections - todaysUsage);
+      // For finance users, validate against organization fund balance instead of daily collections
+      const financeWallet = await storage.getOrCreateWallet(userId);
+      const organizationBalance = Math.floor(parseFloat(financeWallet.balance || '0'));
       
       const requestAmount = Math.floor(parseFloat(req.body.amount || '0'));
       
-      // Validate against settlement capacity
-      if (requestAmount > settlementCapacity) {
+      // Validate against organization fund balance
+      if (requestAmount > organizationBalance) {
         return res.status(400).json({ 
-          message: `Insufficient settlement capacity. Available: ZMW ${settlementCapacity.toLocaleString()}, Requested: ZMW ${requestAmount.toLocaleString()}`,
-          todaysCollections,
-          todaysUsage,
-          settlementCapacity,
+          message: `Insufficient organization funds. Available: ZMW ${organizationBalance.toLocaleString()}, Requested: ZMW ${requestAmount.toLocaleString()}`,
+          organizationBalance,
           requestAmount
         });
       }
@@ -1176,7 +1163,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if user has permission to view this document
-      const transaction = await storage.getTransactionById(document.transactionId!);
+      const transaction = await storage.getTransactionById(document.transactionId);
       if (!transaction) {
         return res.status(404).json({ message: "Transaction not found" });
       }
@@ -1186,7 +1173,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const canView = 
         transaction.fromUserId === userId || 
         transaction.toUserId === userId ||
-        transaction.processedBy === userId ||
         user?.role === 'admin' ||
         user?.role === 'finance';
 
@@ -1230,9 +1216,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const user = await storage.getUser(userId);
       const canView = 
-        transaction.fromUserId === userId || 
-        transaction.toUserId === userId ||
-        transaction.processedBy === userId ||
+        transaction.senderId === userId || 
+        transaction.receiverId === userId ||
+        transaction.cashierId === userId ||
         user?.role === 'admin' ||
         user?.role === 'finance';
 
