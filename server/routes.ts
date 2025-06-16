@@ -1186,7 +1186,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const canView = 
         transaction.fromUserId === userId || 
         transaction.toUserId === userId ||
-        transaction.processorId === userId ||
+        transaction.processedBy === userId ||
         user?.role === 'admin' ||
         user?.role === 'finance';
 
@@ -1232,7 +1232,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const canView = 
         transaction.fromUserId === userId || 
         transaction.toUserId === userId ||
-        transaction.processorId === userId ||
+        transaction.processedBy === userId ||
         user?.role === 'admin' ||
         user?.role === 'finance';
 
