@@ -53,44 +53,44 @@ export default function FinancePortal() {
     retry: false,
   });
 
-  // Fetch merchant wallets with faster refresh
+  // Fetch merchant wallets with optimized refresh
   const { data: merchantWallets = [], isLoading: merchantWalletsLoading } = useQuery({
     queryKey: ["/api/merchant-wallets"],
     retry: false,
-    refetchInterval: 1000, // Faster 1-second refresh
+    refetchInterval: 10000, // 10-second refresh - merchant data changes less frequently
     refetchOnWindowFocus: true,
     refetchOnMount: true,
-    staleTime: 0,
+    staleTime: 5000,
   });
 
-  // Fetch wallet with faster updates
+  // Fetch wallet with optimized updates
   const { data: wallet, isLoading: walletLoading } = useQuery<Wallet>({
     queryKey: ["/api/wallet"],
     retry: false,
-    refetchInterval: 1000, // Faster 1-second refresh
+    refetchInterval: 5000, // 5-second refresh - balance changes less frequently
     refetchOnWindowFocus: true,
     refetchOnMount: true,
-    staleTime: 0,
+    staleTime: 2000,
   });
 
-  // Fetch settlement requests with faster refresh
+  // Fetch settlement requests with optimized refresh
   const { data: settlementRequests = [], isLoading: settlementsLoading } = useQuery({
     queryKey: ["/api/settlement-requests"],
     retry: false,
-    refetchInterval: 1000, // Faster 1-second refresh
+    refetchInterval: 3000, // 3-second refresh for settlement requests
     refetchOnWindowFocus: true,
     refetchOnMount: true,
-    staleTime: 0,
+    staleTime: 1000,
   });
 
-  // Fetch settlement breakdown with faster refresh
+  // Fetch settlement breakdown with optimized refresh
   const { data: settlementBreakdown } = useQuery({
     queryKey: ["/api/settlement-breakdown"],
     retry: false,
-    refetchInterval: 1000, // Faster 1-second refresh
+    refetchInterval: 5000, // 5-second refresh for breakdown data
     refetchOnWindowFocus: true,
     refetchOnMount: true,
-    staleTime: 0,
+    staleTime: 2000,
   });
 
   // Fetch branches
@@ -103,10 +103,10 @@ export default function FinancePortal() {
   const { data: transactions = [], isLoading: transactionsLoading } = useQuery({
     queryKey: ["/api/admin/transactions"],
     retry: false,
-    refetchInterval: 1000,
+    refetchInterval: 5000, // 5-second refresh for transaction data
     refetchOnWindowFocus: true,
     refetchOnMount: true,
-    staleTime: 0,
+    staleTime: 2000,
   });
 
   // State for management tab
