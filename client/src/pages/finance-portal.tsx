@@ -73,14 +73,14 @@ export default function FinancePortal() {
     staleTime: 2000,
   });
 
-  // Fetch settlement requests with optimized refresh
+  // Fetch settlement requests synchronized with organization funds refresh
   const { data: settlementRequests = [], isLoading: settlementsLoading } = useQuery({
     queryKey: ["/api/settlement-requests"],
     retry: false,
-    refetchInterval: 3000, // 3-second refresh for settlement requests
+    refetchInterval: 5000, // 5-second refresh synchronized with wallet balance
     refetchOnWindowFocus: true,
     refetchOnMount: true,
-    staleTime: 1000,
+    staleTime: 2000,
   });
 
   // Fetch settlement breakdown with optimized refresh
