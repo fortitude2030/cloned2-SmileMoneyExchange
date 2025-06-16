@@ -519,13 +519,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
+      console.log(`GET /api/transactions - User: ${userId}, Role: ${user?.role}`);
+      
       let transactions;
       if (user?.role === 'cashier') {
         // Cashiers see all transactions they've processed, including timed-out/rejected ones
         transactions = await storage.getAllTransactionsByCashier(userId);
+        console.log(`Cashier transactions: ${transactions.length}`);
+      } else if (user?.role === 'finance') {
+        // Finance users see all transactions in their organization
+        transactions = await storage.getAllTransactions();
+        console.log(`Finance transactions: ${transactions.length}`);
+        // Filter by organization if needed (for multi-org support later)
+        // For now, return all transactions since we have single org setup
       } else {
         // Other users see transactions with standard filtering
         transactions = await storage.getTransactionsByUserId(userId);
+        console.log(`User transactions: ${transactions.length}`);
       }
       
       res.json(transactions);
