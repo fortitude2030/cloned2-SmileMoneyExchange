@@ -710,6 +710,25 @@ export default function FinancePortal() {
                           Request a settlement to transfer funds to your bank account
                         </DialogDescription>
                       </DialogHeader>
+                      
+                      {/* Available Funds Display */}
+                      <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                            Available Funds for Settlement
+                          </span>
+                          <span className="text-lg font-bold text-blue-900 dark:text-blue-100">
+                            {walletLoading ? (
+                              <div className="w-20 h-5 bg-blue-200 dark:bg-blue-800 rounded animate-pulse"></div>
+                            ) : (
+                              formatCurrency(wallet?.balance || '0')
+                            )}
+                          </span>
+                        </div>
+                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                          This is your organization's fund balance available for settlement requests
+                        </p>
+                      </div>
                       <form onSubmit={settlementForm.handleSubmit((data) => createSettlementRequest.mutate(data))} className="space-y-4">
                         <div>
                           <Label htmlFor="amount">Amount</Label>
