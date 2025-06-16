@@ -52,41 +52,41 @@ export default function FinancePortal() {
     retry: false,
   });
 
-  // Fetch merchant wallets with unified refresh interval
+  // Fetch merchant wallets with faster refresh
   const { data: merchantWallets = [], isLoading: merchantWalletsLoading } = useQuery({
     queryKey: ["/api/merchant-wallets"],
     retry: false,
-    refetchInterval: 2000, // Unified 2-second refresh
+    refetchInterval: 1000, // Faster 1-second refresh
     refetchOnWindowFocus: true,
     refetchOnMount: true,
     staleTime: 0,
   });
 
-  // Fetch wallet with real-time updates
+  // Fetch wallet with faster updates
   const { data: wallet } = useQuery({
     queryKey: ["/api/wallet"],
     retry: false,
-    refetchInterval: 2000, // Refresh every 2 seconds for real-time capacity updates
+    refetchInterval: 1000, // Faster 1-second refresh
     refetchOnWindowFocus: true,
     refetchOnMount: true,
     staleTime: 0,
   });
 
-  // Fetch settlement requests with unified refresh interval
+  // Fetch settlement requests with faster refresh
   const { data: settlementRequests = [], isLoading: settlementsLoading } = useQuery({
     queryKey: ["/api/settlement-requests"],
     retry: false,
-    refetchInterval: 2000, // Unified 2-second refresh
+    refetchInterval: 1000, // Faster 1-second refresh
     refetchOnWindowFocus: true,
     refetchOnMount: true,
     staleTime: 0,
   });
 
-  // Fetch settlement breakdown with unified refresh interval
+  // Fetch settlement breakdown with faster refresh
   const { data: settlementBreakdown } = useQuery({
     queryKey: ["/api/settlement-breakdown"],
     retry: false,
-    refetchInterval: 2000, // Unified 2-second refresh
+    refetchInterval: 1000, // Faster 1-second refresh
     refetchOnWindowFocus: true,
     refetchOnMount: true,
     staleTime: 0,
@@ -172,17 +172,28 @@ export default function FinancePortal() {
         amount: Math.floor(parseFloat(data.amount)).toString(),
       });
     },
-    onSuccess: (data: any) => {
+    onSuccess: async (data: any) => {
       const amount = Math.floor(parseFloat(settlementForm.getValues('amount'))).toLocaleString();
       toast({
         title: "Settlement Request Created",
         description: `Settlement request for ZMW ${amount} submitted successfully`,
       });
-      // Invalidate all finance portal data for immediate updates
-      queryClient.invalidateQueries({ queryKey: ["/api/settlement-requests"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/settlement-breakdown"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/wallet"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/merchant-wallets"] });
+      
+      // Force immediate refetch of all related data
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["/api/settlement-requests"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/settlement-breakdown"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/wallet"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/merchant-wallets"] }),
+      ]);
+      
+      // Force immediate data refetch
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ["/api/settlement-requests"] }),
+        queryClient.refetchQueries({ queryKey: ["/api/settlement-breakdown"] }),
+        queryClient.refetchQueries({ queryKey: ["/api/wallet"] }),
+      ]);
+      
       setShowSettlementDialog(false);
       settlementForm.reset();
     },
