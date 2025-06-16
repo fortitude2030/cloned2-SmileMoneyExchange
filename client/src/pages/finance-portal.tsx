@@ -99,9 +99,9 @@ export default function FinancePortal() {
     retry: false,
   });
 
-  // Fetch transactions for finance user
+  // Fetch transactions for finance user (use admin endpoint since finance sees all transactions)
   const { data: transactions = [], isLoading: transactionsLoading } = useQuery({
-    queryKey: ["/api/transactions"],
+    queryKey: ["/api/admin/transactions"],
     retry: false,
     refetchInterval: 1000,
     refetchOnWindowFocus: true,

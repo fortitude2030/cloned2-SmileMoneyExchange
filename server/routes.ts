@@ -545,14 +545,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin endpoint to view all transactions
+  // Admin endpoint to view all transactions (also accessible by finance users)
   app.get('/api/admin/transactions', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
-      if (user?.role !== 'admin') {
-        return res.status(403).json({ message: "Only admin users can view all transactions" });
+      if (user?.role !== 'admin' && user?.role !== 'finance') {
+        return res.status(403).json({ message: "Only admin and finance users can view all transactions" });
       }
       
       const transactions = await storage.getAllTransactions();
@@ -1176,7 +1176,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if user has permission to view this document
-      const transaction = await storage.getTransactionById(document.transactionId);
+      const transaction = await storage.getTransactionById(document.transactionId!);
       if (!transaction) {
         return res.status(404).json({ message: "Transaction not found" });
       }
@@ -1186,6 +1186,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const canView = 
         transaction.fromUserId === userId || 
         transaction.toUserId === userId ||
+        transaction.processorId === userId ||
         user?.role === 'admin' ||
         user?.role === 'finance';
 
@@ -1229,9 +1230,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const user = await storage.getUser(userId);
       const canView = 
-        transaction.senderId === userId || 
-        transaction.receiverId === userId ||
-        transaction.cashierId === userId ||
+        transaction.fromUserId === userId || 
+        transaction.toUserId === userId ||
+        transaction.processorId === userId ||
         user?.role === 'admin' ||
         user?.role === 'finance';
 
