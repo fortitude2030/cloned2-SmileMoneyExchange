@@ -44,7 +44,7 @@ export async function setupFirebaseAuth(app: Express) {
         });
       }
 
-      // Set session
+      // Set session using express-session structure
       if (req.session) {
         (req.session as any).user = {
           claims: {
@@ -54,6 +54,12 @@ export async function setupFirebaseAuth(app: Express) {
             role: user.role
           }
         };
+        await new Promise<void>((resolve, reject) => {
+          req.session!.save((err) => {
+            if (err) reject(err);
+            else resolve();
+          });
+        });
       }
 
       res.json(user);

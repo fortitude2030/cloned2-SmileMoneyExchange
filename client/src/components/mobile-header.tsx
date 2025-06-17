@@ -1,5 +1,6 @@
 import { LogOut, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
 
 interface MobileHeaderProps {
   title: string;
@@ -9,17 +10,10 @@ interface MobileHeaderProps {
 }
 
 export default function MobileHeader({ title, subtitle, icon, color }: MobileHeaderProps) {
+  const { signOut } = useAuth();
+
   const handleLogout = async () => {
-    try {
-      await fetch('/api/dev-logout', {
-        method: 'POST',
-        credentials: 'include',
-      });
-      window.location.reload();
-    } catch (error) {
-      console.error('Logout error:', error);
-      window.location.reload();
-    }
+    await signOut();
   };
 
   const getColorClasses = (color: string) => {

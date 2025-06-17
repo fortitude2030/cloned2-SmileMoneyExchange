@@ -1,31 +1,47 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Landing() {
-  const [selectedRole, setSelectedRole] = useState<string>("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const { signIn } = useAuth();
+  const { toast } = useToast();
 
-  const handleLogin = async () => {
-    if (!selectedRole) return;
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password) return;
     
+    setIsLoading(true);
     try {
-      const response = await fetch('/api/dev-login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ role: selectedRole }),
-        credentials: 'include',
-      });
+      const result = await signIn(email, password);
       
-      if (response.ok) {
-        window.location.reload();
+      if (result.success) {
+        toast({
+          title: "Welcome",
+          description: "You have been successfully logged in.",
+        });
       } else {
-        console.error('Login failed');
+        toast({
+          title: "Login Failed",
+          description: result.error || "Invalid email or password.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error('Login error:', error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -41,32 +57,45 @@ export default function Landing() {
             <p className="text-gray-600 dark:text-gray-400">Secure Digital Cash Platform</p>
           </div>
 
-          <div className="space-y-6">
+          <form onSubmit={handleLogin} className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Login As
-              </label>
-              <Select value={selectedRole} onValueChange={setSelectedRole}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select your role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="merchant">Merchant</SelectItem>
-                  <SelectItem value="cashier">Security Cashier</SelectItem>
-                  <SelectItem value="finance">Finance Officer</SelectItem>
-                  <SelectItem value="admin">Smile Money Admin</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Email Address
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your email"
+                required
+                className="w-full"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Password
+              </Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                required
+                className="w-full"
+              />
             </div>
 
             <Button 
-              onClick={handleLogin} 
+              type="submit"
               className="w-full bg-primary hover:bg-primary/90 text-white py-3 rounded-xl font-semibold"
-              disabled={!selectedRole}
+              disabled={!email || !password || isLoading}
             >
-              Sign In to Smile Money
+              {isLoading ? "Signing In..." : "Sign In to Smile Money"}
             </Button>
-          </div>
+          </form>
 
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600 dark:text-gray-400">
