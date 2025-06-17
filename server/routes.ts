@@ -15,6 +15,7 @@ import {
   insertDocumentSchema,
   insertSettlementRequestSchema,
   insertQrCodeSchema,
+  insertKycDocumentSchema,
   users,
   wallets,
 } from "@shared/schema";
@@ -1292,6 +1293,177 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating test settlement requests:", error);
       res.status(500).json({ message: "Failed to create test settlement requests" });
+    }
+  });
+
+  // KYC Document Upload endpoint
+  app.post('/api/kyc/upload', isFirebaseAuthenticated, upload.single('file'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { organizationId, documentType } = req.body;
+      
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      if (!organizationId || !documentType) {
+        return res.status(400).json({ message: "Organization ID and document type are required" });
+      }
+
+      // Validate document type
+      const validTypes = ['selfie', 'nrc_side1', 'nrc_side2', 'passport', 'pacra', 'zra_tpin'];
+      if (!validTypes.includes(documentType)) {
+        return res.status(400).json({ message: "Invalid document type" });
+      }
+
+      // Get organization to create proper directory structure
+      const organization = await storage.getOrganizationById(parseInt(organizationId));
+      if (!organization) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+
+      // Create KYC directory structure: /uploads/KYC DOCS/[organization-name]/
+      const orgName = organization.name.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+      const kycDir = path.join('uploads', 'KYC DOCS', orgName);
+      
+      // Ensure directory exists
+      if (!fs.existsSync(kycDir)) {
+        fs.mkdirSync(kycDir, { recursive: true });
+      }
+
+      // Generate proper filename using the specified convention
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const fileName = `kyc-${orgName}-${user.firstName.toLowerCase()}-${user.lastName.toLowerCase()}-${documentType}.pdf`;
+      const finalPath = path.join(kycDir, fileName);
+
+      // Move uploaded file to final location
+      fs.renameSync(req.file.path, finalPath);
+
+      // Save document record to database
+      const kycDocument = await storage.createKycDocument({
+        organizationId: parseInt(organizationId),
+        documentType,
+        fileName,
+        filePath: finalPath,
+        fileSize: req.file.size,
+        uploadedBy: userId,
+      });
+
+      res.json({
+        message: "Document uploaded successfully",
+        document: kycDocument,
+      });
+
+    } catch (error) {
+      console.error("Error uploading KYC document:", error);
+      
+      // Clean up uploaded file on error
+      if (req.file && fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
+      
+      res.status(500).json({ message: "Failed to upload document" });
+    }
+  });
+
+  // Complete organization KYC setup
+  app.patch('/api/organizations/:id/complete-kyc', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = parseInt(req.params.id);
+      
+      // Check if user has permission to complete KYC for this organization
+      const user = await storage.getUser(userId);
+      if (!user || user.organizationId !== organizationId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Update organization KYC status to in_review
+      await storage.updateOrganizationKycStatus(organizationId, 'in_review');
+
+      res.json({ message: "KYC documents submitted for review" });
+
+    } catch (error) {
+      console.error("Error completing KYC:", error);
+      res.status(500).json({ message: "Failed to complete KYC setup" });
+    }
+  });
+
+  // Get KYC documents for organization (admin/finance view)
+  app.get('/api/organizations/:id/kyc-documents', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = parseInt(req.params.id);
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Only admins or finance officers from the same organization can view KYC docs
+      if (user.role !== 'admin' && (user.role !== 'finance' || user.organizationId !== organizationId)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const documents = await storage.getKycDocumentsByOrganization(organizationId);
+      res.json(documents);
+
+    } catch (error) {
+      console.error("Error fetching KYC documents:", error);
+      res.status(500).json({ message: "Failed to fetch KYC documents" });
+    }
+  });
+
+  // Admin endpoint to review KYC documents
+  app.patch('/api/kyc-documents/:id/review', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const documentId = parseInt(req.params.id);
+      const { status, rejectReason } = req.body;
+      
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can review KYC documents" });
+      }
+
+      if (!['approved', 'rejected'].includes(status)) {
+        return res.status(400).json({ message: "Invalid status. Use 'approved' or 'rejected'" });
+      }
+
+      if (status === 'rejected' && !rejectReason) {
+        return res.status(400).json({ message: "Rejection reason is required when rejecting documents" });
+      }
+
+      await storage.updateKycDocumentStatus(documentId, status, userId, rejectReason);
+
+      res.json({ message: `Document ${status} successfully` });
+
+    } catch (error) {
+      console.error("Error reviewing KYC document:", error);
+      res.status(500).json({ message: "Failed to review document" });
+    }
+  });
+
+  // Get all pending KYC documents for admin review
+  app.get('/api/admin/kyc-documents/pending', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can view pending KYC documents" });
+      }
+
+      const pendingDocuments = await storage.getAllPendingKycDocuments();
+      res.json(pendingDocuments);
+
+    } catch (error) {
+      console.error("Error fetching pending KYC documents:", error);
+      res.status(500).json({ message: "Failed to fetch pending documents" });
     }
   });
 

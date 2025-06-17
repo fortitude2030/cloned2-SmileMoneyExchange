@@ -8,6 +8,7 @@ import {
   settlementRequests,
   qrCodes,
   notifications,
+  kycDocuments,
   type User,
   type UpsertUser,
   type Organization,
@@ -25,6 +26,8 @@ import {
   type InsertQrCode,
   type Notification,
   type InsertNotification,
+  type KycDocument,
+  type InsertKycDocument,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte, lt, sql, or, isNull, gt, not, inArray } from "drizzle-orm";
@@ -100,6 +103,13 @@ export interface IStorage {
   markQrCodeAsUsed(id: number): Promise<void>;
   expungeExpiredQrCodes(): Promise<void>;
   getActiveQrCodeByTransactionId(transactionId: number): Promise<QrCode | undefined>;
+  
+  // KYC Document operations
+  createKycDocument(document: InsertKycDocument): Promise<KycDocument>;
+  getKycDocumentsByOrganization(organizationId: number): Promise<KycDocument[]>;
+  updateKycDocumentStatus(id: number, status: string, reviewedBy?: string, rejectReason?: string): Promise<void>;
+  getAllPendingKycDocuments(): Promise<(KycDocument & { organization: Organization })[]>;
+  updateOrganizationKycStatus(organizationId: number, status: string, reviewedBy?: string, rejectReason?: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1112,6 +1122,92 @@ export class DatabaseStorage implements IStorage {
       .update(notifications)
       .set({ isRead: true })
       .where(eq(notifications.id, id));
+  }
+
+  // KYC Document operations
+  async createKycDocument(documentData: InsertKycDocument): Promise<KycDocument> {
+    const [document] = await db
+      .insert(kycDocuments)
+      .values(documentData)
+      .returning();
+    return document;
+  }
+
+  async getKycDocumentsByOrganization(organizationId: number): Promise<KycDocument[]> {
+    return await db
+      .select()
+      .from(kycDocuments)
+      .where(eq(kycDocuments.organizationId, organizationId))
+      .orderBy(kycDocuments.createdAt);
+  }
+
+  async updateKycDocumentStatus(id: number, status: string, reviewedBy?: string, rejectReason?: string): Promise<void> {
+    const updateData: any = {
+      status,
+      reviewedAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    if (reviewedBy) {
+      updateData.reviewedBy = reviewedBy;
+    }
+
+    if (rejectReason) {
+      updateData.rejectReason = rejectReason;
+    }
+
+    await db
+      .update(kycDocuments)
+      .set(updateData)
+      .where(eq(kycDocuments.id, id));
+  }
+
+  async getAllPendingKycDocuments(): Promise<(KycDocument & { organization: Organization })[]> {
+    return await db
+      .select({
+        id: kycDocuments.id,
+        organizationId: kycDocuments.organizationId,
+        documentType: kycDocuments.documentType,
+        fileName: kycDocuments.fileName,
+        filePath: kycDocuments.filePath,
+        fileSize: kycDocuments.fileSize,
+        uploadedBy: kycDocuments.uploadedBy,
+        status: kycDocuments.status,
+        reviewedBy: kycDocuments.reviewedBy,
+        reviewedAt: kycDocuments.reviewedAt,
+        rejectReason: kycDocuments.rejectReason,
+        createdAt: kycDocuments.createdAt,
+        updatedAt: kycDocuments.updatedAt,
+        organization: organizations,
+      })
+      .from(kycDocuments)
+      .innerJoin(organizations, eq(kycDocuments.organizationId, organizations.id))
+      .where(eq(kycDocuments.status, 'pending'))
+      .orderBy(kycDocuments.createdAt);
+  }
+
+  async updateOrganizationKycStatus(organizationId: number, status: string, reviewedBy?: string, rejectReason?: string): Promise<void> {
+    const updateData: any = {
+      kycStatus: status,
+      updatedAt: new Date(),
+    };
+
+    if (status === 'approved') {
+      updateData.kycCompletedAt = new Date();
+    }
+
+    if (reviewedBy) {
+      updateData.kycReviewedBy = reviewedBy;
+    }
+
+    if (rejectReason) {
+      updateData.kycRejectReason = rejectReason;
+    }
+
+    await db
+      .update(organizations)
+      .set(updateData)
+      .where(eq(organizations.id, organizationId));
   }
 
   private getSettlementStatusMessage(status: string, holdReason?: string, rejectReason?: string, reasonComment?: string): string {
