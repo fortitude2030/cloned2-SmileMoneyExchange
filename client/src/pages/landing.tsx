@@ -53,15 +53,15 @@ export default function Landing() {
   };
 
   return (
-    <div className="min-h-screen gradient-primary flex items-center justify-center p-4">
-      <Card className="w-full max-w-md mx-4 shadow-2xl">
+    <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
+      <Card className="w-full max-w-md mx-4 shadow-2xl bg-gray-800 border-gray-700">
         <CardContent className="p-8">
           <div className="text-center mb-8">
-            <div className="bg-white/10 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center">
+            <div className="bg-blue-600 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center shadow-lg">
               <span className="text-3xl">🏦</span>
             </div>
             <h1 className="text-3xl font-bold text-white mb-2">Testco E-Money</h1>
-            <p className="text-white/80">Secure Financial Solutions</p>
+            <p className="text-gray-300">Secure Financial Solutions</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -69,26 +69,26 @@ export default function Landing() {
               <>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="firstName" className="text-white">First Name</Label>
+                    <Label htmlFor="firstName" className="text-gray-200 font-medium">First Name</Label>
                     <Input
                       id="firstName"
                       type="text"
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
                       placeholder="John"
-                      className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
+                      className="bg-gray-700 border-gray-600 text-white placeholder:text-gray-400 focus:border-blue-500 focus:ring-blue-500"
                       required={!isLogin}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="lastName" className="text-white">Last Name</Label>
+                    <Label htmlFor="lastName" className="text-gray-200 font-medium">Last Name</Label>
                     <Input
                       id="lastName"
                       type="text"
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
                       placeholder="Doe"
-                      className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
+                      className="bg-gray-700 border-gray-600 text-white placeholder:text-gray-400 focus:border-blue-500 focus:ring-blue-500"
                       required={!isLogin}
                     />
                   </div>
@@ -97,34 +97,34 @@ export default function Landing() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-white">Email</Label>
+              <Label htmlFor="email" className="text-gray-200 font-medium">Email</Label>
               <Input
                 id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="john@testco.com"
-                className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
+                className="bg-gray-700 border-gray-600 text-white placeholder:text-gray-400 focus:border-blue-500 focus:ring-blue-500"
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-white">Password</Label>
+              <Label htmlFor="password" className="text-gray-200 font-medium">Password</Label>
               <Input
                 id="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter your password"
-                className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
+                className="bg-gray-700 border-gray-600 text-white placeholder:text-gray-400 focus:border-blue-500 focus:ring-blue-500"
                 required
               />
             </div>
 
             <Button 
               type="submit" 
-              className="w-full bg-white text-primary hover:bg-white/90 font-semibold py-3"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 transition-colors"
               disabled={isLoading || !email || !password || (!isLogin && (!firstName || !lastName))}
             >
               {isLoading ? "Please wait..." : isLogin ? "Sign In" : "Create Account"}
@@ -135,14 +135,14 @@ export default function Landing() {
             <button
               type="button"
               onClick={() => setIsLogin(!isLogin)}
-              className="text-white/80 hover:text-white text-sm underline"
+              className="text-gray-400 hover:text-white text-sm underline transition-colors"
             >
               {isLogin ? "Need an account? Register here" : "Already have an account? Sign in"}
             </button>
           </div>
 
           <div className="mt-6 text-center">
-            <p className="text-white/60 text-sm">
+            <p className="text-gray-500 text-sm">
               Licensed E-Money Issuer • Bank of Zambia Regulated
             </p>
           </div>
