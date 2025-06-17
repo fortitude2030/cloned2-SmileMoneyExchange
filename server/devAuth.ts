@@ -13,6 +13,7 @@ export async function setupDevAuth(app: Express) {
       httpOnly: true,
       secure: false, // Set to true in production with HTTPS
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      sameSite: 'lax', // Allow cross-site requests in development
     },
   }));
   // Development login endpoint

@@ -6,7 +6,7 @@ import path from "path";
 import fs from "fs";
 import { storage } from "./storage";
 import { setupDevAuth, isAuthenticated } from "./devAuth";
-import { setupFirebaseAuth, isAuthenticated } from "./firebaseAuth";
+import { setupFirebaseAuth } from "./firebaseAuth";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import {
@@ -57,17 +57,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   await setupDevAuth(app);
   await setupFirebaseAuth(app);
 
-  // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      res.json(user);
-    } catch (error) {
-      console.error("Error fetching user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
-    }
-  });
+  // Auth routes are handled by devAuth.ts
 
   // Organization routes
   app.post('/api/organizations', isAuthenticated, async (req: any, res) => {
