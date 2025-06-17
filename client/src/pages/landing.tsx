@@ -32,7 +32,7 @@ export default function Landing() {
         const userCredential = await createUser(email, password);
         // Update the user profile with first and last name using Firebase auth
         if (userCredential.user) {
-          await userCredential.user.updateProfile({
+          await updateProfile(userCredential.user, {
             displayName: `${firstName} ${lastName}`
           });
         }
