@@ -1,34 +1,53 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useState } from "react";
+import { signInUser, createUser } from "@/lib/firebase";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Landing() {
-  const [selectedRole, setSelectedRole] = useState<string>("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [isLogin, setIsLogin] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
 
-  const handleLogin = async () => {
-    if (!selectedRole) return;
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if ((!email || !password) || (!isLogin && (!firstName || !lastName))) return;
     
+    setIsLoading(true);
     try {
-      const response = await fetch('/api/dev-login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ role: selectedRole }),
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        if (data.token) {
-          localStorage.setItem('authToken', data.token);
-          window.location.reload();
-        }
+      if (isLogin) {
+        await signInUser(email, password);
+        toast({
+          title: "Welcome back",
+          description: "You have been successfully logged in.",
+        });
       } else {
-        console.error('Login failed');
+        const userCredential = await createUser(email, password);
+        // Update the user profile with first and last name
+        if (userCredential.user) {
+          await userCredential.user.updateProfile({
+            displayName: `${firstName} ${lastName}`
+          });
+        }
+        toast({
+          title: "Account created",
+          description: "Your account has been created successfully. Please wait for admin approval.",
+        });
       }
-    } catch (error) {
-      console.error('Login error:', error);
+    } catch (error: any) {
+      toast({
+        title: isLogin ? "Login failed" : "Registration failed",
+        description: error.message || "An error occurred. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -44,29 +63,81 @@ export default function Landing() {
             <p className="text-white/80">Secure Financial Solutions</p>
           </div>
 
-          <div className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {!isLogin && (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="firstName" className="text-white">First Name</Label>
+                    <Input
+                      id="firstName"
+                      type="text"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      placeholder="John"
+                      className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
+                      required={!isLogin}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName" className="text-white">Last Name</Label>
+                    <Input
+                      id="lastName"
+                      type="text"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      placeholder="Doe"
+                      className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
+                      required={!isLogin}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
             <div className="space-y-2">
-              <label className="text-white text-sm font-medium">Select Role</label>
-              <Select value={selectedRole} onValueChange={setSelectedRole}>
-                <SelectTrigger className="bg-white/10 border-white/20 text-white">
-                  <SelectValue placeholder="Choose your role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="finance">Finance Officer</SelectItem>
-                  <SelectItem value="merchant">Merchant</SelectItem>
-                  <SelectItem value="cashier">Cashier</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="email" className="text-white">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="john@testco.com"
+                className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="password" className="text-white">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
+                required
+              />
             </div>
 
             <Button 
-              onClick={handleLogin}
+              type="submit" 
               className="w-full bg-white text-primary hover:bg-white/90 font-semibold py-3"
-              disabled={!selectedRole}
+              disabled={isLoading || !email || !password || (!isLogin && (!firstName || !lastName))}
             >
-              Login as {selectedRole ? selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1) : "..."}
+              {isLoading ? "Please wait..." : isLogin ? "Sign In" : "Create Account"}
             </Button>
+          </form>
+
+          <div className="mt-6 text-center">
+            <button
+              type="button"
+              onClick={() => setIsLogin(!isLogin)}
+              className="text-white/80 hover:text-white text-sm underline"
+            >
+              {isLogin ? "Need an account? Register here" : "Already have an account? Sign in"}
+            </button>
           </div>
 
           <div className="mt-6 text-center">
