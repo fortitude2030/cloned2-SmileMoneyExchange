@@ -1335,7 +1335,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error creating test accounts:", error);
-      res.status(500).json({ message: "Failed to create test accounts", error: error.message });
+      res.status(500).json({ message: "Failed to create test accounts", error: (error as Error).message });
     }
   });
 
@@ -1757,6 +1757,237 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating KYC status:", error);
       res.status(500).json({ message: "Failed to update KYC status" });
+    }
+  });
+
+  // AML Configuration Management Routes
+  app.get('/api/aml/configurations', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const configurations = await storage.getAmlConfigurations();
+      res.json(configurations);
+    } catch (error) {
+      console.error("Error fetching AML configurations:", error);
+      res.status(500).json({ message: "Failed to fetch AML configurations" });
+    }
+  });
+
+  app.post('/api/aml/configurations', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { configType, thresholdAmount, description } = req.body;
+
+      if (!configType || !thresholdAmount) {
+        return res.status(400).json({ message: "Config type and threshold amount are required" });
+      }
+
+      const configuration = await storage.createAmlConfiguration({
+        configType,
+        thresholdAmount: thresholdAmount.toString(),
+        description,
+        createdBy: userId,
+      });
+
+      res.json({ message: "AML configuration created", configuration });
+    } catch (error) {
+      console.error("Error creating AML configuration:", error);
+      res.status(500).json({ message: "Failed to create AML configuration" });
+    }
+  });
+
+  app.patch('/api/aml/configurations/:id', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { id } = req.params;
+      const { thresholdAmount, description, isActive } = req.body;
+
+      await storage.updateAmlConfiguration(parseInt(id), {
+        thresholdAmount: thresholdAmount?.toString(),
+        description,
+        isActive,
+        updatedBy: userId,
+      });
+
+      res.json({ message: "AML configuration updated" });
+    } catch (error) {
+      console.error("Error updating AML configuration:", error);
+      res.status(500).json({ message: "Failed to update AML configuration" });
+    }
+  });
+
+  app.delete('/api/aml/configurations/:id', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { id } = req.params;
+      await storage.deleteAmlConfiguration(parseInt(id));
+
+      res.json({ message: "AML configuration deleted" });
+    } catch (error) {
+      console.error("Error deleting AML configuration:", error);
+      res.status(500).json({ message: "Failed to delete AML configuration" });
+    }
+  });
+
+  // AML Alert Management Routes
+  app.get('/api/aml/alerts', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const alerts = await storage.getAmlAlerts();
+      res.json(alerts);
+    } catch (error) {
+      console.error("Error fetching AML alerts:", error);
+      res.status(500).json({ message: "Failed to fetch AML alerts" });
+    }
+  });
+
+  app.get('/api/aml/alerts/pending', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const pendingAlerts = await storage.getPendingAmlAlerts();
+      res.json(pendingAlerts);
+    } catch (error) {
+      console.error("Error fetching pending AML alerts:", error);
+      res.status(500).json({ message: "Failed to fetch pending AML alerts" });
+    }
+  });
+
+  app.patch('/api/aml/alerts/:id/review', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { id } = req.params;
+      const { status, reviewNotes } = req.body;
+
+      if (!['cleared', 'escalated', 'under_review'].includes(status)) {
+        return res.status(400).json({ message: "Invalid status" });
+      }
+
+      await storage.updateAmlAlertStatus(parseInt(id), status, userId, reviewNotes);
+      res.json({ message: "AML alert reviewed" });
+    } catch (error) {
+      console.error("Error reviewing AML alert:", error);
+      res.status(500).json({ message: "Failed to review AML alert" });
+    }
+  });
+
+  // Compliance Report Routes
+  app.get('/api/compliance/reports', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const reports = await storage.getComplianceReports();
+      res.json(reports);
+    } catch (error) {
+      console.error("Error fetching compliance reports:", error);
+      res.status(500).json({ message: "Failed to fetch compliance reports" });
+    }
+  });
+
+  app.post('/api/compliance/reports/generate', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { reportType, period } = req.body;
+
+      if (!reportType || !period) {
+        return res.status(400).json({ message: "Report type and period are required" });
+      }
+
+      let report;
+      if (reportType === 'daily_summary') {
+        const date = new Date(period);
+        report = await storage.generateDailyComplianceReport(date);
+      } else if (reportType === 'weekly_compliance') {
+        const startDate = new Date(period);
+        report = await storage.generateWeeklyComplianceReport(startDate);
+      } else if (reportType === 'monthly_regulatory') {
+        const [year, month] = period.split('-');
+        report = await storage.generateMonthlyRegulatoryReport(parseInt(month), parseInt(year));
+      } else {
+        return res.status(400).json({ message: "Invalid report type" });
+      }
+
+      res.json({ message: "Report generated successfully", report });
+    } catch (error) {
+      console.error("Error generating compliance report:", error);
+      res.status(500).json({ message: "Failed to generate compliance report" });
+    }
+  });
+
+  // AML Transaction Monitoring (called during transaction processing)
+  app.post('/api/aml/check-transaction', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const { userId, amount, transactionId } = req.body;
+
+      if (!userId || !amount) {
+        return res.status(400).json({ message: "User ID and amount are required" });
+      }
+
+      const alerts = await storage.checkTransactionForAmlViolations(userId, parseFloat(amount), transactionId);
+      
+      res.json({ 
+        alertsGenerated: alerts.length,
+        alerts: alerts.map(alert => ({
+          id: alert.id,
+          alertType: alert.alertType,
+          riskScore: alert.riskScore,
+          description: alert.description
+        }))
+      });
+    } catch (error) {
+      console.error("Error checking transaction for AML violations:", error);
+      res.status(500).json({ message: "Failed to check transaction for AML violations" });
     }
   });
 

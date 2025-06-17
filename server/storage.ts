@@ -39,7 +39,7 @@ import {
   type InsertComplianceReport,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, gte, lt, sql, or, isNull, gt, not, inArray } from "drizzle-orm";
+import { eq, desc, and, gte, lt, lte, sql, or, isNull, gt, not, inArray } from "drizzle-orm";
 import { generateTransactionId } from "./utils";
 
 export interface IStorage {
