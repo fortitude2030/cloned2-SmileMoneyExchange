@@ -175,6 +175,51 @@ export const notifications = pgTable("notifications", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// AML Configuration table for admin-configurable thresholds
+export const amlConfiguration = pgTable("aml_configuration", {
+  id: serial("id").primaryKey(),
+  configType: varchar("config_type").notNull(), // single_transaction, daily_total, weekly_volume
+  thresholdAmount: decimal("threshold_amount", { precision: 15, scale: 2 }).notNull(),
+  currency: varchar("currency").default("ZMW"),
+  isActive: boolean("is_active").default(true),
+  description: text("description"),
+  createdBy: varchar("created_by").notNull(),
+  updatedBy: varchar("updated_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// AML Alerts table for suspicious activity tracking
+export const amlAlerts = pgTable("aml_alerts", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull(),
+  transactionId: integer("transaction_id"),
+  alertType: varchar("alert_type").notNull(), // threshold_exceeded, velocity_check, pattern_anomaly
+  riskScore: integer("risk_score").notNull(), // 1-100
+  triggerAmount: decimal("trigger_amount", { precision: 15, scale: 2 }),
+  thresholdAmount: decimal("threshold_amount", { precision: 15, scale: 2 }),
+  description: text("description").notNull(),
+  status: varchar("status").default("pending"), // pending, reviewed, cleared, escalated
+  reviewedBy: varchar("reviewed_by"),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewNotes: text("review_notes"),
+  flaggedAt: timestamp("flagged_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Compliance Reports table for automated report generation
+export const complianceReports = pgTable("compliance_reports", {
+  id: serial("id").primaryKey(),
+  reportType: varchar("report_type").notNull(), // daily_summary, weekly_compliance, monthly_regulatory
+  reportPeriod: varchar("report_period").notNull(), // YYYY-MM-DD format
+  generatedBy: varchar("generated_by").notNull(),
+  reportData: jsonb("report_data").notNull(), // Structured report content
+  filePath: varchar("file_path"), // Path to generated PDF/Excel file
+  status: varchar("status").default("generated"), // generated, submitted, acknowledged
+  submittedAt: timestamp("submitted_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Relations
 export const userRelations = relations(users, ({ one, many }) => ({
   organization: one(organizations, {
@@ -348,6 +393,23 @@ export const insertKycDocumentSchema = createInsertSchema(kycDocuments).omit({
   updatedAt: true,
 });
 
+export const insertAmlConfigurationSchema = createInsertSchema(amlConfiguration).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAmlAlertSchema = createInsertSchema(amlAlerts).omit({
+  id: true,
+  flaggedAt: true,
+  createdAt: true,
+});
+
+export const insertComplianceReportSchema = createInsertSchema(complianceReports).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -368,3 +430,9 @@ export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type KycDocument = typeof kycDocuments.$inferSelect;
 export type InsertKycDocument = z.infer<typeof insertKycDocumentSchema>;
+export type AmlConfiguration = typeof amlConfiguration.$inferSelect;
+export type InsertAmlConfiguration = z.infer<typeof insertAmlConfigurationSchema>;
+export type AmlAlert = typeof amlAlerts.$inferSelect;
+export type InsertAmlAlert = z.infer<typeof insertAmlAlertSchema>;
+export type ComplianceReport = typeof complianceReports.$inferSelect;
+export type InsertComplianceReport = z.infer<typeof insertComplianceReportSchema>;
