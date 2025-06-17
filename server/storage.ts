@@ -110,6 +110,15 @@ export interface IStorage {
   updateKycDocumentStatus(id: number, status: string, reviewedBy?: string, rejectReason?: string): Promise<void>;
   getAllPendingKycDocuments(): Promise<(KycDocument & { organization: Organization })[]>;
   updateOrganizationKycStatus(organizationId: number, status: string, reviewedBy?: string, rejectReason?: string): Promise<void>;
+  
+  // Admin operations
+  getUserByEmail(email: string): Promise<User | undefined>;
+  getUserByPhone(phoneNumber: string): Promise<User | undefined>;
+  getAllUsers(): Promise<User[]>;
+  getAllOrganizations(): Promise<Organization[]>;
+  getApprovedOrganizations(): Promise<Organization[]>;
+  toggleUserStatus(userId: string, isActive: boolean): Promise<void>;
+  createUserByAdmin(userData: UpsertUser & { phoneNumber?: string; tempPassword?: string }): Promise<User>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1208,6 +1217,69 @@ export class DatabaseStorage implements IStorage {
       .update(organizations)
       .set(updateData)
       .where(eq(organizations.id, organizationId));
+  }
+
+  // Admin operations
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
+    return user || undefined;
+  }
+
+  async getUserByPhone(phoneNumber: string): Promise<User | undefined> {
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.phoneNumber, phoneNumber))
+      .limit(1);
+    return user || undefined;
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return await db
+      .select()
+      .from(users)
+      .orderBy(desc(users.createdAt));
+  }
+
+  async getAllOrganizations(): Promise<Organization[]> {
+    return await db
+      .select()
+      .from(organizations)
+      .orderBy(desc(organizations.createdAt));
+  }
+
+  async getApprovedOrganizations(): Promise<Organization[]> {
+    return await db
+      .select()
+      .from(organizations)
+      .where(eq(organizations.kycStatus, 'approved'))
+      .orderBy(organizations.name);
+  }
+
+  async toggleUserStatus(userId: string, isActive: boolean): Promise<void> {
+    await db
+      .update(users)
+      .set({ 
+        isActive,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId));
+  }
+
+  async createUserByAdmin(userData: UpsertUser & { phoneNumber?: string; tempPassword?: string }): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values({
+        ...userData,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+    return user;
   }
 
   private getSettlementStatusMessage(status: string, holdReason?: string, rejectReason?: string, reasonComment?: string): string {

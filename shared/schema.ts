@@ -31,10 +31,13 @@ export const users = pgTable("users", {
   email: varchar("email").unique().notNull(),
   firstName: varchar("first_name").notNull(),
   lastName: varchar("last_name").notNull(),
+  phoneNumber: varchar("phone_number").unique(),
   profileImageUrl: varchar("profile_image_url"),
-  role: varchar("role").notNull().default("pending"), // pending, merchant, cashier, finance, admin
+  role: varchar("role").notNull().default("pending"), // pending, merchant, cashier, finance, admin, super_admin
   organizationId: integer("organization_id"),
   isActive: boolean("is_active").default(true),
+  isEmailVerified: boolean("is_email_verified").default(false),
+  tempPassword: varchar("temp_password"), // For first-time login
   lastLoginAt: timestamp("last_login_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

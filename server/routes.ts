@@ -1558,6 +1558,208 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin user management endpoints
+  app.get('/api/admin/users', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const users = await storage.getAllUsers();
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  app.post('/api/admin/users/create', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { email, phoneNumber, firstName, lastName, role, organizationId } = req.body;
+
+      // Validation
+      if (!email || !phoneNumber || !firstName || !lastName || !role) {
+        return res.status(400).json({ message: "All fields are required" });
+      }
+
+      // Check for duplicates
+      const existingEmail = await storage.getUserByEmail(email);
+      if (existingEmail) {
+        return res.status(409).json({ message: "Email already exists" });
+      }
+
+      const existingPhone = await storage.getUserByPhone(phoneNumber);
+      if (existingPhone) {
+        return res.status(409).json({ message: "Phone number already exists" });
+      }
+
+      // Generate temporary password
+      const tempPassword = Math.random().toString(36).slice(-8) + "!1A";
+      
+      // Generate Firebase UID (in production, create Firebase account here)
+      const firebaseId = `admin-created-${Date.now()}-${Math.random().toString(36).slice(-6)}`;
+
+      const newUser = await storage.createUserByAdmin({
+        id: firebaseId,
+        email,
+        phoneNumber,
+        firstName,
+        lastName,
+        role,
+        organizationId: organizationId ? parseInt(organizationId) : undefined,
+        tempPassword,
+        isEmailVerified: false,
+        isActive: true,
+      });
+
+      // Create wallet for non-admin users
+      if (role !== 'admin' && role !== 'super_admin') {
+        await storage.getOrCreateWallet(newUser.id);
+      }
+
+      res.json({
+        message: "User created successfully",
+        user: {
+          id: newUser.id,
+          email: newUser.email,
+          firstName: newUser.firstName,
+          lastName: newUser.lastName,
+          role: newUser.role,
+        },
+        tempPassword,
+        instructions: "User should be created in Firebase Console with this email and temporary password"
+      });
+
+    } catch (error) {
+      console.error("Error creating user:", error);
+      res.status(500).json({ message: "Failed to create user" });
+    }
+  });
+
+  app.patch('/api/admin/users/:id/toggle', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const targetUserId = req.params.id;
+      const { isActive } = req.body;
+
+      await storage.toggleUserStatus(targetUserId, isActive);
+      res.json({ message: "User status updated successfully" });
+
+    } catch (error) {
+      console.error("Error updating user status:", error);
+      res.status(500).json({ message: "Failed to update user status" });
+    }
+  });
+
+  // Admin organization management endpoints
+  app.get('/api/admin/organizations', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const organizations = await storage.getAllOrganizations();
+      res.json(organizations);
+    } catch (error) {
+      console.error("Error fetching organizations:", error);
+      res.status(500).json({ message: "Failed to fetch organizations" });
+    }
+  });
+
+  app.get('/api/admin/organizations/approved', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const approvedOrgs = await storage.getApprovedOrganizations();
+      res.json(approvedOrgs);
+    } catch (error) {
+      console.error("Error fetching approved organizations:", error);
+      res.status(500).json({ message: "Failed to fetch approved organizations" });
+    }
+  });
+
+  app.post('/api/admin/organizations/create', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { name, type, description } = req.body;
+
+      if (!name?.trim()) {
+        return res.status(400).json({ message: "Organization name is required" });
+      }
+
+      const organization = await storage.createOrganization({
+        name: name.trim(),
+        type: type || "financial_institution",
+        description: description || "",
+        kycStatus: "pending"
+      });
+
+      res.json({
+        message: "Organization created successfully",
+        organization
+      });
+
+    } catch (error) {
+      console.error("Error creating organization:", error);
+      res.status(500).json({ message: "Failed to create organization" });
+    }
+  });
+
+  app.patch('/api/admin/organizations/:id/kyc-status', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const organizationId = parseInt(req.params.id);
+      const { status, rejectReason } = req.body;
+
+      if (!['pending', 'in_review', 'approved', 'rejected'].includes(status)) {
+        return res.status(400).json({ message: "Invalid status" });
+      }
+
+      await storage.updateOrganizationKycStatus(organizationId, status, userId, rejectReason);
+      res.json({ message: "KYC status updated successfully" });
+
+    } catch (error) {
+      console.error("Error updating KYC status:", error);
+      res.status(500).json({ message: "Failed to update KYC status" });
+    }
+  });
+
   // Setup WebSocket for real-time updates
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
   
