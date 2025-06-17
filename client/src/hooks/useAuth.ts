@@ -1,22 +1,48 @@
 import { useQuery } from "@tanstack/react-query";
-import { getQueryFn } from "@/lib/queryClient";
 
 export function useAuth() {
+  const token = localStorage.getItem('authToken');
+  
   const { data: user, isLoading } = useQuery({
     queryKey: ["/api/auth/user"],
-    queryFn: getQueryFn({ on401: "returnNull" }),
+    queryFn: async () => {
+      if (!token) return null;
+      
+      const response = await fetch('/api/auth/user', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem('authToken');
+          return null;
+        }
+        throw new Error('Failed to fetch user');
+      }
+      
+      return response.json();
+    },
     retry: false,
+    enabled: !!token,
   });
 
   const signOut = async () => {
     try {
-      await fetch('/api/dev-logout', {
-        method: 'POST',
-        credentials: 'include'
-      });
+      if (token) {
+        await fetch('/api/dev-logout', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+      }
+      localStorage.removeItem('authToken');
       window.location.reload();
     } catch (error) {
       console.error('Logout error:', error);
+      localStorage.removeItem('authToken');
       window.location.reload();
     }
   };
@@ -24,7 +50,7 @@ export function useAuth() {
   return {
     user,
     isLoading,
-    isAuthenticated: !!user,
+    isAuthenticated: !!user && !!token,
     signOut,
   };
 }

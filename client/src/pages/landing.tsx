@@ -16,11 +16,14 @@ export default function Landing() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ role: selectedRole }),
-        credentials: 'include',
       });
       
       if (response.ok) {
-        window.location.reload();
+        const data = await response.json();
+        if (data.token) {
+          localStorage.setItem('authToken', data.token);
+          window.location.reload();
+        }
       } else {
         console.error('Login failed');
       }

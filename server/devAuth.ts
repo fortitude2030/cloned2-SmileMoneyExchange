@@ -1,21 +1,11 @@
 import type { Express, RequestHandler } from "express";
-import session from "express-session";
+import { nanoid } from "nanoid";
 import { storage } from "./storage";
 
-// Simple development authentication for testing
+// Simple token-based authentication for development
+const activeTokens = new Map<string, { userId: string, expiresAt: number }>();
+
 export async function setupDevAuth(app: Express) {
-  // Setup session middleware
-  app.use(session({
-    secret: process.env.SESSION_SECRET || 'dev-secret-key',
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      httpOnly: true,
-      secure: false, // Set to true in production with HTTPS
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      sameSite: 'lax', // Allow cross-site requests in development
-    },
-  }));
   // Development login endpoint
   app.post('/api/dev-login', async (req, res) => {
     try {
@@ -44,15 +34,13 @@ export async function setupDevAuth(app: Express) {
         });
       }
 
-      // Set session
-      if (!req.session) {
-        return res.status(500).json({ message: "Session not available" });
-      }
+      // Generate authentication token
+      const token = nanoid(32);
+      const expiresAt = Date.now() + (24 * 60 * 60 * 1000); // 24 hours
       
-      (req.session as any).userId = user.id;
-      (req.session as any).authenticated = true;
+      activeTokens.set(token, { userId: user.id, expiresAt });
 
-      res.json({ user, message: "Logged in successfully" });
+      res.json({ user, token, message: "Logged in successfully" });
     } catch (error) {
       console.error("Dev login error:", error);
       res.status(500).json({ message: "Login failed" });
@@ -61,25 +49,32 @@ export async function setupDevAuth(app: Express) {
 
   // Development logout endpoint
   app.post('/api/dev-logout', (req, res) => {
-    req.session.destroy((err) => {
-      if (err) {
-        console.error("Logout error:", err);
-        return res.status(500).json({ message: "Logout failed" });
-      }
-      res.json({ message: "Logged out successfully" });
-    });
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      activeTokens.delete(token);
+    }
+    res.json({ message: "Logged out successfully" });
   });
 
   // Get current user endpoint
   app.get('/api/auth/user', async (req, res) => {
     try {
-      const session = req.session as any;
+      const authHeader = req.headers.authorization;
       
-      if (!session.authenticated || !session.userId) {
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const user = await storage.getUser(session.userId);
+      const token = authHeader.substring(7);
+      const tokenData = activeTokens.get(token);
+      
+      if (!tokenData || tokenData.expiresAt < Date.now()) {
+        if (tokenData) activeTokens.delete(token);
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = await storage.getUser(tokenData.userId);
       if (!user) {
         return res.status(401).json({ message: "User not found" });
       }
@@ -95,13 +90,21 @@ export async function setupDevAuth(app: Express) {
 // Simple authentication middleware for development
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   try {
-    const session = req.session as any;
+    const authHeader = req.headers.authorization;
     
-    if (!session.authenticated || !session.userId) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    const user = await storage.getUser(session.userId);
+    const token = authHeader.substring(7);
+    const tokenData = activeTokens.get(token);
+    
+    if (!tokenData || tokenData.expiresAt < Date.now()) {
+      if (tokenData) activeTokens.delete(token);
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const user = await storage.getUser(tokenData.userId);
     if (!user) {
       return res.status(401).json({ message: "User not found" });
     }
