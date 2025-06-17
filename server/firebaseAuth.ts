@@ -69,19 +69,44 @@ export async function setupFirebaseAuth(app: Express) {
     }
   });
 
+  // Get current user endpoint
+  app.get('/api/auth/user', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ message: 'No token provided' });
+      }
+
+      const idToken = authHeader.split('Bearer ')[1];
+      
+      // Verify the Firebase ID token
+      const decodedToken = await admin.auth().verifyIdToken(idToken);
+      const firebaseUid = decodedToken.uid;
+
+      // Get user from our database
+      const user = await storage.getUser(firebaseUid);
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      res.json({
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        organizationId: user.organizationId,
+        isActive: user.isActive
+      });
+    } catch (error) {
+      console.error('Get user error:', error);
+      res.status(401).json({ message: 'Invalid token' });
+    }
+  });
+
   // Logout endpoint
   app.post('/api/auth/logout', (req, res) => {
-    if (req.session) {
-      req.session.destroy((err) => {
-        if (err) {
-          console.error('Session destruction error:', err);
-          return res.status(500).json({ message: 'Logout failed' });
-        }
-        res.json({ message: 'Logged out successfully' });
-      });
-    } else {
-      res.json({ message: 'Logged out successfully' });
-    }
+    res.json({ message: 'Logged out successfully' });
   });
 }
 

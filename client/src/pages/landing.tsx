@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { signInUser, createUser } from "@/lib/firebase";
+import { updateProfile } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Landing() {
@@ -29,7 +30,7 @@ export default function Landing() {
         });
       } else {
         const userCredential = await createUser(email, password);
-        // Update the user profile with first and last name
+        // Update the user profile with first and last name using Firebase auth
         if (userCredential.user) {
           await userCredential.user.updateProfile({
             displayName: `${firstName} ${lastName}`
