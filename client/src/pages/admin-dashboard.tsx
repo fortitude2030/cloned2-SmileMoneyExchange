@@ -271,8 +271,9 @@ export default function AdminDashboard() {
           {[
             { id: 'overview', label: 'Overview', icon: 'fas fa-tachometer-alt' },
             { id: 'settlements', label: 'Settlements', icon: 'fas fa-university' },
-            { id: 'transactions', label: 'Transactions', icon: 'fas fa-exchange-alt' },
-            { id: 'analytics', label: 'Analytics', icon: 'fas fa-chart-bar' },
+            { id: 'aml-config', label: 'AML Config', icon: 'fas fa-shield-alt' },
+            { id: 'aml-alerts', label: 'AML Alerts', icon: 'fas fa-exclamation-triangle' },
+            { id: 'compliance', label: 'Compliance', icon: 'fas fa-file-alt' },
             { id: 'system', label: 'System', icon: 'fas fa-cogs' }
           ].map((tab) => (
             <button
@@ -714,6 +715,21 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
           </>
+        )}
+
+        {/* AML Configuration Tab */}
+        {activeTab === 'aml-config' && (
+          <AmlConfigurationDashboard />
+        )}
+
+        {/* AML Alerts Tab */}
+        {activeTab === 'aml-alerts' && (
+          <AmlAlertManagement />
+        )}
+
+        {/* Compliance Reports Tab */}
+        {activeTab === 'compliance' && (
+          <ComplianceReportsDashboard />
         )}
 
         {/* System Tab */}
