@@ -2004,6 +2004,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Bank of Zambia Integration Routes
+  app.get('/api/boz/reports', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Bank of Zambia access required" });
+      }
+
+      // Get all compliance reports for BoZ submission
+      const reports = await storage.getComplianceReports();
+      const bozReports = reports.filter(r => r.reportType.startsWith('boz_') || 
+        ['daily_summary', 'weekly_compliance', 'monthly_regulatory'].includes(r.reportType));
+      
+      res.json(bozReports);
+    } catch (error) {
+      console.error("Error fetching BoZ reports:", error);
+      res.status(500).json({ message: "Failed to fetch Bank of Zambia reports" });
+    }
+  });
+
+  app.post('/api/boz/reports/generate', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Bank of Zambia access required" });
+      }
+
+      const { reportType, period } = req.body;
+      const integrationManager = require('./integrationManager').integrationManager;
+      
+      const bozReport = await integrationManager.generateBankOfZambiaReport(reportType, period);
+      
+      res.json({
+        message: "Bank of Zambia report generated successfully",
+        report: bozReport,
+        submissionRequired: bozReport.submissionRequired
+      });
+    } catch (error) {
+      console.error("Error generating BoZ report:", error);
+      res.status(500).json({ message: "Failed to generate Bank of Zambia report" });
+    }
+  });
+
+  // RTGS Settlement Integration
+  app.post('/api/rtgs/generate-instruction', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'finance'].includes(user.role)) {
+        return res.status(403).json({ message: "Finance or admin access required" });
+      }
+
+      const { settlementRequestId } = req.body;
+      const settlementRequest = await storage.getAllSettlementRequests();
+      const request = settlementRequest.find(r => r.id === settlementRequestId);
+      
+      if (!request || request.status !== 'approved') {
+        return res.status(400).json({ message: "Settlement request not found or not approved" });
+      }
+
+      const integrationManager = require('./integrationManager').integrationManager;
+      const rtgsInstruction = await integrationManager.generateRTGSInstruction({
+        amount: request.amount,
+        currency: 'ZMW',
+        beneficiaryBank: request.bankName,
+        beneficiaryAccount: request.accountNumber,
+        beneficiaryName: request.description || 'Merchant Settlement',
+        purpose: 'E-MONEY_SETTLEMENT',
+        settlementRequestId: request.id,
+        organizationId: request.organizationId
+      });
+
+      res.json({
+        message: "RTGS instruction generated for manual processing",
+        instruction: rtgsInstruction,
+        processingNote: "Please process this RTGS instruction through your banking portal"
+      });
+    } catch (error) {
+      console.error("Error generating RTGS instruction:", error);
+      res.status(500).json({ message: "Failed to generate RTGS instruction" });
+    }
+  });
+
   // Setup WebSocket for real-time updates
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
   
