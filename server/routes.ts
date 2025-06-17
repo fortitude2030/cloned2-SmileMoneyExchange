@@ -1248,6 +1248,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create HTTP server
   const httpServer = createServer(app);
 
+  // Development endpoint to create test accounts and organization
+  app.post('/api/dev/create-test-accounts', async (req: any, res) => {
+    try {
+      // Create test organization first
+      const testOrg = await storage.createOrganization({
+        name: "Testco Financial Services",
+        type: "financial_institution",
+        description: "Licensed e-money issuer for testing KYC workflows",
+        kycStatus: "approved"
+      });
+
+      // Test user data with Firebase UIDs (these would be created in Firebase first)
+      const testUsers = [
+        {
+          id: "test-admin-uid-12345",
+          email: "admin@testco.com",
+          firstName: "Admin",
+          lastName: "User",
+          role: "admin",
+          organizationId: null // Admins don't belong to specific organizations
+        },
+        {
+          id: "test-finance-uid-12346", 
+          email: "finance@testco.com",
+          firstName: "Finance",
+          lastName: "Officer",
+          role: "finance",
+          organizationId: testOrg.id
+        },
+        {
+          id: "test-merchant-uid-12347",
+          email: "merchant@testco.com", 
+          firstName: "Merchant",
+          lastName: "User",
+          role: "merchant",
+          organizationId: testOrg.id
+        },
+        {
+          id: "test-cashier-uid-12348",
+          email: "cashier@testco.com",
+          firstName: "Cashier", 
+          lastName: "User",
+          role: "cashier",
+          organizationId: testOrg.id
+        }
+      ];
+
+      // Create users in database
+      const createdUsers = [];
+      for (const userData of testUsers) {
+        const user = await storage.upsertUser(userData);
+        createdUsers.push(user);
+        
+        // Create wallets for non-admin users
+        if (userData.role !== 'admin') {
+          await storage.getOrCreateWallet(userData.id);
+        }
+      }
+
+      // Create test branch for the organization
+      await storage.createBranch({
+        organizationId: testOrg.id,
+        name: "Main Branch",
+        location: "Lusaka, Zambia",
+        balance: "1000000" // 1M ZMW starting balance
+      });
+
+      res.json({
+        message: "Test accounts created successfully",
+        organization: testOrg,
+        users: createdUsers.map(u => ({
+          email: u.email,
+          role: u.role,
+          name: `${u.firstName} ${u.lastName}`
+        })),
+        instructions: {
+          note: "Create these accounts in Firebase Console with the following credentials:",
+          accounts: [
+            { email: "admin@testco.com", password: "TestAdmin123!" },
+            { email: "finance@testco.com", password: "TestFinance123!" },
+            { email: "merchant@testco.com", password: "TestMerchant123!" },
+            { email: "cashier@testco.com", password: "TestCashier123!" }
+          ]
+        }
+      });
+    } catch (error) {
+      console.error("Error creating test accounts:", error);
+      res.status(500).json({ message: "Failed to create test accounts", error: error.message });
+    }
+  });
+
   // Development endpoint to create test settlement requests
   app.post('/api/dev/settlement-requests', isFirebaseAuthenticated, async (req: any, res) => {
     try {
