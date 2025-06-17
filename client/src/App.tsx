@@ -5,7 +5,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { TransactionNotificationProvider } from "@/hooks/use-transaction-notifications";
 import { TimerProvider } from "@/contexts/timer-context";
-import { useAuth } from "@/hooks/useAuth";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import MerchantDashboard from "@/pages/merchant-dashboard";
@@ -13,6 +12,8 @@ import CashierDashboard from "@/pages/cashier-dashboard";
 import FinancePortal from "@/pages/finance-portal";
 import AdminDashboard from "@/pages/admin-dashboard";
 import OrganizationSetup from "@/pages/organization-setup";
+
+import { useAuth } from "@/hooks/useAuth";
 
 function Router() {
   const { user, isAuthenticated, isLoading } = useAuth();

@@ -426,6 +426,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Parse amount as decimal for accurate currency handling
       const parsedAmount = parseFloat(req.body.amount || "0");
       
+      // REAL-TIME AML MONITORING: Check transaction against AML thresholds before processing
+      const amlAlerts = await storage.checkTransactionForAmlViolations(
+        req.body.fromUserId || userId, 
+        parsedAmount
+      );
+      
+      // If high-risk alerts are generated, require admin approval
+      const highRiskAlerts = amlAlerts.filter(alert => alert.riskScore >= 70);
+      if (highRiskAlerts.length > 0 && finalStatus === 'completed') {
+        finalStatus = 'pending'; // Force high-risk transactions to pending for review
+        console.log(`Transaction flagged for AML review: ${highRiskAlerts.length} high-risk alerts generated`);
+      }
+      
       const transactionData = insertTransactionSchema.parse({
         ...req.body,
         status: finalStatus,
