@@ -12,6 +12,7 @@ import MerchantDashboard from "@/pages/merchant-dashboard";
 import CashierDashboard from "@/pages/cashier-dashboard";
 import FinancePortal from "@/pages/finance-portal";
 import AdminDashboard from "@/pages/admin-dashboard";
+import OrganizationSetup from "@/pages/organization-setup";
 
 function Router() {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -36,8 +37,15 @@ function Router() {
       ) : (
         <>
           <Route path="/" component={() => {
-            // Route based on user role
+            // Route based on user role and organization status
             const userRole = (user as any)?.role;
+            const organizationId = (user as any)?.organizationId;
+            
+            // If user has no organization and is not admin, redirect to setup
+            if (!organizationId && userRole !== 'admin' && userRole !== 'pending') {
+              return <OrganizationSetup />;
+            }
+            
             switch (userRole) {
               case 'merchant':
                 return <MerchantDashboard />;
@@ -48,7 +56,7 @@ function Router() {
               case 'admin':
                 return <AdminDashboard />;
               default:
-                return <Landing />;
+                return <OrganizationSetup />;
             }
           }} />
           <Route path="/merchant-dashboard" component={MerchantDashboard} />
@@ -59,6 +67,7 @@ function Router() {
           <Route path="/finance" component={FinancePortal} />
           <Route path="/admin-dashboard" component={AdminDashboard} />
           <Route path="/admin" component={AdminDashboard} />
+          <Route path="/organization-setup" component={OrganizationSetup} />
         </>
       )}
       <Route component={NotFound} />
