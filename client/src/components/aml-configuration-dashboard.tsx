@@ -31,7 +31,7 @@ export function AmlConfigurationDashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: configurations, isLoading } = useQuery({
+  const { data: configurations = [], isLoading } = useQuery({
     queryKey: ["/api/aml/configurations"],
   });
 
@@ -91,7 +91,9 @@ export function AmlConfigurationDashboard() {
     },
   });
 
-  const handleCreateConfig = (formData: FormData) => {
+  const handleCreateConfig = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
     const configType = formData.get("configType") as string;
     const thresholdAmount = formData.get("thresholdAmount") as string;
     const description = formData.get("description") as string;
@@ -103,9 +105,11 @@ export function AmlConfigurationDashboard() {
     });
   };
 
-  const handleUpdateConfig = (formData: FormData) => {
+  const handleUpdateConfig = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
     if (!editingConfig) return;
 
+    const formData = new FormData(e.currentTarget);
     const thresholdAmount = formData.get("thresholdAmount") as string;
     const description = formData.get("description") as string;
     const isActive = formData.get("isActive") === "true";
@@ -179,7 +183,7 @@ export function AmlConfigurationDashboard() {
             <DialogHeader>
               <DialogTitle>Create AML Configuration</DialogTitle>
             </DialogHeader>
-            <form action={handleCreateConfig}>
+            <form onSubmit={handleCreateConfig}>
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="configType">Configuration Type</Label>
@@ -231,7 +235,7 @@ export function AmlConfigurationDashboard() {
       </div>
 
       <div className="grid gap-4">
-        {configurations?.map((config: AmlConfiguration) => (
+        {configurations.map((config: AmlConfiguration) => (
           <Card key={config.id} className="border border-gray-200 dark:border-gray-700">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-4">
@@ -286,7 +290,7 @@ export function AmlConfigurationDashboard() {
           </Card>
         ))}
 
-        {configurations?.length === 0 && (
+        {configurations.length === 0 && (
           <Card className="border-2 border-dashed border-gray-300 dark:border-gray-600">
             <CardContent className="p-12 text-center">
               <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
