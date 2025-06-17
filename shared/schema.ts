@@ -45,6 +45,27 @@ export const organizations = pgTable("organizations", {
   name: varchar("name").notNull(),
   type: varchar("type").default("financial_institution"),
   description: text("description"),
+  kycStatus: varchar("kyc_status").default("pending"), // pending, in_review, approved, rejected
+  kycCompletedAt: timestamp("kyc_completed_at"),
+  kycReviewedBy: varchar("kyc_reviewed_by"),
+  kycRejectReason: text("kyc_reject_reason"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// KYC Documents table for organization onboarding
+export const kycDocuments = pgTable("kyc_documents", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").notNull(),
+  documentType: varchar("document_type").notNull(), // selfie, nrc_side1, nrc_side2, passport, pacra, zra_tpin
+  fileName: varchar("file_name").notNull(),
+  filePath: varchar("file_path").notNull(),
+  fileSize: integer("file_size").notNull(),
+  uploadedBy: varchar("uploaded_by").notNull(),
+  status: varchar("status").default("pending"), // pending, approved, rejected
+  reviewedBy: varchar("reviewed_by"),
+  reviewedAt: timestamp("reviewed_at"),
+  rejectReason: text("reject_reason"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -243,6 +264,21 @@ export const notificationRelations = relations(notifications, ({ one }) => ({
   }),
 }));
 
+export const kycDocumentRelations = relations(kycDocuments, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [kycDocuments.organizationId],
+    references: [organizations.id],
+  }),
+  uploader: one(users, {
+    fields: [kycDocuments.uploadedBy],
+    references: [users.id],
+  }),
+  reviewer: one(users, {
+    fields: [kycDocuments.reviewedBy], 
+    references: [users.id],
+  }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   createdAt: true,
@@ -299,6 +335,16 @@ export const insertQrCodeSchema = createInsertSchema(qrCodes).omit({
   createdAt: true,
 });
 
+export const insertKycDocumentSchema = createInsertSchema(kycDocuments).omit({
+  id: true,
+  status: true,
+  reviewedBy: true,
+  reviewedAt: true,
+  rejectReason: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -317,3 +363,5 @@ export type QrCode = typeof qrCodes.$inferSelect;
 export type InsertQrCode = z.infer<typeof insertQrCodeSchema>;
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type KycDocument = typeof kycDocuments.$inferSelect;
+export type InsertKycDocument = z.infer<typeof insertKycDocumentSchema>;
