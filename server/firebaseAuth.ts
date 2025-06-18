@@ -4,9 +4,29 @@ import { storage } from "./storage";
 
 // Initialize Firebase Admin SDK
 if (!admin.apps.length) {
-  admin.initializeApp({
-    projectId: process.env.VITE_FIREBASE_PROJECT_ID,
-  });
+  try {
+    const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+    if (serviceAccountKey) {
+      const serviceAccount = JSON.parse(serviceAccountKey);
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+        projectId: process.env.VITE_FIREBASE_PROJECT_ID,
+      });
+      console.log('✓ Firebase Admin SDK initialized with service account');
+    } else {
+      // Fallback initialization for development
+      admin.initializeApp({
+        projectId: process.env.VITE_FIREBASE_PROJECT_ID,
+      });
+      console.log('⚠ Firebase Admin SDK initialized without service account (limited functionality)');
+    }
+  } catch (error) {
+    console.error('Firebase Admin SDK initialization error:', error);
+    // Initialize with minimal config as fallback
+    admin.initializeApp({
+      projectId: process.env.VITE_FIREBASE_PROJECT_ID,
+    });
+  }
 }
 
 export async function setupFirebaseAuth(app: Express) {

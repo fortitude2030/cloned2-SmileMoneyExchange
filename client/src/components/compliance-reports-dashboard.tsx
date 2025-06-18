@@ -23,7 +23,7 @@ interface ComplianceReport {
   createdAt: string;
 }
 
-export function ComplianceReportsDashboard() {
+function ComplianceReportsDashboard() {
   const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -332,3 +332,5 @@ export function ComplianceReportsDashboard() {
     </div>
   );
 }
+
+export default ComplianceReportsDashboard;

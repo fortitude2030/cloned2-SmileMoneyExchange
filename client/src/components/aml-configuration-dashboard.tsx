@@ -25,7 +25,7 @@ interface AmlConfiguration {
   updatedAt: string;
 }
 
-export function AmlConfigurationDashboard() {
+function AmlConfigurationDashboard() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingConfig, setEditingConfig] = useState<AmlConfiguration | null>(null);
   const [selectedConfigType, setSelectedConfigType] = useState<string>("");

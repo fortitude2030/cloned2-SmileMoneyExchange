@@ -1626,9 +1626,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Initialize Firebase Admin if not already done
         if (!admin.apps.length) {
-          admin.initializeApp({
-            projectId: process.env.VITE_FIREBASE_PROJECT_ID,
-          });
+          const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+          if (serviceAccountKey) {
+            const serviceAccount = JSON.parse(serviceAccountKey);
+            admin.initializeApp({
+              credential: admin.credential.cert(serviceAccount),
+              projectId: process.env.VITE_FIREBASE_PROJECT_ID,
+            });
+          } else {
+            admin.initializeApp({
+              projectId: process.env.VITE_FIREBASE_PROJECT_ID,
+            });
+          }
         }
 
         // Create user in Firebase Authentication

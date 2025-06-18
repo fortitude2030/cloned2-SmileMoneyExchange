@@ -29,7 +29,7 @@ interface AmlAlert {
   createdAt: string;
 }
 
-export function AmlAlertManagement() {
+function AmlAlertManagement() {
   const [reviewingAlert, setReviewingAlert] = useState<AmlAlert | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const { toast } = useToast();
