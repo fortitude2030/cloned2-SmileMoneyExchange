@@ -36,7 +36,7 @@ export function AmlConfigurationDashboard() {
   });
 
   const createConfigMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("/api/aml/configurations", "POST", data),
+    mutationFn: (data: any) => apiRequest("POST", "/api/aml/configurations", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/aml/configurations"] });
       setIsCreateDialogOpen(false);
@@ -55,7 +55,7 @@ export function AmlConfigurationDashboard() {
   });
 
   const updateConfigMutation = useMutation({
-    mutationFn: ({ id, ...data }: any) => apiRequest(`/api/aml/configurations/${id}`, "PATCH", data),
+    mutationFn: ({ id, ...data }: any) => apiRequest("PATCH", `/api/aml/configurations/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/aml/configurations"] });
       setEditingConfig(null);
@@ -74,7 +74,7 @@ export function AmlConfigurationDashboard() {
   });
 
   const deleteConfigMutation = useMutation({
-    mutationFn: (id: number) => apiRequest(`/api/aml/configurations/${id}`, "DELETE"),
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/aml/configurations/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/aml/configurations"] });
       toast({
