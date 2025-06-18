@@ -9,7 +9,7 @@ export function useAuth() {
   const { data: user, isLoading: userLoading } = useQuery({
     queryKey: ["/api/auth/user"],
     queryFn: async () => {
-      const token = localStorage.getItem('authToken');
+      const token = localStorage.getItem('firebaseToken');
       if (!token) return null;
       
       const response = await fetch('/api/auth/user', {
@@ -20,7 +20,7 @@ export function useAuth() {
       
       if (!response.ok) {
         if (response.status === 401) {
-          localStorage.removeItem('authToken');
+          localStorage.removeItem('firebaseToken');
           return null;
         }
         throw new Error('Failed to fetch user');
