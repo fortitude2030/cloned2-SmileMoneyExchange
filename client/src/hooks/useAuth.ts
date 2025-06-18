@@ -13,7 +13,11 @@ export function useAuth() {
     const unsubscribe = onAuthChange((firebaseUser) => {
       console.log('Firebase auth state changed:', firebaseUser ? 'logged in' : 'logged out');
       setAuthState(firebaseUser);
-      setIsLoading(!firebaseUser ? false : true); // Reset loading when auth state changes
+      
+      // If user logs out, immediately set loading to false
+      if (!firebaseUser) {
+        setIsLoading(false);
+      }
     });
     return unsubscribe;
   }, []);
