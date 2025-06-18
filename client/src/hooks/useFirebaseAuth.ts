@@ -1,95 +1,53 @@
 import { useState, useEffect } from 'react';
-import { User } from 'firebase/auth';
-import { auth, onAuthChange, signInUser, signOutUser } from '@/lib/firebase';
-
-export interface AuthUser {
-  id: string;
-  email: string;
-  firstName?: string;
-  lastName?: string;
-  role?: string;
-  organizationId?: number;
-}
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 
 export function useFirebaseAuth() {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthChange(async (firebaseUser: User | null) => {
-      setFirebaseUser(firebaseUser);
-      
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         try {
-          // Get Firebase ID token for backend authentication
-          const idToken = await firebaseUser.getIdToken();
-          
-          // Send token to backend to get/create user profile
-          const response = await fetch('/api/auth/firebase-verify', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${idToken}`
-            },
-            credentials: 'include'
-          });
-
-          if (response.ok) {
-            const userData = await response.json();
-            setUser(userData);
-            setIsAuthenticated(true);
-          } else {
-            console.error('Failed to verify user with backend');
-            setUser(null);
-            setIsAuthenticated(false);
-          }
+          // Get fresh token and store it
+          const token = await firebaseUser.getIdToken(true);
+          localStorage.setItem('firebaseToken', token);
+          setUser(firebaseUser);
         } catch (error) {
-          console.error('Error verifying Firebase user:', error);
+          console.error('Token refresh failed:', error);
+          localStorage.removeItem('firebaseToken');
           setUser(null);
-          setIsAuthenticated(false);
         }
       } else {
+        localStorage.removeItem('firebaseToken');
         setUser(null);
-        setIsAuthenticated(false);
       }
-      
-      setIsLoading(false);
+      setLoading(false);
     });
 
-    return () => unsubscribe();
+    return unsubscribe;
   }, []);
 
-  const signIn = async (email: string, password: string) => {
-    try {
-      await signInUser(email, password);
-      return { success: true };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+  const refreshToken = async () => {
+    if (user) {
+      try {
+        const token = await user.getIdToken(true);
+        localStorage.setItem('firebaseToken', token);
+        return token;
+      } catch (error) {
+        console.error('Token refresh failed:', error);
+        localStorage.removeItem('firebaseToken');
+        return null;
+      }
     }
-  };
-
-  const signOut = async () => {
-    try {
-      await signOutUser();
-      // Clear backend session
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include'
-      });
-      return { success: true };
-    } catch (error: any) {
-      return { success: false, error: error.message };
-    }
+    return null;
   };
 
   return {
     user,
-    firebaseUser,
-    isLoading,
-    isAuthenticated,
-    signIn,
-    signOut
+    loading,
+    refreshToken,
+    isAuthenticated: !!user
   };
 }
