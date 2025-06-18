@@ -38,10 +38,25 @@ export function useAuth() {
 
   const signOut = async () => {
     try {
+      // Clear Firebase token
+      localStorage.removeItem('firebaseToken');
       localStorage.removeItem('auth_token');
+      
+      // Call logout API
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      // Redirect to login
       window.location.href = '/';
     } catch (error) {
       console.error('Logout error:', error);
+      // Clear tokens anyway and redirect
+      localStorage.removeItem('firebaseToken');
+      localStorage.removeItem('auth_token');
       window.location.href = '/';
     }
   };

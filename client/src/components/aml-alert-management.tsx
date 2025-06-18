@@ -393,3 +393,5 @@ export function AmlAlertManagement() {
     </div>
   );
 }
+
+export default AmlAlertManagement;

@@ -425,3 +425,5 @@ export function AmlConfigurationDashboard() {
     </div>
   );
 }
+
+export default AmlConfigurationDashboard;

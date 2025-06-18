@@ -11,11 +11,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import MobileHeader from "@/components/mobile-header";
 import MobileNav from "@/components/mobile-nav";
-import { AdminUserManagement } from "@/components/admin-user-management";
-import { AdminOrganizationManagement } from "@/components/admin-organization-management";
-import { AmlConfigurationDashboard } from "@/components/aml-configuration-dashboard";
-import { AmlAlertManagement } from "@/components/aml-alert-management";
-import { ComplianceReportsDashboard } from "@/components/compliance-reports-dashboard";
+import AdminUserManagement from "@/components/admin-user-management";
+import AdminOrganizationManagement from "@/components/admin-organization-management";
+import AmlConfigurationDashboard from "@/components/aml-configuration-dashboard";
+import AmlAlertManagement from "@/components/aml-alert-management";
+import ComplianceReportsDashboard from "@/components/compliance-reports-dashboard";
 import { apiRequest } from "@/lib/queryClient";
 
 interface ActionDialogState {
