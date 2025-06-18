@@ -7,19 +7,9 @@ import { apiRequest } from "@/lib/apiClient";
 export function useAuth() {
   const [isLoading, setIsLoading] = useState(true);
   const [authState, setAuthState] = useState<any>(null);
-  const [forceLoggedOut, setForceLoggedOut] = useState(false);
 
   // Listen to Firebase auth state changes
   useEffect(() => {
-    // Check for forced logout flag
-    const loggedOutFlag = sessionStorage.getItem('forceLoggedOut');
-    if (loggedOutFlag === 'true') {
-      setForceLoggedOut(true);
-      setAuthState(null);
-      setIsLoading(false);
-      return;
-    }
-
     const unsubscribe = onAuthChange((firebaseUser) => {
       console.log('Firebase auth state changed:', firebaseUser ? 'logged in' : 'logged out');
       
@@ -40,7 +30,7 @@ export function useAuth() {
     queryFn: async () => {
       try {
         // Wait for Firebase auth state to be available
-        if (!authState || forceLoggedOut) {
+        if (!authState) {
           return null;
         }
 
@@ -72,7 +62,7 @@ export function useAuth() {
     },
     retry: false,
     refetchOnWindowFocus: false,
-    enabled: !!authState && !forceLoggedOut, // Only run query when Firebase user is available and not forced logout
+    enabled: !!authState, // Only run query when Firebase user is available
   });
 
   // Refetch user data when auth state changes
@@ -84,51 +74,41 @@ export function useAuth() {
 
   useEffect(() => {
     // Set loading based on Firebase auth state and user query loading
-    if (forceLoggedOut) {
-      setIsLoading(false);
-    } else if (authState === null) {
+    if (authState === null) {
       setIsLoading(true);
     } else if (authState && userLoading) {
       setIsLoading(true);
     } else {
       setIsLoading(false);
     }
-  }, [authState, userLoading, forceLoggedOut]);
+  }, [authState, userLoading]);
 
   const signOut = async () => {
     try {
       console.log('Starting logout process...');
       
-      // Set forced logout flag
-      sessionStorage.setItem('forceLoggedOut', 'true');
-      setForceLoggedOut(true);
-      
       // Clear all storage immediately
       localStorage.clear();
+      sessionStorage.clear();
       
-      // Clear auth state immediately
-      setAuthState(null);
-      setIsLoading(false);
+      // Sign out from Firebase (don't wait)
+      signOutUser().catch(() => {});
       
-      // Sign out from Firebase
-      await signOutUser();
-      
-      // Call logout API (non-blocking)
+      // Call logout API (don't wait)
       fetch('/api/auth/logout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       }).catch(() => {});
       
-      console.log('Logout complete');
+      // Force complete page reload to clear all state
+      window.location.replace('/');
       
     } catch (error) {
       console.error('Logout error:', error);
       // Force logout anyway
-      sessionStorage.setItem('forceLoggedOut', 'true');
-      setForceLoggedOut(true);
       localStorage.clear();
-      setAuthState(null);
-      setIsLoading(false);
+      sessionStorage.clear();
+      window.location.replace('/');
     }
   };
 
@@ -136,7 +116,7 @@ export function useAuth() {
     user,
     firebaseUser: authState,
     isLoading,
-    isAuthenticated: !forceLoggedOut && !!authState && !!user,
+    isAuthenticated: !!authState && !!user,
     signOut,
   };
 }

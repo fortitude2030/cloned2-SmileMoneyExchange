@@ -54,9 +54,6 @@ export function Login() {
       const userCredential = await signInUser(data.email, data.password);
       const user = userCredential.user;
 
-      // Clear any forced logout flag
-      sessionStorage.removeItem('forceLoggedOut');
-
       // Get Firebase ID token for backend authentication
       const idToken = await user.getIdToken();
       
