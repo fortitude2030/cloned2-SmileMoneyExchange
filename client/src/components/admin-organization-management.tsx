@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Building, Plus, MapPin, FileText, Users, Calendar, ToggleLeft, ToggleRight } from "lucide-react";
-import { apiRequest } from "@/lib/apiClient";
+import { apiRequest } from "@/lib/queryClient";
 
 interface Organization {
   id: number;
@@ -46,27 +46,14 @@ export default function AdminOrganizationManagement() {
   });
 
   // Fetch organizations
-  const { data: organizations = [], isLoading: orgsLoading } = useQuery({
-    queryKey: ['/api/admin/organizations'],
-    queryFn: async () => {
-      const response = await apiRequest('/api/admin/organizations');
-      if (!response.ok) throw new Error('Failed to fetch organizations');
-      return response.json();
-    }
+  const { data: organizations = [], isLoading: orgsLoading, error: orgsError } = useQuery({
+    queryKey: ['/api/admin/organizations']
   });
 
   // Create organization mutation
   const createOrgMutation = useMutation({
     mutationFn: async (orgData: typeof newOrg) => {
-      const response = await apiRequest('/api/admin/organizations/create', {
-        method: 'POST',
-        body: JSON.stringify(orgData)
-      });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to create organization');
-      }
-      return response.json();
+      return apiRequest('/api/admin/organizations', 'POST', orgData);
     },
     onSuccess: (data) => {
       toast({
