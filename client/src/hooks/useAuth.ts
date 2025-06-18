@@ -23,13 +23,6 @@ export function useAuth() {
     const unsubscribe = onAuthChange((firebaseUser) => {
       console.log('Firebase auth state changed:', firebaseUser ? 'logged in' : 'logged out');
       
-      // Don't set auth state if we've forced logout
-      if (forceLoggedOut) {
-        setAuthState(null);
-        setIsLoading(false);
-        return;
-      }
-      
       setAuthState(firebaseUser);
       
       // If user logs out, clear everything immediately
@@ -40,14 +33,14 @@ export function useAuth() {
       }
     });
     return unsubscribe;
-  }, [forceLoggedOut]);
+  }, []);
 
   const { data: user, isLoading: userLoading, refetch } = useQuery({
     queryKey: ["/api/auth/user"],
     queryFn: async () => {
       try {
         // Wait for Firebase auth state to be available
-        if (!authState) {
+        if (!authState || forceLoggedOut) {
           return null;
         }
 
@@ -79,7 +72,7 @@ export function useAuth() {
     },
     retry: false,
     refetchOnWindowFocus: false,
-    enabled: !!authState, // Only run query when Firebase user is available
+    enabled: !!authState && !forceLoggedOut, // Only run query when Firebase user is available and not forced logout
   });
 
   // Refetch user data when auth state changes
@@ -91,14 +84,16 @@ export function useAuth() {
 
   useEffect(() => {
     // Set loading based on Firebase auth state and user query loading
-    if (authState === null) {
+    if (forceLoggedOut) {
+      setIsLoading(false);
+    } else if (authState === null) {
       setIsLoading(true);
     } else if (authState && userLoading) {
       setIsLoading(true);
     } else {
       setIsLoading(false);
     }
-  }, [authState, userLoading]);
+  }, [authState, userLoading, forceLoggedOut]);
 
   const signOut = async () => {
     try {
