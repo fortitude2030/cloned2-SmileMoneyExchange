@@ -110,7 +110,10 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     }
 
     // Attach user to request for downstream use
-    (req as any).user = { claims: { sub: user.id } };
+    (req as any).user = { 
+      userId: user.id,
+      claims: { sub: user.id } 
+    };
     next();
   } catch (error) {
     console.error("Auth middleware error:", error);

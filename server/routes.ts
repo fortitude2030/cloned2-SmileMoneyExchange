@@ -276,9 +276,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Wallet routes
-  app.get('/api/wallet', isFirebaseAuthenticated, async (req: any, res) => {
+  app.get('/api/wallet', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       const wallet = await storage.getOrCreateWallet(userId);
       
