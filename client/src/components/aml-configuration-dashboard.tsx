@@ -40,7 +40,7 @@ export function AmlConfigurationDashboard() {
     mutationFn: (data: any) => apiRequest("POST", "/api/aml/configurations", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/aml/configurations"] });
-      setIsCreateDialogOpen(false);
+      handleDialogOpenChange(false);
       toast({
         title: "Success",
         description: "AML configuration created successfully",
@@ -202,7 +202,7 @@ export function AmlConfigurationDashboard() {
             Configure anti-money laundering thresholds and monitoring rules
           </p>
         </div>
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <Dialog open={isCreateDialogOpen} onOpenChange={handleDialogOpenChange}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="w-4 h-4 mr-2" />
@@ -260,7 +260,7 @@ export function AmlConfigurationDashboard() {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => setIsCreateDialogOpen(false)}
+                    onClick={() => handleDialogOpenChange(false)}
                   >
                     Cancel
                   </Button>
