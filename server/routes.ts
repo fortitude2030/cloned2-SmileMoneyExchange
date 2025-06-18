@@ -53,6 +53,10 @@ const upload = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Setup development authentication for testing
+  const { setupDevAuth, isAuthenticated: isDevAuthenticated } = await import('./devAuth');
+  await setupDevAuth(app);
+  
   // Setup Firebase authentication
   await setupFirebaseAuth(app);
 

@@ -4,49 +4,23 @@ import { onAuthChange, signOutUser } from "@/lib/firebase";
 import { auth } from "@/lib/firebase";
 
 export function useAuth() {
-  const [firebaseUser, setFirebaseUser] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Listen to Firebase auth state changes
-  useEffect(() => {
-    const unsubscribe = onAuthChange(async (firebaseUser) => {
-      setFirebaseUser(firebaseUser);
-      setIsLoading(false);
-      
-      if (firebaseUser) {
-        // Get Firebase ID token and verify with backend
-        try {
-          const idToken = await firebaseUser.getIdToken();
-          await fetch('/api/auth/firebase-verify', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${idToken}`,
-              'Content-Type': 'application/json',
-            },
-          });
-        } catch (error) {
-          console.error('Firebase verification error:', error);
-        }
-      }
-    });
-
-    return unsubscribe;
-  }, []);
-
-  const { data: user } = useQuery({
+  const { data: user, isLoading: userLoading } = useQuery({
     queryKey: ["/api/auth/user"],
     queryFn: async () => {
-      if (!firebaseUser) return null;
+      const token = localStorage.getItem('auth_token');
+      if (!token) return null;
       
-      const idToken = await firebaseUser.getIdToken();
       const response = await fetch('/api/auth/user', {
         headers: {
-          'Authorization': `Bearer ${idToken}`,
+          'Authorization': `Bearer ${token}`,
         },
       });
       
       if (!response.ok) {
         if (response.status === 401) {
+          localStorage.removeItem('auth_token');
           return null;
         }
         throw new Error('Failed to fetch user');
@@ -55,25 +29,28 @@ export function useAuth() {
       return response.json();
     },
     retry: false,
-    enabled: !!firebaseUser,
+    refetchOnWindowFocus: false,
   });
+
+  useEffect(() => {
+    setIsLoading(userLoading);
+  }, [userLoading]);
 
   const signOut = async () => {
     try {
-      await signOutUser();
-      await fetch('/api/auth/logout', { method: 'POST' });
-      window.location.reload();
+      localStorage.removeItem('auth_token');
+      window.location.href = '/';
     } catch (error) {
       console.error('Logout error:', error);
-      window.location.reload();
+      window.location.href = '/';
     }
   };
 
   return {
     user,
-    firebaseUser,
+    firebaseUser: null,
     isLoading,
-    isAuthenticated: !!firebaseUser && !!user,
+    isAuthenticated: !!user,
     signOut,
   };
 }

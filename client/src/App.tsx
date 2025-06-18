@@ -7,6 +7,7 @@ import { TransactionNotificationProvider } from "@/hooks/use-transaction-notific
 import { TimerProvider } from "@/contexts/timer-context";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
+import { DevLogin } from "@/pages/dev-login";
 import MerchantDashboard from "@/pages/merchant-dashboard";
 import CashierDashboard from "@/pages/cashier-dashboard";
 import FinancePortal from "@/pages/finance-portal";
