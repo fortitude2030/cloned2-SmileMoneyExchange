@@ -14,8 +14,10 @@ export function useAuth() {
       console.log('Firebase auth state changed:', firebaseUser ? 'logged in' : 'logged out');
       setAuthState(firebaseUser);
       
-      // If user logs out, immediately set loading to false
+      // If user logs out, clear everything immediately
       if (!firebaseUser) {
+        localStorage.removeItem('firebaseToken');
+        localStorage.removeItem('auth_token');
         setIsLoading(false);
       }
     });
@@ -82,26 +84,39 @@ export function useAuth() {
 
   const signOut = async () => {
     try {
-      // Clear Firebase token
-      localStorage.removeItem('firebaseToken');
-      localStorage.removeItem('auth_token');
+      console.log('Starting logout process...');
       
-      // Call logout API
-      await fetch('/api/auth/logout', {
+      // Set loading state to prevent race conditions
+      setIsLoading(true);
+      
+      // Clear all local storage immediately
+      localStorage.clear();
+      
+      // Sign out from Firebase first
+      await signOutUser();
+      console.log('Firebase signout complete');
+      
+      // Clear auth state immediately
+      setAuthState(null);
+      
+      // Call logout API (non-blocking)
+      fetch('/api/auth/logout', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+        headers: { 'Content-Type': 'application/json' },
+      }).catch(() => {}); // Ignore API errors during logout
       
-      // Redirect to login
-      window.location.href = '/';
+      // Force complete page reload to clear all React state
+      setTimeout(() => {
+        window.location.replace('/');
+      }, 100);
+      
     } catch (error) {
       console.error('Logout error:', error);
-      // Clear tokens anyway and redirect
-      localStorage.removeItem('firebaseToken');
-      localStorage.removeItem('auth_token');
-      window.location.href = '/';
+      // Force logout anyway
+      localStorage.clear();
+      setAuthState(null);
+      setIsLoading(false);
+      window.location.replace('/');
     }
   };
 
