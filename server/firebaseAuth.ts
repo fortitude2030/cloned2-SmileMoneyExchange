@@ -80,14 +80,9 @@ export async function setupFirebaseAuth(app: Express) {
       const idToken = authHeader.split('Bearer ')[1];
       let firebaseUid: string;
       
-      // For testing with mock tokens during development
-      if (idToken.startsWith('mock_firebase_token_')) {
-        firebaseUid = idToken.replace('mock_firebase_token_', '');
-      } else {
-        // Verify the actual Firebase ID token
-        const decodedToken = await admin.auth().verifyIdToken(idToken);
-        firebaseUid = decodedToken.uid;
-      }
+      // Verify the Firebase ID token
+      const decodedToken = await admin.auth().verifyIdToken(idToken);
+      firebaseUid = decodedToken.uid;
 
       // Get user from our database
       const user = await storage.getUser(firebaseUid);
@@ -127,14 +122,9 @@ export const isFirebaseAuthenticated: RequestHandler = async (req: any, res, nex
     const idToken = authHeader.split('Bearer ')[1];
     let firebaseUid: string;
     
-    // For testing with mock tokens during development
-    if (idToken.startsWith('mock_firebase_token_')) {
-      firebaseUid = idToken.replace('mock_firebase_token_', '');
-    } else {
-      // Verify the actual Firebase ID token
-      const decodedToken = await admin.auth().verifyIdToken(idToken);
-      firebaseUid = decodedToken.uid;
-    }
+    // Verify the Firebase ID token
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    firebaseUid = decodedToken.uid;
 
     // Get user from our system
     const user = await storage.getUser(firebaseUid);
