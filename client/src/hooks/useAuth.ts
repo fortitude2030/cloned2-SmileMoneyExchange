@@ -6,20 +6,29 @@ import { apiRequest } from "@/lib/apiClient";
 
 export function useAuth() {
   const [isLoading, setIsLoading] = useState(true);
+  const [authState, setAuthState] = useState<any>(null);
 
-  const { data: user, isLoading: userLoading } = useQuery({
+  // Listen to Firebase auth state changes
+  useEffect(() => {
+    const unsubscribe = onAuthChange((firebaseUser) => {
+      console.log('Firebase auth state changed:', firebaseUser ? 'logged in' : 'logged out');
+      setAuthState(firebaseUser);
+      setIsLoading(!firebaseUser ? false : true); // Reset loading when auth state changes
+    });
+    return unsubscribe;
+  }, []);
+
+  const { data: user, isLoading: userLoading, refetch } = useQuery({
     queryKey: ["/api/auth/user"],
     queryFn: async () => {
       try {
-        // Always get fresh token from Firebase Auth
-        const currentUser = auth.currentUser;
-        if (!currentUser) {
-          localStorage.removeItem('firebaseToken');
+        // Wait for Firebase auth state to be available
+        if (!authState) {
           return null;
         }
 
         // Force refresh the token to ensure it's valid
-        const freshToken = await currentUser.getIdToken(true);
+        const freshToken = await authState.getIdToken(true);
         localStorage.setItem('firebaseToken', freshToken);
         
         const response = await fetch('/api/auth/user', {
@@ -46,11 +55,26 @@ export function useAuth() {
     },
     retry: false,
     refetchOnWindowFocus: false,
+    enabled: !!authState, // Only run query when Firebase user is available
   });
 
+  // Refetch user data when auth state changes
   useEffect(() => {
-    setIsLoading(userLoading);
-  }, [userLoading]);
+    if (authState) {
+      refetch();
+    }
+  }, [authState, refetch]);
+
+  useEffect(() => {
+    // Set loading based on Firebase auth state and user query loading
+    if (authState === null) {
+      setIsLoading(true);
+    } else if (authState && userLoading) {
+      setIsLoading(true);
+    } else {
+      setIsLoading(false);
+    }
+  }, [authState, userLoading]);
 
   const signOut = async () => {
     try {
@@ -79,9 +103,9 @@ export function useAuth() {
 
   return {
     user,
-    firebaseUser: null,
+    firebaseUser: authState,
     isLoading,
-    isAuthenticated: !!user,
+    isAuthenticated: !!authState && !!user,
     signOut,
   };
 }

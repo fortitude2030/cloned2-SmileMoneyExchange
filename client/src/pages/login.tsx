@@ -65,8 +65,10 @@ export function Login() {
         description: "Welcome to Smile Money Platform",
       });
 
-      // Redirect to dashboard
-      window.location.href = '/';
+      // Wait a moment for auth state to propagate, then redirect
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 100);
       
     } catch (error: any) {
       console.error("Login error:", error);
