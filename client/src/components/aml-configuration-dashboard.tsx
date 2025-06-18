@@ -31,7 +31,7 @@ export function AmlConfigurationDashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: configurations = [], isLoading } = useQuery({
+  const { data: configurations = [], isLoading } = useQuery<AmlConfiguration[]>({
     queryKey: ["/api/aml/configurations"],
   });
 
@@ -204,7 +204,10 @@ export function AmlConfigurationDashboard() {
                     name="thresholdAmount"
                     type="number"
                     step="0.01"
-                    placeholder="50000"
+                    min="0"
+                    max="1000000"
+                    defaultValue="1000000"
+                    placeholder="1000000"
                     required
                   />
                 </div>
@@ -235,7 +238,7 @@ export function AmlConfigurationDashboard() {
       </div>
 
       <div className="grid gap-4">
-        {configurations.map((config: AmlConfiguration) => (
+        {(configurations as AmlConfiguration[]).map((config: AmlConfiguration) => (
           <Card key={config.id} className="border border-gray-200 dark:border-gray-700">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-4">
@@ -290,7 +293,7 @@ export function AmlConfigurationDashboard() {
           </Card>
         ))}
 
-        {configurations.length === 0 && (
+        {(configurations as AmlConfiguration[]).length === 0 && (
           <Card className="border-2 border-dashed border-gray-300 dark:border-gray-600">
             <CardContent className="p-12 text-center">
               <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -318,7 +321,7 @@ export function AmlConfigurationDashboard() {
             <DialogTitle>Edit AML Configuration</DialogTitle>
           </DialogHeader>
           {editingConfig && (
-            <form action={handleUpdateConfig}>
+            <form onSubmit={handleUpdateConfig}>
               <div className="space-y-4">
                 <div>
                   <Label>Configuration Type</Label>
@@ -334,6 +337,8 @@ export function AmlConfigurationDashboard() {
                     name="thresholdAmount"
                     type="number"
                     step="0.01"
+                    min="0"
+                    max="1000000"
                     defaultValue={editingConfig.thresholdAmount}
                     required
                   />
