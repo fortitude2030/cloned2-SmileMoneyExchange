@@ -28,6 +28,7 @@ interface AmlConfiguration {
 export function AmlConfigurationDashboard() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingConfig, setEditingConfig] = useState<AmlConfiguration | null>(null);
+  const [selectedConfigType, setSelectedConfigType] = useState<string>("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -91,6 +92,28 @@ export function AmlConfigurationDashboard() {
     },
   });
 
+  const getMaxThreshold = (configType: string) => {
+    switch (configType) {
+      case "weekly_volume":
+        return 7000000;
+      case "single_transaction":
+      case "daily_total":
+      default:
+        return 1000000;
+    }
+  };
+
+  const getDefaultThreshold = (configType: string) => {
+    switch (configType) {
+      case "weekly_volume":
+        return 7000000;
+      case "single_transaction":
+      case "daily_total":
+      default:
+        return 1000000;
+    }
+  };
+
   const handleCreateConfig = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -103,6 +126,13 @@ export function AmlConfigurationDashboard() {
       thresholdAmount: parseFloat(thresholdAmount),
       description,
     });
+  };
+
+  const handleDialogOpenChange = (open: boolean) => {
+    setIsCreateDialogOpen(open);
+    if (!open) {
+      setSelectedConfigType("");
+    }
   };
 
   const handleUpdateConfig = (e: React.FormEvent<HTMLFormElement>) => {
@@ -187,7 +217,7 @@ export function AmlConfigurationDashboard() {
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="configType">Configuration Type</Label>
-                  <Select name="configType" required>
+                  <Select name="configType" value={selectedConfigType} onValueChange={setSelectedConfigType} required>
                     <SelectTrigger>
                       <SelectValue placeholder="Select configuration type" />
                     </SelectTrigger>
@@ -199,15 +229,22 @@ export function AmlConfigurationDashboard() {
                   </Select>
                 </div>
                 <div>
-                  <Label htmlFor="thresholdAmount">Threshold Amount (ZMW)</Label>
+                  <Label htmlFor="thresholdAmount">
+                    Threshold Amount (ZMW)
+                    {selectedConfigType && (
+                      <span className="text-sm text-gray-500 ml-2">
+                        Max: {getMaxThreshold(selectedConfigType).toLocaleString()} ZMW
+                      </span>
+                    )}
+                  </Label>
                   <Input
                     name="thresholdAmount"
                     type="number"
                     step="0.01"
                     min="0"
-                    max="1000000"
-                    defaultValue="1000000"
-                    placeholder="1000000"
+                    max={selectedConfigType ? getMaxThreshold(selectedConfigType) : 1000000}
+                    defaultValue={selectedConfigType ? getDefaultThreshold(selectedConfigType) : 1000000}
+                    placeholder={selectedConfigType ? getDefaultThreshold(selectedConfigType).toString() : "1000000"}
                     required
                   />
                 </div>
@@ -332,13 +369,18 @@ export function AmlConfigurationDashboard() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="thresholdAmount">Threshold Amount (ZMW)</Label>
+                  <Label htmlFor="thresholdAmount">
+                    Threshold Amount (ZMW)
+                    <span className="text-sm text-gray-500 ml-2">
+                      Max: {getMaxThreshold(editingConfig.configType).toLocaleString()} ZMW
+                    </span>
+                  </Label>
                   <Input
                     name="thresholdAmount"
                     type="number"
                     step="0.01"
                     min="0"
-                    max="1000000"
+                    max={getMaxThreshold(editingConfig.configType)}
                     defaultValue={editingConfig.thresholdAmount}
                     required
                   />
