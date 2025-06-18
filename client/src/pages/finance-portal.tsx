@@ -630,8 +630,10 @@ export default function FinancePortal() {
         </Card>
 
         {/* Consolidated Monthly Settlement Card */}
-        <div className="mb-6">
-          <ConsolidatedSettlementCard />
+        <div className="mb-6 w-full overflow-visible">
+          <div className="min-h-[400px]">
+            <ConsolidatedSettlementCard />
+          </div>
         </div>
 
         
