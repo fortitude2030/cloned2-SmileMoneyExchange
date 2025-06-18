@@ -49,10 +49,7 @@ export default function AdminOrganizationManagement() {
   const { data: organizations = [], isLoading: orgsLoading } = useQuery({
     queryKey: ['/api/admin/organizations'],
     queryFn: async () => {
-      const token = localStorage.getItem('firebaseToken');
-      const response = await fetch('/api/admin/organizations', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const response = await apiRequest('/api/admin/organizations');
       if (!response.ok) throw new Error('Failed to fetch organizations');
       return response.json();
     }
@@ -61,13 +58,8 @@ export default function AdminOrganizationManagement() {
   // Create organization mutation
   const createOrgMutation = useMutation({
     mutationFn: async (orgData: typeof newOrg) => {
-      const token = localStorage.getItem('firebaseToken');
-      const response = await fetch('/api/admin/organizations/create', {
+      const response = await apiRequest('/api/admin/organizations/create', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
         body: JSON.stringify(orgData)
       });
       if (!response.ok) {
