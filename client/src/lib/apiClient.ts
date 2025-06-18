@@ -26,31 +26,16 @@ export async function apiRequest(url: string, options: RequestInit = {}) {
   };
 
   try {
-    // Try with existing token first
-    const existingToken = localStorage.getItem('firebaseToken');
-    if (existingToken) {
-      const response = await makeRequest(existingToken);
-      
-      // If token is valid, return response
-      if (response.ok || response.status !== 401) {
-        return response;
-      }
-    }
-
-    // Token expired or missing, get fresh token
+    // Always get fresh token from Firebase Auth for authenticated requests
     const currentUser = auth.currentUser;
-    if (!currentUser) {
-      // User not authenticated, redirect to login
-      window.location.href = '/';
-      throw new Error('Authentication required');
+    if (currentUser) {
+      const freshToken = await currentUser.getIdToken(true);
+      localStorage.setItem('firebaseToken', freshToken);
+      return await makeRequest(freshToken);
     }
-
-    // Get fresh token
-    const freshToken = await currentUser.getIdToken(true);
-    localStorage.setItem('firebaseToken', freshToken);
     
-    // Retry request with fresh token
-    return await makeRequest(freshToken);
+    // For unauthenticated requests, try without token
+    return await makeRequest();
     
   } catch (error) {
     console.error('API request failed:', error);

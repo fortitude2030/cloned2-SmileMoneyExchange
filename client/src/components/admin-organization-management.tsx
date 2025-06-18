@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Building, Plus, MapPin, FileText, Users, Calendar, ToggleLeft, ToggleRight } from "lucide-react";
+import { apiRequest } from "@/lib/apiClient";
 
 interface Organization {
   id: number;
@@ -164,9 +165,9 @@ export default function AdminOrganizationManagement() {
   // Filter organizations
   const filteredOrganizations = organizations.filter((org: Organization) => {
     const matchesSearch = 
-      org.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      org.registrationNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      org.contactEmail.toLowerCase().includes(searchTerm.toLowerCase());
+      (org.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (org.registrationNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (org.contactEmail || '').toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = statusFilter === 'all' || 
       (statusFilter === 'active' && org.isActive) ||

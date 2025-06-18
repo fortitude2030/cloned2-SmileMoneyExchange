@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Users, Plus, Shield, Building, Phone, Mail, ToggleLeft, ToggleRight } from "lucide-react";
+import { apiRequest } from "@/lib/apiClient";
 
 interface User {
   id: string;
@@ -54,10 +55,7 @@ export default function AdminUserManagement() {
   const { data: users = [], isLoading: usersLoading } = useQuery({
     queryKey: ['/api/admin/users'],
     queryFn: async () => {
-      const token = localStorage.getItem('firebaseToken');
-      const response = await fetch('/api/admin/users', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const response = await apiRequest('/api/admin/users');
       if (!response.ok) throw new Error('Failed to fetch users');
       return response.json();
     }
@@ -67,10 +65,7 @@ export default function AdminUserManagement() {
   const { data: organizations = [] } = useQuery({
     queryKey: ['/api/admin/organizations'],
     queryFn: async () => {
-      const token = localStorage.getItem('firebaseToken');
-      const response = await fetch('/api/admin/organizations', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const response = await apiRequest('/api/admin/organizations');
       if (!response.ok) throw new Error('Failed to fetch organizations');
       return response.json();
     }
@@ -79,13 +74,8 @@ export default function AdminUserManagement() {
   // Create user mutation
   const createUserMutation = useMutation({
     mutationFn: async (userData: typeof newUser) => {
-      const token = localStorage.getItem('firebaseToken');
-      const response = await fetch('/api/admin/users/create', {
+      const response = await apiRequest('/api/admin/users/create', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
         body: JSON.stringify(userData)
       });
       if (!response.ok) {
