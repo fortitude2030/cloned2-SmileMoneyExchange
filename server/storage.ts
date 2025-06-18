@@ -51,7 +51,12 @@ export interface IStorage {
   createOrganization(org: InsertOrganization): Promise<Organization>;
   getOrganizationById(id: number): Promise<Organization | undefined>;
   getOrganizationsByUserId(userId: string): Promise<Organization[]>;
+  getAllOrganizations(): Promise<Organization[]>;
+  getApprovedOrganizations(): Promise<Organization[]>;
   updateOrganization(organizationId: number, data: Partial<InsertOrganization>): Promise<Organization>;
+  updateOrganizationKycStatus(organizationId: number, kycStatus: string, reviewedBy?: string, rejectReason?: string): Promise<void>;
+  getUsersByOrganization(organizationId: number): Promise<User[]>;
+  getTransactionsByOrganization(organizationId: number): Promise<Transaction[]>;
   
   // Branch operations
   createBranch(branch: InsertBranch): Promise<Branch>;
@@ -210,6 +215,21 @@ export class DatabaseStorage implements IStorage {
     return org ? [org] : [];
   }
 
+  async getAllOrganizations(): Promise<Organization[]> {
+    return await db
+      .select()
+      .from(organizations)
+      .orderBy(organizations.createdAt);
+  }
+
+  async getApprovedOrganizations(): Promise<Organization[]> {
+    return await db
+      .select()
+      .from(organizations)
+      .where(eq(organizations.status, 'approved'))
+      .orderBy(organizations.name);
+  }
+
   async updateOrganization(organizationId: number, data: Partial<InsertOrganization>): Promise<Organization> {
     // Handle optional fields - convert empty strings to null
     const updateData: any = {
@@ -232,6 +252,57 @@ export class DatabaseStorage implements IStorage {
     }
     
     return updatedOrganization;
+  }
+
+  async updateOrganizationKycStatus(organizationId: number, kycStatus: string, reviewedBy?: string, rejectReason?: string): Promise<void> {
+    const updateData: any = {
+      kycStatus,
+      updatedAt: new Date()
+    };
+
+    if (reviewedBy) {
+      updateData.kycReviewedBy = reviewedBy;
+    }
+
+    if (rejectReason) {
+      updateData.kycRejectReason = rejectReason;
+    }
+
+    if (kycStatus === 'verified') {
+      updateData.kycCompletedAt = new Date();
+    }
+
+    await db
+      .update(organizations)
+      .set(updateData)
+      .where(eq(organizations.id, organizationId));
+  }
+
+  async getUsersByOrganization(organizationId: number): Promise<User[]> {
+    return await db
+      .select()
+      .from(users)
+      .where(eq(users.organizationId, organizationId))
+      .orderBy(users.firstName, users.lastName);
+  }
+
+  async getTransactionsByOrganization(organizationId: number): Promise<Transaction[]> {
+    // Get all users from the organization first
+    const orgUsers = await this.getUsersByOrganization(organizationId);
+    const userIds = orgUsers.map(user => user.id);
+
+    if (userIds.length === 0) {
+      return [];
+    }
+
+    return await db
+      .select()
+      .from(transactions)
+      .where(or(
+        inArray(transactions.fromUserId, userIds),
+        inArray(transactions.toUserId, userIds)
+      ))
+      .orderBy(desc(transactions.createdAt));
   }
 
   // Branch operations
