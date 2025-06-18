@@ -35,7 +35,7 @@ function Router() {
   return (
     <Switch>
       {!isAuthenticated ? (
-        <Route path="/" component={Landing} />
+        <Route path="/" component={DevLogin} />
       ) : (
         <>
           <Route path="/" component={() => {
