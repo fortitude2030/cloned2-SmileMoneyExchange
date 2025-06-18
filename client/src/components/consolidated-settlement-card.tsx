@@ -18,14 +18,38 @@ interface MonthlySettlementData {
 export function ConsolidatedSettlementCard() {
   const [period, setPeriod] = useState<'weekly' | 'monthly' | 'yearly'>('monthly');
 
-  const { data: settlementData, isLoading } = useQuery<MonthlySettlementData>({
+  const { data: settlementData, isLoading, error } = useQuery<MonthlySettlementData>({
     queryKey: ['/api/monthly-settlement-breakdown', period],
     queryFn: async () => {
-      const response = await fetch(`/api/monthly-settlement-breakdown?period=${period}`);
-      if (!response.ok) throw new Error('Failed to fetch settlement data');
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`/api/monthly-settlement-breakdown?period=${period}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!response.ok) {
+        if (response.status === 401) {
+          // Return default data for unauthorized access
+          return {
+            approved: 0,
+            rejected: 0,
+            pending: 0,
+            approvedCount: 0,
+            rejectedCount: 0,
+            pendingCount: 0,
+            period: period,
+            lastUpdated: new Date().toISOString(),
+          };
+        }
+        throw new Error('Failed to fetch settlement data');
+      }
       return response.json();
     },
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: 60000, // Refresh every 60 seconds to reduce flashing
+    refetchOnWindowFocus: false,
+    staleTime: 45000,
+    retry: false,
   });
 
   const formatCurrency = (amount: number) => {

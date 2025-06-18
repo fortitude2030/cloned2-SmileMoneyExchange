@@ -53,44 +53,44 @@ export default function FinancePortal() {
     retry: false,
   });
 
-  // Fetch merchant wallets with optimized refresh
+  // Fetch merchant wallets with stable refresh
   const { data: merchantWallets = [], isLoading: merchantWalletsLoading } = useQuery({
     queryKey: ["/api/merchant-wallets"],
     retry: false,
-    refetchInterval: 10000, // 10-second refresh - merchant data changes less frequently
-    refetchOnWindowFocus: true,
+    refetchInterval: 30000, // 30-second refresh - merchant data changes infrequently
+    refetchOnWindowFocus: false,
     refetchOnMount: true,
-    staleTime: 5000,
+    staleTime: 20000,
   });
 
-  // Fetch wallet with optimized updates
+  // Fetch wallet with stable updates
   const { data: wallet, isLoading: walletLoading } = useQuery<Wallet>({
     queryKey: ["/api/wallet"],
     retry: false,
-    refetchInterval: 5000, // 5-second refresh - balance changes less frequently
-    refetchOnWindowFocus: true,
+    refetchInterval: 15000, // 15-second refresh - balance changes less frequently
+    refetchOnWindowFocus: false,
     refetchOnMount: true,
-    staleTime: 2000,
+    staleTime: 10000,
   });
 
-  // Fetch settlement requests synchronized with organization funds refresh
+  // Fetch settlement requests with stable refresh
   const { data: settlementRequests = [], isLoading: settlementsLoading } = useQuery({
     queryKey: ["/api/settlement-requests"],
     retry: false,
-    refetchInterval: 5000, // 5-second refresh synchronized with wallet balance
-    refetchOnWindowFocus: true,
+    refetchInterval: 20000, // 20-second refresh - settlement data is relatively stable
+    refetchOnWindowFocus: false,
     refetchOnMount: true,
-    staleTime: 2000,
+    staleTime: 15000,
   });
 
-  // Fetch settlement breakdown with optimized refresh
+  // Fetch settlement breakdown with stable refresh
   const { data: settlementBreakdown } = useQuery({
     queryKey: ["/api/settlement-breakdown"],
     retry: false,
-    refetchInterval: 5000, // 5-second refresh for breakdown data
-    refetchOnWindowFocus: true,
+    refetchInterval: 20000, // 20-second refresh - breakdown data is stable
+    refetchOnWindowFocus: false,
     refetchOnMount: true,
-    staleTime: 2000,
+    staleTime: 15000,
   });
 
   // Fetch branches
