@@ -43,10 +43,14 @@ export function DevLogin() {
   const handleLogin = async (role: string) => {
     setIsLoading(true);
     try {
+      // Clear any existing auth tokens first
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('authToken');
+      
       const response = await apiRequest('POST', '/api/dev-login', { role });
       
       // Store the authentication token
-      localStorage.setItem('auth_token', response.token);
+      localStorage.setItem('authToken', response.token);
       
       toast({
         title: "Login Successful",
