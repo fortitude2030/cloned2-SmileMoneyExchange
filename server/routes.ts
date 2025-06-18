@@ -61,9 +61,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   await setupFirebaseAuth(app);
 
   // Organization routes
-  app.post('/api/organizations', isFirebaseAuthenticated, async (req: any, res) => {
+  app.post('/api/organizations', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (user?.role !== 'finance') {
@@ -86,9 +86,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/organizations', isFirebaseAuthenticated, async (req: any, res) => {
+  app.get('/api/organizations', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const organizations = await storage.getOrganizationsByUserId(userId);
       res.json(organizations);
     } catch (error) {
@@ -97,9 +97,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put('/api/organizations/:id', isFirebaseAuthenticated, async (req: any, res) => {
+  app.put('/api/organizations/:id', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       const organizationId = parseInt(req.params.id);
       
@@ -121,9 +121,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Branch routes
-  app.post('/api/branches', isFirebaseAuthenticated, async (req: any, res) => {
+  app.post('/api/branches', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (user?.role !== 'finance') {
@@ -161,9 +161,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/branches', isFirebaseAuthenticated, async (req: any, res) => {
+  app.get('/api/branches', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (!user?.organizationId) {
@@ -178,9 +178,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put('/api/branches/:id', isFirebaseAuthenticated, async (req: any, res) => {
+  app.put('/api/branches/:id', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       const branchId = parseInt(req.params.id);
       
@@ -209,9 +209,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Fetch merchant wallets for finance portal
-  app.get('/api/merchant-wallets', isFirebaseAuthenticated, async (req: any, res) => {
+  app.get('/api/merchant-wallets', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (user?.role !== 'finance' || !user.organizationId) {
@@ -227,9 +227,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get settlement breakdown for finance portal
-  app.get('/api/settlement-breakdown', isFirebaseAuthenticated, async (req: any, res) => {
+  app.get('/api/settlement-breakdown', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (user?.role !== 'finance' || !user.organizationId) {
@@ -252,9 +252,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Monthly settlement breakdown with filtering
-  app.get('/api/monthly-settlement-breakdown', isFirebaseAuthenticated, async (req: any, res) => {
+  app.get('/api/monthly-settlement-breakdown', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (user?.role !== 'finance' || !user.organizationId) {
@@ -312,9 +312,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Daily reset endpoint for manual testing
-  app.post('/api/wallet/reset-daily', isFirebaseAuthenticated, async (req: any, res) => {
+  app.post('/api/wallet/reset-daily', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const wallet = await storage.getOrCreateWallet(userId);
       await storage.checkAndResetDailySpending(wallet);
       const updatedWallet = await storage.getOrCreateWallet(userId);
@@ -326,9 +326,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Force daily reset for all users (admin testing endpoint)
-  app.post('/api/admin/force-daily-reset', isFirebaseAuthenticated, async (req: any, res) => {
+  app.post('/api/admin/force-daily-reset', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (user?.role !== 'admin') {
@@ -362,9 +362,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Simple wallet balance reset for testing (any user can reset their own wallet)
-  app.post('/api/wallet/force-reset', isFirebaseAuthenticated, async (req: any, res) => {
+  app.post('/api/wallet/force-reset', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (!user) {
@@ -408,12 +408,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Transaction routes
-  app.post('/api/transactions', isFirebaseAuthenticated, async (req: any, res) => {
+  app.post('/api/transactions', isDevAuthenticated, async (req: any, res) => {
     console.log("POST /api/transactions - Request received");
     console.log("Request body:", JSON.stringify(req.body, null, 2));
     console.log("User:", req.user?.claims?.sub);
     
-    const userId = req.user.claims.sub;
+    const userId = req.user.userId;
     
     try {
       // Set proper status for QR transactions
@@ -520,9 +520,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/transactions', isFirebaseAuthenticated, async (req: any, res) => {
+  app.get('/api/transactions', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       console.log(`GET /api/transactions - User: ${userId}, Role: ${user?.role}`);
@@ -552,9 +552,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin endpoint to view all transactions (also accessible by finance users)
-  app.get('/api/admin/transactions', isFirebaseAuthenticated, async (req: any, res) => {
+  app.get('/api/admin/transactions', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (user?.role !== 'admin' && user?.role !== 'finance') {
@@ -569,9 +569,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/transactions/pending', isFirebaseAuthenticated, async (req: any, res) => {
+  app.get('/api/transactions/pending', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       // Cashiers see all pending transactions, others see only their own
@@ -590,9 +590,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/transactions/qr-verification', isFirebaseAuthenticated, async (req: any, res) => {
+  app.get('/api/transactions/qr-verification', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       // Only cashiers can access QR verification transactions
@@ -611,11 +611,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin-only endpoint to update transaction priority
-  app.patch('/api/transactions/:id/priority', isFirebaseAuthenticated, async (req: any, res) => {
+  app.patch('/api/transactions/:id/priority', isDevAuthenticated, async (req: any, res) => {
     try {
       const transactionId = parseInt(req.params.id);
       const { priority } = req.body;
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       
       // Check if user is admin
       const user = await storage.getUser(userId);
@@ -640,11 +640,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/transactions/:id/status', isFirebaseAuthenticated, async (req: any, res) => {
+  app.patch('/api/transactions/:id/status', isDevAuthenticated, async (req: any, res) => {
     try {
       const transactionId = parseInt(req.params.id);
       const { status, rejectionReason, verifiedAmount, verifiedVmfNumber } = req.body;
-      const cashierId = req.user.claims.sub;
+      const cashierId = req.user.userId;
       
       if (!['pending', 'approved', 'completed', 'rejected'].includes(status)) {
         return res.status(400).json({ message: "Invalid status" });
@@ -686,7 +686,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Document upload routes with error handling
-  app.post('/api/documents', isFirebaseAuthenticated, (req: any, res, next) => {
+  app.post('/api/documents', isDevAuthenticated, (req: any, res, next) => {
     const uploadHandler = upload.single('file');
     uploadHandler(req, res, (err: any) => {
       if (err) {
@@ -719,7 +719,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "No file uploaded" });
       }
 
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       if (!userId) {
         console.error('No user ID found in request');
         return res.status(401).json({ message: "User not authenticated" });
@@ -777,9 +777,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Settlement request routes
-  app.post('/api/settlement-requests', isFirebaseAuthenticated, async (req: any, res) => {
+  app.post('/api/settlement-requests', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (user?.role !== 'finance' || !user.organizationId) {
@@ -820,9 +820,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/settlement-requests', isFirebaseAuthenticated, async (req: any, res) => {
+  app.get('/api/settlement-requests', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (user?.role === 'admin') {
@@ -842,9 +842,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/settlement-requests/:id/status', isFirebaseAuthenticated, async (req: any, res) => {
+  app.patch('/api/settlement-requests/:id/status', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (user?.role !== 'admin') {
@@ -867,10 +867,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // QR Code generation and management endpoints
-  app.post('/api/qr-codes/generate', isFirebaseAuthenticated, async (req: any, res) => {
+  app.post('/api/qr-codes/generate', isDevAuthenticated, async (req: any, res) => {
     try {
       const { transactionId } = req.body;
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       
       if (!transactionId) {
         return res.status(400).json({ message: "Transaction ID is required" });
@@ -933,10 +933,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/qr-codes/verify', isFirebaseAuthenticated, async (req: any, res) => {
+  app.post('/api/qr-codes/verify', isDevAuthenticated, async (req: any, res) => {
     try {
       const { qrData } = req.body;
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
 
       // Only cashiers can verify QR codes
@@ -1044,10 +1044,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin settlement approval routes for maker-checker workflow
-  app.patch('/api/admin/settlement-requests/:id/approve', isFirebaseAuthenticated, async (req: any, res) => {
+  app.patch('/api/admin/settlement-requests/:id/approve', isDevAuthenticated, async (req: any, res) => {
     try {
       const settlementId = parseInt(req.params.id);
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (user?.role !== 'admin') {
@@ -1062,10 +1062,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/admin/settlement-requests/:id/release', isFirebaseAuthenticated, async (req: any, res) => {
+  app.patch('/api/admin/settlement-requests/:id/release', isDevAuthenticated, async (req: any, res) => {
     try {
       const settlementId = parseInt(req.params.id);
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (user?.role !== 'admin') {
@@ -1080,11 +1080,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/admin/settlement-requests/:id/hold', isFirebaseAuthenticated, async (req: any, res) => {
+  app.patch('/api/admin/settlement-requests/:id/hold', isDevAuthenticated, async (req: any, res) => {
     try {
       const settlementId = parseInt(req.params.id);
       const { holdReason, reasonComment } = req.body;
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (user?.role !== 'admin') {
@@ -1111,11 +1111,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/admin/settlement-requests/:id/reject', isFirebaseAuthenticated, async (req: any, res) => {
+  app.patch('/api/admin/settlement-requests/:id/reject', isDevAuthenticated, async (req: any, res) => {
     try {
       const settlementId = parseInt(req.params.id);
       const { rejectReason, reasonComment } = req.body;
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (user?.role !== 'admin') {
@@ -1143,9 +1143,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Notification routes
-  app.get('/api/notifications', isFirebaseAuthenticated, async (req: any, res) => {
+  app.get('/api/notifications', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const notifications = await storage.getNotificationsByUserId(userId);
       res.json(notifications);
     } catch (error) {
@@ -1154,7 +1154,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/notifications/:id/read', isFirebaseAuthenticated, async (req: any, res) => {
+  app.patch('/api/notifications/:id/read', isDevAuthenticated, async (req: any, res) => {
     try {
       const notificationId = parseInt(req.params.id);
       await storage.markNotificationAsRead(notificationId);
@@ -1166,10 +1166,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Document viewing endpoint
-  app.get("/api/documents/:id/view", isFirebaseAuthenticated, async (req: any, res) => {
+  app.get("/api/documents/:id/view", isDevAuthenticated, async (req: any, res) => {
     try {
       const documentId = parseInt(req.params.id);
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
@@ -1223,10 +1223,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get documents by transaction ID
-  app.get("/api/documents/transaction/:transactionId", isFirebaseAuthenticated, async (req: any, res) => {
+  app.get("/api/documents/transaction/:transactionId", isDevAuthenticated, async (req: any, res) => {
     try {
       const transactionId = parseInt(req.params.transactionId);
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       
       // Check if user has permission to view transaction documents
       const transaction = await storage.getTransactionById(transactionId);
@@ -1357,9 +1357,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Development endpoint to create test settlement requests
-  app.post('/api/dev/settlement-requests', isFirebaseAuthenticated, async (req: any, res) => {
+  app.post('/api/dev/settlement-requests', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const testRequests = [
         {
           organizationId: 1,
@@ -1405,9 +1405,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // KYC Document Upload endpoint
-  app.post('/api/kyc/upload', isFirebaseAuthenticated, upload.single('file'), async (req: any, res) => {
+  app.post('/api/kyc/upload', isDevAuthenticated, upload.single('file'), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const { organizationId, documentType } = req.body;
       
       if (!req.file) {
@@ -1479,9 +1479,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Complete organization KYC setup
-  app.patch('/api/organizations/:id/complete-kyc', isFirebaseAuthenticated, async (req: any, res) => {
+  app.patch('/api/organizations/:id/complete-kyc', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const organizationId = parseInt(req.params.id);
       
       // Check if user has permission to complete KYC for this organization
@@ -1502,9 +1502,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get KYC documents for organization (admin/finance view)
-  app.get('/api/organizations/:id/kyc-documents', isFirebaseAuthenticated, async (req: any, res) => {
+  app.get('/api/organizations/:id/kyc-documents', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const organizationId = parseInt(req.params.id);
       
       const user = await storage.getUser(userId);
@@ -1527,9 +1527,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin endpoint to review KYC documents
-  app.patch('/api/kyc-documents/:id/review', isFirebaseAuthenticated, async (req: any, res) => {
+  app.patch('/api/kyc-documents/:id/review', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const documentId = parseInt(req.params.id);
       const { status, rejectReason } = req.body;
       
@@ -1557,9 +1557,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get all pending KYC documents for admin review
-  app.get('/api/admin/kyc-documents/pending', isFirebaseAuthenticated, async (req: any, res) => {
+  app.get('/api/admin/kyc-documents/pending', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       
       const user = await storage.getUser(userId);
       if (!user || user.role !== 'admin') {
@@ -1576,9 +1576,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin user management endpoints
-  app.get('/api/admin/users', isFirebaseAuthenticated, async (req: any, res) => {
+  app.get('/api/admin/users', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (!user || !['admin', 'super_admin'].includes(user.role)) {
@@ -1593,9 +1593,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/admin/users/create', isFirebaseAuthenticated, async (req: any, res) => {
+  app.post('/api/admin/users/create', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (!user || !['admin', 'super_admin'].includes(user.role)) {
@@ -1663,9 +1663,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/admin/users/:id/toggle', isFirebaseAuthenticated, async (req: any, res) => {
+  app.patch('/api/admin/users/:id/toggle', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (!user || !['admin', 'super_admin'].includes(user.role)) {
@@ -1685,9 +1685,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin organization management endpoints
-  app.get('/api/admin/organizations', isFirebaseAuthenticated, async (req: any, res) => {
+  app.get('/api/admin/organizations', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (!user || !['admin', 'super_admin'].includes(user.role)) {
@@ -1702,9 +1702,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/admin/organizations/approved', isFirebaseAuthenticated, async (req: any, res) => {
+  app.get('/api/admin/organizations/approved', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (!user || !['admin', 'super_admin'].includes(user.role)) {
@@ -1719,9 +1719,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/admin/organizations/create', isFirebaseAuthenticated, async (req: any, res) => {
+  app.post('/api/admin/organizations/create', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (!user || !['admin', 'super_admin'].includes(user.role)) {
@@ -1752,9 +1752,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/admin/organizations/:id/kyc-status', isFirebaseAuthenticated, async (req: any, res) => {
+  app.patch('/api/admin/organizations/:id/kyc-status', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (!user || !['admin', 'super_admin'].includes(user.role)) {
@@ -1778,9 +1778,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // AML Configuration Management Routes
-  app.get('/api/aml/configurations', isFirebaseAuthenticated, async (req: any, res) => {
+  app.get('/api/aml/configurations', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (!user || !['admin', 'super_admin'].includes(user.role)) {
@@ -1795,9 +1795,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/aml/configurations', isFirebaseAuthenticated, async (req: any, res) => {
+  app.post('/api/aml/configurations', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (!user || !['admin', 'super_admin'].includes(user.role)) {
@@ -1824,9 +1824,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/aml/configurations/:id', isFirebaseAuthenticated, async (req: any, res) => {
+  app.patch('/api/aml/configurations/:id', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (!user || !['admin', 'super_admin'].includes(user.role)) {
@@ -1850,9 +1850,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/aml/configurations/:id', isFirebaseAuthenticated, async (req: any, res) => {
+  app.delete('/api/aml/configurations/:id', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (!user || !['admin', 'super_admin'].includes(user.role)) {
@@ -1870,9 +1870,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // AML Alert Management Routes
-  app.get('/api/aml/alerts', isFirebaseAuthenticated, async (req: any, res) => {
+  app.get('/api/aml/alerts', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (!user || !['admin', 'super_admin'].includes(user.role)) {
@@ -1887,9 +1887,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/aml/alerts/pending', isFirebaseAuthenticated, async (req: any, res) => {
+  app.get('/api/aml/alerts/pending', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (!user || !['admin', 'super_admin'].includes(user.role)) {
@@ -1904,9 +1904,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/aml/alerts/:id/review', isFirebaseAuthenticated, async (req: any, res) => {
+  app.patch('/api/aml/alerts/:id/review', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (!user || !['admin', 'super_admin'].includes(user.role)) {
@@ -1929,9 +1929,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Compliance Report Routes
-  app.get('/api/compliance/reports', isFirebaseAuthenticated, async (req: any, res) => {
+  app.get('/api/compliance/reports', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (!user || !['admin', 'super_admin'].includes(user.role)) {
@@ -1946,9 +1946,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/compliance/reports/generate', isFirebaseAuthenticated, async (req: any, res) => {
+  app.post('/api/compliance/reports/generate', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (!user || !['admin', 'super_admin'].includes(user.role)) {
@@ -1983,7 +1983,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // AML Transaction Monitoring (called during transaction processing)
-  app.post('/api/aml/check-transaction', isFirebaseAuthenticated, async (req: any, res) => {
+  app.post('/api/aml/check-transaction', isDevAuthenticated, async (req: any, res) => {
     try {
       const { userId, amount, transactionId } = req.body;
 
@@ -2009,9 +2009,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Bank of Zambia Integration Routes
-  app.get('/api/boz/reports', isFirebaseAuthenticated, async (req: any, res) => {
+  app.get('/api/boz/reports', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (!user || !['admin', 'super_admin'].includes(user.role)) {
@@ -2030,9 +2030,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/boz/reports/generate', isFirebaseAuthenticated, async (req: any, res) => {
+  app.post('/api/boz/reports/generate', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (!user || !['admin', 'super_admin'].includes(user.role)) {
@@ -2056,9 +2056,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // RTGS Settlement Integration
-  app.post('/api/rtgs/generate-instruction', isFirebaseAuthenticated, async (req: any, res) => {
+  app.post('/api/rtgs/generate-instruction', isDevAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (!user || !['admin', 'finance'].includes(user.role)) {
