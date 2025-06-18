@@ -7,7 +7,7 @@ import { TransactionNotificationProvider } from "@/hooks/use-transaction-notific
 import { TimerProvider } from "@/contexts/timer-context";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
-import { DevLogin } from "@/pages/dev-login";
+import { Login } from "@/pages/login";
 import MerchantDashboard from "@/pages/merchant-dashboard";
 import CashierDashboard from "@/pages/cashier-dashboard";
 import FinancePortal from "@/pages/finance-portal";
@@ -35,7 +35,7 @@ function Router() {
   return (
     <Switch>
       {!isAuthenticated ? (
-        <Route path="/" component={DevLogin} />
+        <Route path="/" component={Login} />
       ) : (
         <>
           <Route path="/" component={() => {
