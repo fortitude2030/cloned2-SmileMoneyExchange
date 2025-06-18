@@ -1616,14 +1616,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(409).json({ message: "Phone number already exists" });
       }
 
-      // Generate temporary password
-      const tempPassword = Math.random().toString(36).slice(-8) + "!1A";
-      
-      // Generate Firebase UID (in production, create Firebase account here)
-      const firebaseId = `admin-created-${Date.now()}-${Math.random().toString(36).slice(-6)}`;
+      // Generate secure temporary password
+      const tempPassword = Math.random().toString(36).slice(-10) + Math.random().toString(36).slice(-10).toUpperCase() + "!1";
 
+      let firebaseUserId;
+      try {
+        // Create Firebase user account using Firebase Admin SDK
+        const admin = await import('firebase-admin');
+        
+        // Initialize Firebase Admin if not already done
+        if (!admin.apps.length) {
+          admin.initializeApp({
+            projectId: process.env.VITE_FIREBASE_PROJECT_ID,
+          });
+        }
+
+        // Create user in Firebase Authentication
+        const firebaseUser = await admin.auth().createUser({
+          email: email,
+          password: tempPassword,
+          displayName: `${firstName} ${lastName}`,
+          emailVerified: false,
+        });
+
+        firebaseUserId = firebaseUser.uid;
+        console.log(`✓ Created Firebase user: ${email} (UID: ${firebaseUserId})`);
+
+      } catch (firebaseError) {
+        console.error("Firebase user creation failed:", firebaseError);
+        
+        // Fallback: Create with placeholder ID and instructions for manual creation
+        firebaseUserId = `manual-${Date.now()}-${Math.random().toString(36).slice(-6)}`;
+        
+        return res.json({
+          message: "User created with manual Firebase setup required",
+          user: {
+            email,
+            firstName,
+            lastName,
+            role,
+          },
+          tempPassword,
+          firebaseSetupRequired: true,
+          instructions: `Please create Firebase user manually:\n1. Go to Firebase Console\n2. Create user with email: ${email}\n3. Set password: ${tempPassword}\n4. Update database with real Firebase UID`
+        });
+      }
+
+      // Create user in database with real Firebase UID
       const newUser = await storage.createUserByAdmin({
-        id: firebaseId,
+        id: firebaseUserId,
         email,
         phoneNumber,
         firstName,
@@ -1641,7 +1682,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       res.json({
-        message: "User created successfully",
+        message: "User created successfully with Firebase authentication",
         user: {
           id: newUser.id,
           email: newUser.email,
@@ -1650,7 +1691,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           role: newUser.role,
         },
         tempPassword,
-        instructions: "User should be created in Firebase Console with this email and temporary password"
+        firebaseUid: firebaseUserId,
+        instructions: "User can now login immediately with the provided credentials"
       });
 
     } catch (error) {

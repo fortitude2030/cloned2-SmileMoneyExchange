@@ -270,12 +270,13 @@ export default function AdminDashboard() {
         <div className="flex overflow-x-auto">
           {[
             { id: 'overview', label: 'Overview', icon: 'fas fa-tachometer-alt' },
+            { id: 'users', label: 'Users', icon: 'fas fa-users' },
+            { id: 'organizations', label: 'Organizations', icon: 'fas fa-building' },
             { id: 'transactions', label: 'Transactions', icon: 'fas fa-exchange-alt' },
             { id: 'settlements', label: 'Settlements', icon: 'fas fa-university' },
             { id: 'aml-config', label: 'AML Config', icon: 'fas fa-shield-alt' },
             { id: 'aml-alerts', label: 'AML Alerts', icon: 'fas fa-exclamation-triangle' },
-            { id: 'compliance', label: 'Compliance', icon: 'fas fa-file-alt' },
-            { id: 'system', label: 'System', icon: 'fas fa-cogs' }
+            { id: 'compliance', label: 'Compliance', icon: 'fas fa-file-alt' }
           ].map((tab) => (
             <button
               key={tab.id}
@@ -872,6 +873,16 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
           </>
+        )}
+
+        {/* User Management Tab */}
+        {activeTab === 'users' && (
+          <AdminUserManagement />
+        )}
+
+        {/* Organization Management Tab */}
+        {activeTab === 'organizations' && (
+          <AdminOrganizationManagement />
         )}
 
         {/* AML Configuration Tab */}
