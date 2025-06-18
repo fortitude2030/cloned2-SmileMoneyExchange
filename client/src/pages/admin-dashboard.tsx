@@ -270,6 +270,7 @@ export default function AdminDashboard() {
         <div className="flex overflow-x-auto">
           {[
             { id: 'overview', label: 'Overview', icon: 'fas fa-tachometer-alt' },
+            { id: 'transactions', label: 'Transactions', icon: 'fas fa-exchange-alt' },
             { id: 'settlements', label: 'Settlements', icon: 'fas fa-university' },
             { id: 'aml-config', label: 'AML Config', icon: 'fas fa-shield-alt' },
             { id: 'aml-alerts', label: 'AML Alerts', icon: 'fas fa-exclamation-triangle' },
@@ -331,29 +332,185 @@ export default function AdminDashboard() {
               </Card>
             </div>
 
-            {/* Quick Actions Overview */}
+            {/* Transaction Overview Card */}
             <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
               <CardContent className="p-4">
                 <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
-                  <i className="fas fa-bolt text-blue-600 mr-2"></i>
-                  Quick Actions
+                  <i className="fas fa-exchange-alt text-blue-600 mr-2"></i>
+                  Transaction Overview
                 </h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <Button 
-                    onClick={() => setActiveTab('settlements')}
-                    className="bg-red-600 hover:bg-red-700 text-white"
-                  >
-                    <i className="fas fa-tasks mr-2"></i>
-                    View Settlements ({pendingRequests.length})
-                  </Button>
-                  <Button 
-                    onClick={() => setActiveTab('transactions')}
-                    variant="outline"
-                  >
-                    <i className="fas fa-list mr-2"></i>
+                
+                {transactionsLoading ? (
+                  <div className="animate-pulse">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                      {[1, 2, 3, 4].map((i) => (
+                        <div key={i} className="bg-gray-200 dark:bg-gray-700 h-16 rounded"></div>
+                      ))}
+                    </div>
+                    <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                  </div>
+                ) : (
+                  <>
+                    {/* Transaction Metrics */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                      <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg text-center">
+                        <p className="text-blue-700 dark:text-blue-300 text-xs font-medium">TODAY'S TOTAL</p>
+                        <p className="text-blue-900 dark:text-blue-100 text-lg font-bold">
+                          {transactions ? (transactions as any[]).filter(t => {
+                            const today = new Date().toDateString();
+                            return new Date(t.createdAt).toDateString() === today;
+                          }).length : 0}
+                        </p>
+                      </div>
+                      
+                      <div className="bg-green-50 dark:bg-green-950 p-3 rounded-lg text-center">
+                        <p className="text-green-700 dark:text-green-300 text-xs font-medium">COMPLETED</p>
+                        <p className="text-green-900 dark:text-green-100 text-lg font-bold">
+                          {transactions ? (transactions as any[]).filter(t => t.status === 'completed').length : 0}
+                        </p>
+                      </div>
+                      
+                      <div className="bg-yellow-50 dark:bg-yellow-950 p-3 rounded-lg text-center">
+                        <p className="text-yellow-700 dark:text-yellow-300 text-xs font-medium">PENDING</p>
+                        <p className="text-yellow-900 dark:text-yellow-100 text-lg font-bold">
+                          {transactions ? (transactions as any[]).filter(t => t.status === 'pending').length : 0}
+                        </p>
+                      </div>
+                      
+                      <div className="bg-red-50 dark:bg-red-950 p-3 rounded-lg text-center">
+                        <p className="text-red-700 dark:text-red-300 text-xs font-medium">FAILED</p>
+                        <p className="text-red-900 dark:text-red-100 text-lg font-bold">
+                          {transactions ? (transactions as any[]).filter(t => t.status === 'failed').length : 0}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Total Volume */}
+                    <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg mb-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-700 dark:text-gray-300 text-sm font-medium">Total Volume Today</span>
+                        <span className="text-gray-900 dark:text-gray-100 text-lg font-bold">
+                          ZMW {transactions ? (transactions as any[])
+                            .filter(t => {
+                              const today = new Date().toDateString();
+                              return new Date(t.createdAt).toDateString() === today;
+                            })
+                            .reduce((sum, t) => sum + parseFloat(t.amount || '0'), 0)
+                            .toLocaleString() : '0'}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    {/* Action Button */}
+                    <Button 
+                      onClick={() => setActiveTab('transactions')}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      <i className="fas fa-list mr-2"></i>
+                      View All Transactions
+                    </Button>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </>
+        )}
+
+        {/* Transactions Tab */}
+        {activeTab === 'transactions' && (
+          <>
+            {/* Transaction Log */}
+            <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold text-gray-800 dark:text-gray-200 flex items-center">
+                    <i className="fas fa-exchange-alt text-blue-600 mr-2"></i>
                     Transaction Log
-                  </Button>
+                  </h3>
+                  <div className="flex items-center space-x-2">
+                    <Select value={sortBy} onValueChange={setSortBy}>
+                      <SelectTrigger className="w-32">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="date">Latest First</SelectItem>
+                        <SelectItem value="amount">Amount</SelectItem>
+                        <SelectItem value="status">Status</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
+                
+                {transactionsLoading ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 animate-pulse">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="w-32 h-4 bg-gray-300 dark:bg-gray-700 rounded"></div>
+                          <div className="w-20 h-4 bg-gray-300 dark:bg-gray-700 rounded"></div>
+                        </div>
+                        <div className="w-48 h-3 bg-gray-300 dark:bg-gray-700 rounded mb-1"></div>
+                        <div className="w-24 h-3 bg-gray-300 dark:bg-gray-700 rounded"></div>
+                      </div>
+                    ))}
+                  </div>
+                ) : transactions && Array.isArray(transactions) && transactions.length > 0 ? (
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                    {(transactions as any[])
+                      .sort((a, b) => {
+                        if (sortBy === 'date') return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                        if (sortBy === 'amount') return parseFloat(b.amount || '0') - parseFloat(a.amount || '0');
+                        if (sortBy === 'status') return a.status.localeCompare(b.status);
+                        return 0;
+                      })
+                      .map((transaction: any) => (
+                        <div key={transaction.id} className={`border rounded-lg p-4 ${
+                          transaction.status === 'completed' ? 'border-green-200 bg-green-50 dark:border-green-700 dark:bg-green-950' :
+                          transaction.status === 'pending' ? 'border-yellow-200 bg-yellow-50 dark:border-yellow-700 dark:bg-yellow-950' :
+                          'border-red-200 bg-red-50 dark:border-red-700 dark:bg-red-950'
+                        }`}>
+                          <div className="flex items-center justify-between mb-2">
+                            <div>
+                              <p className="font-semibold text-gray-800 dark:text-gray-200">
+                                {transaction.transactionId}
+                              </p>
+                              <p className="text-sm text-gray-600 dark:text-gray-400">
+                                {transaction.fromUserId} → {transaction.toUserId}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-bold text-gray-800 dark:text-gray-200">
+                                ZMW {parseFloat(transaction.amount || '0').toLocaleString()}
+                              </p>
+                              <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
+                                transaction.status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200' :
+                                transaction.status === 'pending' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-200' :
+                                'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-200'
+                              }`}>
+                                {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+                              </span>
+                            </div>
+                          </div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {new Date(transaction.createdAt).toLocaleString()}
+                          </p>
+                          {transaction.description && (
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                              {transaction.description}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <i className="fas fa-exchange-alt text-gray-400 text-xl"></i>
+                    </div>
+                    <p className="text-gray-600 dark:text-gray-400">No transactions found</p>
+                    <p className="text-gray-500 dark:text-gray-500 text-sm">Transaction history will appear here</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </>
