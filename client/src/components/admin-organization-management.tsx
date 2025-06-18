@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Building, Plus, MapPin, FileText, Users, Calendar, ToggleLeft, ToggleRight } from "lucide-react";
+import { Building, Plus, MapPin, FileText, Users, Calendar, CheckCircle, XCircle, Clock, AlertCircle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 interface Organization {
@@ -55,11 +55,8 @@ export default function AdminOrganizationManagement() {
     mutationFn: async (orgData: typeof newOrg) => {
       return apiRequest('/api/admin/organizations', 'POST', orgData);
     },
-    onSuccess: (data) => {
-      toast({
-        title: "Organization Created",
-        description: `${data.organization.name} has been created successfully`,
-      });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/organizations'] });
       setIsCreateDialogOpen(false);
       setNewOrg({
         name: '',
@@ -69,100 +66,79 @@ export default function AdminOrganizationManagement() {
         contactPhone: '',
         businessType: ''
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/organizations'] });
+      toast({
+        title: "Success",
+        description: "Organization created successfully",
+      });
     },
-    onError: (error: Error) => {
+    onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message,
-        variant: "destructive"
+        description: error.message || "Failed to create organization",
+        variant: "destructive",
       });
-    }
+    },
   });
 
-  // Toggle organization status mutation
-  const toggleOrgMutation = useMutation({
-    mutationFn: async (orgId: number) => {
-      const token = localStorage.getItem('firebaseToken');
-      const response = await fetch(`/api/admin/organizations/${orgId}/toggle`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      if (!response.ok) throw new Error('Failed to toggle organization status');
-      return response.json();
+  // Status update mutations
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: number; status: string }) => {
+      return apiRequest(`/api/admin/organizations/${id}/status`, 'PUT', { status });
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/organizations'] });
       toast({
         title: "Success",
         description: "Organization status updated successfully",
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/organizations'] });
     },
-    onError: (error: Error) => {
+    onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message,
-        variant: "destructive"
+        description: error.message || "Failed to update organization status",
+        variant: "destructive",
       });
-    }
+    },
   });
 
-  // Update KYC status mutation
-  const updateKycMutation = useMutation({
-    mutationFn: async ({ orgId, kycStatus }: { orgId: number; kycStatus: string }) => {
-      const token = localStorage.getItem('firebaseToken');
-      const response = await fetch(`/api/admin/organizations/${orgId}/kyc`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ kycStatus })
-      });
-      if (!response.ok) throw new Error('Failed to update KYC status');
-      return response.json();
+  const updateKycStatusMutation = useMutation({
+    mutationFn: async ({ id, kycStatus }: { id: number; kycStatus: string }) => {
+      return apiRequest(`/api/admin/organizations/${id}/kyc-status`, 'PUT', { kycStatus });
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/organizations'] });
       toast({
         title: "Success",
         description: "KYC status updated successfully",
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/organizations'] });
     },
-    onError: (error: Error) => {
+    onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message,
-        variant: "destructive"
+        description: error.message || "Failed to update KYC status",
+        variant: "destructive",
       });
-    }
+    },
   });
 
-  // Filter organizations
-  const filteredOrganizations = organizations.filter((org: Organization) => {
-    const matchesSearch = 
-      (org.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (org.registrationNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (org.contactEmail || '').toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = statusFilter === 'all' || 
-      (statusFilter === 'active' && org.isActive) ||
-      (statusFilter === 'inactive' && !org.isActive);
-    
-    const matchesKyc = kycFilter === 'all' || org.kycStatus === kycFilter;
-    
-    return matchesSearch && matchesStatus && matchesKyc;
-  });
+  const handleCreateOrganization = () => {
+    if (!newOrg.name || !newOrg.registrationNumber || !newOrg.contactEmail) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+    createOrgMutation.mutate(newOrg);
+  };
 
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
       case 'approved': return 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200';
       case 'pending': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-200';
-      case 'rejected': return 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-200';
-      case 'under_review': return 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-200';
+      case 'suspended': return 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-200';
+      case 'rejected': return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200';
       default: return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200';
     }
   };
@@ -170,271 +146,322 @@ export default function AdminOrganizationManagement() {
   const getKycBadgeColor = (kycStatus: string) => {
     switch (kycStatus) {
       case 'verified': return 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200';
+      case 'in_review': return 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-200';
       case 'pending': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-200';
       case 'rejected': return 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-200';
-      case 'incomplete': return 'bg-orange-100 text-orange-800 dark:bg-orange-800 dark:text-orange-200';
       default: return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200';
     }
   };
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Building className="h-5 w-5" />
-            Organization Management
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col sm:flex-row gap-4 mb-4">
-            <Input
-              placeholder="Search organizations..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="flex-1"
-            />
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-[180px]">
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={kycFilter} onValueChange={setKycFilter}>
-              <SelectTrigger className="w-full sm:w-[180px]">
-                <SelectValue placeholder="Filter by KYC" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All KYC Status</SelectItem>
-                <SelectItem value="verified">Verified</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="incomplete">Incomplete</SelectItem>
-                <SelectItem value="rejected">Rejected</SelectItem>
-              </SelectContent>
-            </Select>
+  const filteredOrganizations = Array.isArray(organizations) ? organizations.filter((org: Organization) => {
+    const matchesSearch = org.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         org.contactEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         org.registrationNumber.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || org.status === statusFilter;
+    const matchesKyc = kycFilter === 'all' || org.kycStatus === kycFilter;
+    return matchesSearch && matchesStatus && matchesKyc;
+  }) : [];
+
+  if (orgsLoading) {
+    return (
+      <div className="p-6">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded mb-4"></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="bg-gray-200 dark:bg-gray-700 h-48 rounded"></div>
+            ))}
           </div>
-          
-          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="w-full sm:w-auto">
-                <Plus className="h-4 w-4 mr-2" />
-                Add New Organization
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
-              <DialogHeader>
-                <DialogTitle>Add New Organization</DialogTitle>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div>
-                  <Label htmlFor="name">Organization Name</Label>
-                  <Input
-                    id="name"
-                    value={newOrg.name}
-                    onChange={(e) => setNewOrg({...newOrg, name: e.target.value})}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="registrationNumber">Registration Number</Label>
-                  <Input
-                    id="registrationNumber"
-                    value={newOrg.registrationNumber}
-                    onChange={(e) => setNewOrg({...newOrg, registrationNumber: e.target.value})}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="businessType">Business Type</Label>
-                  <Select value={newOrg.businessType} onValueChange={(value) => setNewOrg({...newOrg, businessType: value})}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select business type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="retail">Retail</SelectItem>
-                      <SelectItem value="wholesale">Wholesale</SelectItem>
-                      <SelectItem value="manufacturing">Manufacturing</SelectItem>
-                      <SelectItem value="services">Services</SelectItem>
-                      <SelectItem value="agriculture">Agriculture</SelectItem>
-                      <SelectItem value="mining">Mining</SelectItem>
-                      <SelectItem value="transport">Transport</SelectItem>
-                      <SelectItem value="hospitality">Hospitality</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="address">Address</Label>
-                  <Input
-                    id="address"
-                    value={newOrg.address}
-                    onChange={(e) => setNewOrg({...newOrg, address: e.target.value})}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="contactEmail">Contact Email</Label>
-                    <Input
-                      id="contactEmail"
-                      type="email"
-                      value={newOrg.contactEmail}
-                      onChange={(e) => setNewOrg({...newOrg, contactEmail: e.target.value})}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="contactPhone">Contact Phone</Label>
-                    <Input
-                      id="contactPhone"
-                      value={newOrg.contactPhone}
-                      onChange={(e) => setNewOrg({...newOrg, contactPhone: e.target.value})}
-                    />
-                  </div>
-                </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (orgsError) {
+    return (
+      <div className="p-6">
+        <Card className="border-red-200 dark:border-red-800">
+          <CardContent className="p-6 text-center">
+            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-red-700 dark:text-red-300 mb-2">
+              Failed to Load Organizations
+            </h3>
+            <p className="text-red-600 dark:text-red-400 mb-4">
+              There was an error loading the organization data. Please try refreshing the page.
+            </p>
+            <Button 
+              onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/admin/organizations'] })}
+              variant="outline"
+            >
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Organization Management</h2>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">
+            Manage organization registrations, KYC verification, and approvals
+          </p>
+        </div>
+        
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-red-600 hover:bg-red-700 text-white">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Organization
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Create New Organization</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="name">Organization Name *</Label>
+                <Input
+                  id="name"
+                  value={newOrg.name}
+                  onChange={(e) => setNewOrg({ ...newOrg, name: e.target.value })}
+                  placeholder="Enter organization name"
+                />
+              </div>
+              <div>
+                <Label htmlFor="registrationNumber">Registration Number *</Label>
+                <Input
+                  id="registrationNumber"
+                  value={newOrg.registrationNumber}
+                  onChange={(e) => setNewOrg({ ...newOrg, registrationNumber: e.target.value })}
+                  placeholder="PACRA registration number"
+                />
+              </div>
+              <div>
+                <Label htmlFor="contactEmail">Contact Email *</Label>
+                <Input
+                  id="contactEmail"
+                  type="email"
+                  value={newOrg.contactEmail}
+                  onChange={(e) => setNewOrg({ ...newOrg, contactEmail: e.target.value })}
+                  placeholder="contact@organization.com"
+                />
+              </div>
+              <div>
+                <Label htmlFor="contactPhone">Contact Phone</Label>
+                <Input
+                  id="contactPhone"
+                  value={newOrg.contactPhone}
+                  onChange={(e) => setNewOrg({ ...newOrg, contactPhone: e.target.value })}
+                  placeholder="+260 XXX XXX XXX"
+                />
+              </div>
+              <div>
+                <Label htmlFor="address">Address</Label>
+                <Input
+                  id="address"
+                  value={newOrg.address}
+                  onChange={(e) => setNewOrg({ ...newOrg, address: e.target.value })}
+                  placeholder="Business address"
+                />
+              </div>
+              <div>
+                <Label htmlFor="businessType">Business Type</Label>
+                <Select value={newOrg.businessType} onValueChange={(value) => setNewOrg({ ...newOrg, businessType: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select business type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="retail">Retail</SelectItem>
+                    <SelectItem value="wholesale">Wholesale</SelectItem>
+                    <SelectItem value="manufacturing">Manufacturing</SelectItem>
+                    <SelectItem value="services">Services</SelectItem>
+                    <SelectItem value="finance">Finance</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                  Cancel
+                </Button>
                 <Button 
-                  onClick={() => createOrgMutation.mutate(newOrg)}
+                  onClick={handleCreateOrganization}
                   disabled={createOrgMutation.isPending}
-                  className="w-full"
+                  className="bg-red-600 hover:bg-red-700 text-white"
                 >
-                  {createOrgMutation.isPending ? 'Creating...' : 'Create Organization'}
+                  {createOrgMutation.isPending ? "Creating..." : "Create Organization"}
                 </Button>
               </div>
-            </DialogContent>
-          </Dialog>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Filters */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <Label htmlFor="search">Search Organizations</Label>
+              <Input
+                id="search"
+                placeholder="Name, email, or registration..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="statusFilter">Status Filter</Label>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="suspended">Suspended</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="kycFilter">KYC Filter</Label>
+              <Select value={kycFilter} onValueChange={setKycFilter}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All KYC Status</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="in_review">In Review</SelectItem>
+                  <SelectItem value="verified">Verified</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-end">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setSearchTerm('');
+                  setStatusFilter('all');
+                  setKycFilter('all');
+                }}
+                className="w-full"
+              >
+                Clear Filters
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
-      {/* Organizations List */}
-      <Card>
-        <CardContent className="p-0">
-          {orgsLoading ? (
-            <div className="p-8 text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-gray-600 dark:text-gray-400">Loading organizations...</p>
-            </div>
-          ) : filteredOrganizations.length === 0 ? (
-            <div className="p-8 text-center">
-              <Building className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600 dark:text-gray-400">No organizations found</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-gray-200 dark:divide-gray-700">
-              {filteredOrganizations.map((org: Organization) => (
-                <div key={org.id} className="p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center">
-                          <Building className="h-6 w-6 text-white" />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">
-                            {org.name}
-                          </h3>
-                          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                            <FileText className="h-3 w-3" />
-                            Reg: {org.registrationNumber}
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="flex flex-wrap items-center gap-2 mb-3">
-                        <Badge className={getStatusBadgeColor(org.status || 'pending')}>
-                          {(org.status || 'pending').replace('_', ' ').toUpperCase()}
-                        </Badge>
-                        
-                        <Badge className={getKycBadgeColor(org.kycStatus || 'pending')}>
-                          KYC: {(org.kycStatus || 'pending').replace('_', ' ').toUpperCase()}
-                        </Badge>
-                        
-                        <Badge variant="outline" className="text-xs">
-                          {(org.businessType || 'other').toUpperCase()}
-                        </Badge>
-                        
-                        <Badge variant={org.isActive ? "default" : "secondary"}>
-                          {org.isActive ? 'Active' : 'Inactive'}
-                        </Badge>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-gray-600 dark:text-gray-400 mb-3">
-                        <div className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          {org.address}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          Created: {new Date(org.createdAt).toLocaleDateString()}
-                        </div>
-                      </div>
-                      
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-                        <div className="p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                          <div className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                            {org.totalUsers || 0}
-                          </div>
-                          <div className="text-xs text-gray-600 dark:text-gray-400 flex items-center justify-center gap-1">
-                            <Users className="h-3 w-3" />
-                            Users
-                          </div>
-                        </div>
-                        <div className="p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                          <div className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                            {org.totalTransactions || 0}
-                          </div>
-                          <div className="text-xs text-gray-600 dark:text-gray-400">
-                            Transactions
-                          </div>
-                        </div>
-                        <div className="p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                          <div className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                            {org.monthlyVolume || '0'}
-                          </div>
-                          <div className="text-xs text-gray-600 dark:text-gray-400">
-                            Monthly ZMW
-                          </div>
-                        </div>
-                        <div className="p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                          <Select 
-                            value={org.kycStatus} 
-                            onValueChange={(value) => updateKycMutation.mutate({ orgId: org.id, kycStatus: value })}
-                            disabled={updateKycMutation.isPending}
-                          >
-                            <SelectTrigger className="h-8 text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="pending">Pending</SelectItem>
-                              <SelectItem value="incomplete">Incomplete</SelectItem>
-                              <SelectItem value="verified">Verified</SelectItem>
-                              <SelectItem value="rejected">Rejected</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => toggleOrgMutation.mutate(org.id)}
-                      disabled={toggleOrgMutation.isPending}
-                      className="ml-4"
-                    >
-                      {org.isActive ? (
-                        <ToggleRight className="h-4 w-4 text-green-600" />
-                      ) : (
-                        <ToggleLeft className="h-4 w-4 text-gray-400" />
-                      )}
-                    </Button>
-                  </div>
+      {/* Organizations Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredOrganizations.map((org: Organization) => (
+          <Card key={org.id} className="hover:shadow-lg transition-shadow">
+            <CardHeader className="pb-3">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center space-x-2">
+                  <Building className="h-5 w-5 text-blue-600" />
+                  <CardTitle className="text-lg">{org.name}</CardTitle>
                 </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                <Badge className={getStatusBadgeColor(org.status || 'pending')}>
+                  {(org.status || 'pending').replace('_', ' ').toUpperCase()}
+                </Badge>
+                <Badge className={getKycBadgeColor(org.kycStatus || 'pending')}>
+                  KYC: {(org.kycStatus || 'pending').replace('_', ' ').toUpperCase()}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center text-gray-600 dark:text-gray-400">
+                  <FileText className="h-4 w-4 mr-2" />
+                  <span>{org.registrationNumber}</span>
+                </div>
+                <div className="flex items-center text-gray-600 dark:text-gray-400">
+                  <MapPin className="h-4 w-4 mr-2" />
+                  <span className="truncate">{org.address || 'No address provided'}</span>
+                </div>
+                <div className="flex items-center text-gray-600 dark:text-gray-400">
+                  <Calendar className="h-4 w-4 mr-2" />
+                  <span>{new Date(org.createdAt).toLocaleDateString()}</span>
+                </div>
+              </div>
+
+              <div className="flex space-x-2 pt-2">
+                <Select 
+                  value={org.status || 'pending'} 
+                  onValueChange={(status) => updateStatusMutation.mutate({ id: org.id, status })}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="approved">Approved</SelectItem>
+                    <SelectItem value="suspended">Suspended</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select 
+                  value={org.kycStatus || 'pending'} 
+                  onValueChange={(kycStatus) => updateKycStatusMutation.mutate({ id: org.id, kycStatus })}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">KYC Pending</SelectItem>
+                    <SelectItem value="in_review">KYC In Review</SelectItem>
+                    <SelectItem value="verified">KYC Verified</SelectItem>
+                    <SelectItem value="rejected">KYC Rejected</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {filteredOrganizations.length === 0 && (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <Building className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+              No Organizations Found
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
+              {searchTerm || statusFilter !== 'all' || kycFilter !== 'all' 
+                ? 'No organizations match your current filters.'
+                : 'No organizations have been created yet.'}
+            </p>
+            {(searchTerm || statusFilter !== 'all' || kycFilter !== 'all') && (
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setSearchTerm('');
+                  setStatusFilter('all');
+                  setKycFilter('all');
+                }}
+              >
+                Clear Filters
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
