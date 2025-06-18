@@ -1824,6 +1824,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch('/api/admin/organizations/:id/toggle', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const organizationId = parseInt(req.params.id);
+      if (isNaN(organizationId)) {
+        return res.status(400).json({ message: "Invalid organization ID" });
+      }
+
+      // Get current organization status
+      const organization = await storage.getOrganizationById(organizationId);
+      if (!organization) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+
+      // Toggle the active status
+      const newStatus = !organization.isActive;
+      await storage.updateOrganization(organizationId, { isActive: newStatus });
+
+      res.json({ 
+        message: `Organization ${newStatus ? 'activated' : 'deactivated'} successfully`,
+        isActive: newStatus
+      });
+
+    } catch (error) {
+      console.error("Error toggling organization status:", error);
+      res.status(500).json({ message: "Failed to toggle organization status" });
+    }
+  });
+
+  app.patch('/api/admin/organizations/:id/kyc', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const organizationId = parseInt(req.params.id);
+      const { kycStatus } = req.body;
+
+      if (!['pending', 'incomplete', 'verified', 'rejected'].includes(kycStatus)) {
+        return res.status(400).json({ message: "Invalid KYC status" });
+      }
+
+      await storage.updateOrganizationKycStatus(organizationId, kycStatus, userId);
+      res.json({ message: "KYC status updated successfully" });
+
+    } catch (error) {
+      console.error("Error updating KYC status:", error);
+      res.status(500).json({ message: "Failed to update KYC status" });
+    }
+  });
+
   // AML Configuration Management Routes
   app.get('/api/aml/configurations', isFirebaseAuthenticated, async (req: any, res) => {
     try {

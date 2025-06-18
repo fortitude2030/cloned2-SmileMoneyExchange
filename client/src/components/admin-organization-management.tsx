@@ -354,16 +354,16 @@ export default function AdminOrganizationManagement() {
                       </div>
                       
                       <div className="flex flex-wrap items-center gap-2 mb-3">
-                        <Badge className={getStatusBadgeColor(org.status)}>
-                          {org.status.replace('_', ' ').toUpperCase()}
+                        <Badge className={getStatusBadgeColor(org.status || 'pending')}>
+                          {(org.status || 'pending').replace('_', ' ').toUpperCase()}
                         </Badge>
                         
-                        <Badge className={getKycBadgeColor(org.kycStatus)}>
-                          KYC: {org.kycStatus.replace('_', ' ').toUpperCase()}
+                        <Badge className={getKycBadgeColor(org.kycStatus || 'pending')}>
+                          KYC: {(org.kycStatus || 'pending').replace('_', ' ').toUpperCase()}
                         </Badge>
                         
                         <Badge variant="outline" className="text-xs">
-                          {org.businessType.toUpperCase()}
+                          {(org.businessType || 'other').toUpperCase()}
                         </Badge>
                         
                         <Badge variant={org.isActive ? "default" : "secondary"}>
