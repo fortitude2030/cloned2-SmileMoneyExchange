@@ -66,14 +66,14 @@ async function createTestUsers() {
   for (const user of testUsers) {
     try {
       const result = await db.execute(`
-        INSERT INTO users (id, email, first_name, last_name, role, phone, is_active, profile_image_url, organization_id)
+        INSERT INTO users (id, email, first_name, last_name, role, phone_number, is_active, profile_image_url, organization_id)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         ON CONFLICT (id) DO UPDATE SET
           email = EXCLUDED.email,
           first_name = EXCLUDED.first_name,
           last_name = EXCLUDED.last_name,
           role = EXCLUDED.role,
-          phone = EXCLUDED.phone,
+          phone_number = EXCLUDED.phone_number,
           is_active = EXCLUDED.is_active,
           profile_image_url = EXCLUDED.profile_image_url,
           organization_id = EXCLUDED.organization_id
