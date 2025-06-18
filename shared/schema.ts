@@ -46,12 +46,37 @@ export const users = pgTable("users", {
 export const organizations = pgTable("organizations", {
   id: serial("id").primaryKey(),
   name: varchar("name").notNull(),
+  registrationNumber: varchar("registration_number"),
+  pacraNumber: varchar("pacra_number"), // PACRA registration
+  zraTpinNumber: varchar("zra_tpin_number"), // ZRA TPIN
+  businessType: varchar("business_type").default("retail"), // retail, wholesale, manufacturing, etc
+  address: text("address"),
+  contactEmail: varchar("contact_email"),
+  contactPhone: varchar("contact_phone"),
   type: varchar("type").default("financial_institution"),
   description: text("description"),
-  kycStatus: varchar("kyc_status").default("pending"), // pending, in_review, approved, rejected
+  
+  // Regulatory Status
+  status: varchar("status").default("pending"), // pending, approved, suspended, rejected
+  kycStatus: varchar("kyc_status").default("pending"), // pending, incomplete, in_review, verified, rejected
+  isActive: boolean("is_active").default(false),
+  
+  // Transaction Limits
+  dailyTransactionLimit: decimal("daily_transaction_limit", { precision: 12, scale: 2 }).default("5000000.00"), // 5M ZMW
+  monthlyTransactionLimit: decimal("monthly_transaction_limit", { precision: 12, scale: 2 }).default("50000000.00"), // 50M ZMW
+  singleTransactionLimit: decimal("single_transaction_limit", { precision: 12, scale: 2 }).default("500000.00"), // 500K ZMW
+  
+  // AML Settings
+  amlRiskRating: varchar("aml_risk_rating").default("medium"), // low, medium, high
+  enabledAmlChecks: text("enabled_aml_checks").array().default(["velocity", "threshold", "pattern"]),
+  
+  // Approval workflow
   kycCompletedAt: timestamp("kyc_completed_at"),
   kycReviewedBy: varchar("kyc_reviewed_by"),
   kycRejectReason: text("kyc_reject_reason"),
+  approvedBy: varchar("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

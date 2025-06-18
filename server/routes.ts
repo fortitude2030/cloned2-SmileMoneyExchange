@@ -1884,6 +1884,213 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Individual organization details endpoint
+  app.get('/api/admin/organizations/:id', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const organizationId = parseInt(req.params.id);
+      const organization = await storage.getOrganizationById(organizationId);
+      
+      if (!organization) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+
+      res.json(organization);
+    } catch (error) {
+      console.error("Error fetching organization:", error);
+      res.status(500).json({ message: "Failed to fetch organization" });
+    }
+  });
+
+  // Update organization limits
+  app.patch('/api/admin/organizations/:id/limits', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const organizationId = parseInt(req.params.id);
+      const { dailyTransactionLimit, monthlyTransactionLimit, singleTransactionLimit, amlRiskRating } = req.body;
+
+      // Validation
+      const limits = {
+        dailyTransactionLimit: parseFloat(dailyTransactionLimit),
+        monthlyTransactionLimit: parseFloat(monthlyTransactionLimit),
+        singleTransactionLimit: parseFloat(singleTransactionLimit)
+      };
+
+      if (limits.singleTransactionLimit > limits.dailyTransactionLimit) {
+        return res.status(400).json({ message: "Single transaction limit cannot exceed daily limit" });
+      }
+
+      if (limits.dailyTransactionLimit > limits.monthlyTransactionLimit) {
+        return res.status(400).json({ message: "Daily limit cannot exceed monthly limit" });
+      }
+
+      const updateData = {
+        dailyTransactionLimit: dailyTransactionLimit.toString(),
+        monthlyTransactionLimit: monthlyTransactionLimit.toString(),
+        singleTransactionLimit: singleTransactionLimit.toString(),
+        amlRiskRating: amlRiskRating || 'medium'
+      };
+
+      await storage.updateOrganization(organizationId, updateData);
+
+      res.json({ message: "Organization limits updated successfully" });
+    } catch (error) {
+      console.error("Error updating organization limits:", error);
+      res.status(500).json({ message: "Failed to update organization limits" });
+    }
+  });
+
+  // Organization approval workflow
+  app.patch('/api/admin/organizations/:id/approval', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const organizationId = parseInt(req.params.id);
+      const { action, reason } = req.body;
+
+      if (!['approve', 'suspend', 'reject'].includes(action)) {
+        return res.status(400).json({ message: "Invalid action" });
+      }
+
+      const updateData: any = {
+        status: action === 'approve' ? 'approved' : action === 'suspend' ? 'suspended' : 'rejected',
+        approvedBy: userId,
+        approvedAt: new Date()
+      };
+
+      if (action === 'approve') {
+        updateData.isActive = true;
+        updateData.kycStatus = 'verified';
+      } else {
+        updateData.isActive = false;
+        if (reason) {
+          updateData.kycRejectReason = reason;
+        }
+      }
+
+      await storage.updateOrganization(organizationId, updateData);
+
+      // Create notification for organization users
+      const orgUsers = await storage.getUsersByOrganization(organizationId);
+      for (const orgUser of orgUsers) {
+        await storage.createNotification({
+          userId: orgUser.id,
+          title: `Organization ${action}d`,
+          message: `Your organization has been ${action}d by admin.${reason ? ` Reason: ${reason}` : ''}`,
+          type: action === 'approve' ? 'success' : 'warning'
+        });
+      }
+
+      res.json({ message: `Organization ${action}d successfully` });
+    } catch (error) {
+      console.error("Error updating organization approval:", error);
+      res.status(500).json({ message: "Failed to update organization approval" });
+    }
+  });
+
+  // Organization transaction history
+  app.get('/api/admin/organizations/:id/transactions', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const organizationId = parseInt(req.params.id);
+      const transactions = await storage.getTransactionsByOrganization(organizationId);
+
+      res.json(transactions);
+    } catch (error) {
+      console.error("Error fetching organization transactions:", error);
+      res.status(500).json({ message: "Failed to fetch organization transactions" });
+    }
+  });
+
+  // Bulk organization actions
+  app.post('/api/admin/organizations/bulk-action', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { organizationIds, action, reason } = req.body;
+
+      if (!Array.isArray(organizationIds) || organizationIds.length === 0) {
+        return res.status(400).json({ message: "Organization IDs are required" });
+      }
+
+      if (!['approve', 'suspend', 'activate', 'deactivate'].includes(action)) {
+        return res.status(400).json({ message: "Invalid action" });
+      }
+
+      let successCount = 0;
+      const errors = [];
+
+      for (const orgId of organizationIds) {
+        try {
+          const updateData: any = {};
+          
+          switch (action) {
+            case 'approve':
+              updateData.status = 'approved';
+              updateData.isActive = true;
+              updateData.approvedBy = userId;
+              updateData.approvedAt = new Date();
+              break;
+            case 'suspend':
+              updateData.status = 'suspended';
+              updateData.isActive = false;
+              if (reason) updateData.kycRejectReason = reason;
+              break;
+            case 'activate':
+              updateData.isActive = true;
+              break;
+            case 'deactivate':
+              updateData.isActive = false;
+              break;
+          }
+
+          await storage.updateOrganization(orgId, updateData);
+          successCount++;
+        } catch (error) {
+          errors.push({ organizationId: orgId, error: error.message });
+        }
+      }
+
+      res.json({
+        message: `Bulk action completed`,
+        successCount,
+        totalCount: organizationIds.length,
+        errors
+      });
+    } catch (error) {
+      console.error("Error performing bulk action:", error);
+      res.status(500).json({ message: "Failed to perform bulk action" });
+    }
+  });
+
   // AML Configuration Management Routes
   app.get('/api/aml/configurations', isFirebaseAuthenticated, async (req: any, res) => {
     try {
