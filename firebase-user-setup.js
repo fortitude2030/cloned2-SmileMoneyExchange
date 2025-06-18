@@ -29,21 +29,21 @@ const testUsers = [
   },
   {
     email: 'finance@testco.com',
-    password: 'SmileFinance2025!',
+    password: 'SmileAdmin2025!',
     role: 'finance',
     displayName: 'Finance User',
     oldId: 'firebase_finance_uid_12345'
   },
   {
     email: 'merchant@testco.com',
-    password: 'SmileMerchant2025!',
+    password: 'SmileAdmin2025!',
     role: 'merchant',
     displayName: 'Merchant User',
     oldId: 'firebase_merchant_uid_12345'
   },
   {
     email: 'cashier@testco.com',
-    password: 'SmileCashier2025!',
+    password: 'SmileAdmin2025!',
     role: 'cashier',
     displayName: 'Cashier User',
     oldId: 'firebase_cashier_uid_12345'
