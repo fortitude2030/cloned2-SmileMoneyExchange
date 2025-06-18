@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Firebase Auth Test</title>
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, signInWithCustomToken } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDGpF8bCiOX2QOQBjNpQJZ9hWjM9C8vXyQ",
+            authDomain: "smile-money-e-money-platform.firebaseapp.com",
+            projectId: "smile-money-e-money-platform",
+            storageBucket: "smile-money-e-money-platform.firebasestorage.app",
+            appId: "1:234567890123:web:abcdef123456789"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        // Test authentication flow
+        async function testAuth() {
+            console.log('Testing Firebase authentication...');
+            
+            // Generate custom token from server
+            try {
+                const response = await fetch('/api/test-auth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ uid: 'FSb5tS4S94aQQ2cACrYcMP8wPTl2' })
+                });
+                
+                if (!response.ok) {
+                    console.error('Failed to get custom token');
+                    return;
+                }
+                
+                const { customToken } = await response.json();
+                console.log('Got custom token, signing in...');
+                
+                // Sign in with custom token
+                const userCredential = await signInWithCustomToken(auth, customToken);
+                const user = userCredential.user;
+                
+                console.log('Signed in successfully:', user.email);
+                
+                // Get ID token
+                const idToken = await user.getIdToken();
+                console.log('Got ID token, testing API...');
+                
+                // Test authenticated API call
+                const apiResponse = await fetch('/api/auth/user', {
+                    headers: { 'Authorization': `Bearer ${idToken}` }
+                });
+                
+                if (apiResponse.ok) {
+                    const userData = await apiResponse.json();
+                    console.log('API call successful:', userData);
+                } else {
+                    console.error('API call failed:', apiResponse.status);
+                }
+                
+            } catch (error) {
+                console.error('Auth test failed:', error);
+            }
+        }
+
+        window.testAuth = testAuth;
+    </script>
+</head>
+<body>
+    <h1>Firebase Authentication Test</h1>
+    <button onclick="testAuth()">Test Authentication</button>
+    <div id="output"></div>
+</body>
+</html>
