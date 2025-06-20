@@ -6,7 +6,6 @@ import path from "path";
 import fs from "fs";
 import { storage } from "./storage";
 import { setupFirebaseAuth, isFirebaseAuthenticated } from "./firebaseAuth";
-import { isAuthenticated } from "./auth";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import {
