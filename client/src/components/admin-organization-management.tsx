@@ -111,7 +111,11 @@ export default function AdminOrganizationManagement() {
 
   const updateKycStatusMutation = useMutation({
     mutationFn: async ({ id, kycStatus }: { id: number; kycStatus: string }) => {
-      return apiRequest(`/api/admin/organizations/${id}/kyc-status`, 'PUT', { kycStatus });
+      const response = await apiRequest(`/api/admin/organizations/${id}/kyc-status`, {
+        method: 'PUT',
+        body: JSON.stringify({ kycStatus }),
+      });
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/organizations'] });
