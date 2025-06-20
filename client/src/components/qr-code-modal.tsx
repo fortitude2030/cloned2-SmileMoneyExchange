@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { generateQRCode } from "@/lib/qr-utils";
 import { useTimer } from "@/contexts/timer-context";
-import { useAuth } from "@/hooks/useAuth";
+import { auth } from "@/lib/firebase";
 
 interface QRCodeModalProps {
   isOpen: boolean;
@@ -23,9 +23,6 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
   const { timeLeft, isActive, startTimer, markInteraction, stopTimer } = useTimer();
   const [isQrExpired, setIsQrExpired] = useState(false);
   const isExpired = !isActive && timeLeft === 0;
-  
-  // Firebase authentication
-  const { user } = useAuth();
 
   // Auto-generate QR code when modal opens (timer controlled by cashier dashboard)
   useEffect(() => {
@@ -78,8 +75,13 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
         status: 'pending'
       };
 
-      // Get fresh Firebase auth token
-      const token = await user?.getIdToken(true); // Force refresh token
+      // Get fresh Firebase auth token from current user
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error('User not authenticated');
+      }
+      
+      const token = await currentUser.getIdToken(true); // Force refresh token
       
       const transactionResponse = await fetch('/api/transactions', {
         method: 'POST',

@@ -3,6 +3,7 @@ import QrScanner from "qr-scanner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { parsePaymentQR, validatePaymentQR, getQRParseError } from "@/lib/qr-utils";
+import { auth } from "@/lib/firebase";
 
 interface QRScannerProps {
   isOpen: boolean;
@@ -50,11 +51,21 @@ export default function QRScannerComponent({ isOpen, onClose, onScanSuccess, tra
             try {
               console.log("QR Code detected:", result.data);
               
+              // Get Firebase auth token
+              const currentUser = auth.currentUser;
+              if (!currentUser) {
+                setError('User not authenticated');
+                return;
+              }
+              
+              const token = await currentUser.getIdToken(true);
+              
               // Verify QR code with secure server-side validation
               const response = await fetch('/api/qr/verify', {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`,
                 },
                 credentials: 'include',
                 body: JSON.stringify({

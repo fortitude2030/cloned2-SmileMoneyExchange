@@ -67,7 +67,7 @@ export default function MerchantDashboard() {
     gcTime: 60000, // Keep in cache for 1 minute
   });
 
-  // Fetch transactions with optimized caching to prevent flashing
+  // Fetch transactions with stable caching to prevent UI flickering
   const { data: transactions = [], isLoading: transactionsLoading, refetch } = useQuery<Array<{
     id: number;
     transactionId: string;
@@ -82,11 +82,12 @@ export default function MerchantDashboard() {
     queryKey: queryKeys.transactions.all(),
     retry: false,
     enabled: isAuthenticated,
-    refetchInterval: 30000, // Increased to 30s to reduce flashing
-    refetchOnWindowFocus: false, // Disable to prevent flashing on focus changes
-    refetchOnMount: false, // Disable to prevent flashing on component remount
-    staleTime: 25000, // Increased stale time to 25 seconds
-    gcTime: 300000 // Keep in cache for 5 minutes
+    refetchInterval: false, // Disable automatic refresh to prevent flickering
+    refetchOnWindowFocus: false,
+    refetchOnMount: true, // Only fetch on initial mount
+    staleTime: Infinity, // Keep data fresh indefinitely unless manually refetched
+    gcTime: 600000, // Keep in cache for 10 minutes
+    structuralSharing: true, // Prevent unnecessary re-renders when data hasn't changed
   });
 
   // Monitor QR transactions for auto-closing modal with stable reference
@@ -389,13 +390,25 @@ export default function MerchantDashboard() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-gray-800 dark:text-gray-200">Recent Transactions</h3>
-              <Button 
-                variant="ghost" 
-                className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-                onClick={() => setShowAllTransactions(!showAllTransactions)}
-              >
-                {showAllTransactions ? 'Show Last 5' : 'Show Last 30'}
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  className="text-gray-600 hover:text-gray-700 text-xs"
+                  onClick={() => refetch()}
+                  disabled={transactionsLoading}
+                >
+                  <i className="fas fa-sync-alt mr-1"></i>
+                  Refresh
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                  onClick={() => setShowAllTransactions(!showAllTransactions)}
+                >
+                  {showAllTransactions ? 'Show Last 5' : 'Show Last 30'}
+                </Button>
+              </div>
             </div>
             
             {transactionsLoading ? (
