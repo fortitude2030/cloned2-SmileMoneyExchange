@@ -44,7 +44,7 @@ export default function MerchantDashboard() {
     }
   }, [isAuthenticated, isLoading, toast]);
 
-  // Fetch wallet data
+  // Fetch wallet data with smart caching
   const { data: wallet, isLoading: walletLoading } = useQuery<{
     id: number;
     balance: string;
@@ -58,13 +58,14 @@ export default function MerchantDashboard() {
     queryKey: ["/api/wallet"],
     retry: false,
     enabled: isAuthenticated,
-    refetchInterval: 1000, // Poll every 1 second for real-time balance updates
+    refetchInterval: 10000, // Reduced from 1s to 10s - balance updates are not critical for merchant view
     refetchOnWindowFocus: true,
     refetchOnMount: true,
-    staleTime: 0, // Data is immediately stale
+    staleTime: 8000, // Data is fresh for 8 seconds
+    gcTime: 60000, // Keep in cache for 1 minute
   });
 
-  // Fetch transactions with reasonable polling for updates
+  // Fetch transactions with smart caching
   const { data: transactions = [], isLoading: transactionsLoading, refetch } = useQuery<Array<{
     id: number;
     transactionId: string;
@@ -79,9 +80,11 @@ export default function MerchantDashboard() {
     queryKey: ["/api/transactions"],
     retry: false,
     enabled: isAuthenticated,
-    refetchInterval: 2000, // Poll every 2 seconds for updates
+    refetchInterval: 15000, // Reduced from 2s to 15s - merchant transaction history doesn't need frequent updates
     refetchOnWindowFocus: true,
     refetchOnMount: true,
+    staleTime: 12000, // Data is fresh for 12 seconds
+    gcTime: 120000, // Keep in cache for 2 minutes
   });
 
   // Monitor QR transactions for auto-closing modal

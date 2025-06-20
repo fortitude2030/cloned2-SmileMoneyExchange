@@ -191,7 +191,7 @@ export default function CashierDashboard() {
     refetchOnMount: true,
   });
 
-  // Fetch wallet data for real-time balance tracking
+  // Fetch wallet data with optimized caching for cashier operations
   const { data: wallet, isLoading: walletLoading } = useQuery<{
     id: number;
     balance: string;
@@ -203,10 +203,11 @@ export default function CashierDashboard() {
     queryKey: ["/api/wallet"],
     retry: false,
     enabled: isAuthenticated,
-    refetchInterval: 1000, // Poll every 1 second for real-time balance updates
+    refetchInterval: 3000, // Reduced from 1s to 3s - still responsive for cashier balance tracking
     refetchOnWindowFocus: true,
     refetchOnMount: true,
-    staleTime: 0, // Data is immediately stale
+    staleTime: 2000, // Data is fresh for 2 seconds
+    gcTime: 30000, // Keep in cache for 30 seconds
   });
 
   // Clean up state for completed transactions to prevent UI confusion
