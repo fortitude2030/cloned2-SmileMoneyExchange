@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { TransactionNotificationProvider } from "@/hooks/use-transaction-notifications";
 import { TimerProvider } from "@/contexts/timer-context";
+import PerformanceMonitor from "@/components/performance-monitor";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import { Login } from "@/pages/login";
@@ -85,6 +86,7 @@ function App() {
           <TransactionNotificationProvider>
             <Toaster />
             <Router />
+            <PerformanceMonitor />
           </TransactionNotificationProvider>
         </TimerProvider>
       </TooltipProvider>
