@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useTransactionNotifications } from "@/hooks/use-transaction-notifications";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { queryKeys } from "@/lib/queryKeys";
 import MobileHeader from "@/components/mobile-header";
 import MobileNav from "@/components/mobile-nav";
 import QRCodeModal from "@/components/qr-code-modal";
@@ -55,7 +56,7 @@ export default function MerchantDashboard() {
     todayCompleted?: string;
     todayTotal?: string;
   }>({
-    queryKey: ["/api/wallet"],
+    queryKey: queryKeys.wallet.current(),
     retry: false,
     enabled: isAuthenticated,
     refetchInterval: 10000, // Reduced from 1s to 10s - balance updates are not critical for merchant view
@@ -77,7 +78,7 @@ export default function MerchantDashboard() {
     rejectionReason?: string;
     type?: string;
   }>>({
-    queryKey: ["/api/transactions"],
+    queryKey: queryKeys.transactions.all(),
     retry: false,
     enabled: isAuthenticated,
     refetchInterval: 15000, // Reduced from 2s to 15s - merchant transaction history doesn't need frequent updates

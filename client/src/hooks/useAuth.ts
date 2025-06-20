@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { onAuthChange, signOutUser } from "@/lib/firebase";
 import { auth } from "@/lib/firebase";
 import { apiRequest } from "@/lib/apiClient";
+import { queryKeys } from "@/lib/queryKeys";
 
 export function useAuth() {
   const [isLoading, setIsLoading] = useState(true);
@@ -26,7 +27,7 @@ export function useAuth() {
   }, []);
 
   const { data: user, isLoading: userLoading, refetch } = useQuery({
-    queryKey: ["/api/auth/user"],
+    queryKey: queryKeys.auth.user(),
     queryFn: async () => {
       try {
         // Wait for Firebase auth state to be available

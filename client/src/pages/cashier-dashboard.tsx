@@ -6,6 +6,7 @@ import { useTransactionNotifications } from "@/hooks/use-transaction-notificatio
 import { useTimer } from "@/contexts/timer-context";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { queryKeys } from "@/lib/queryKeys";
 import MobileHeader from "@/components/mobile-header";
 import MobileNav from "@/components/mobile-nav";
 import SimpleDocumentUpload from "@/components/simple-document-upload";

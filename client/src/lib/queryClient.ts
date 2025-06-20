@@ -65,11 +65,17 @@ export const queryClient = new QueryClient({
       refetchInterval: false,
       refetchOnWindowFocus: false,
       staleTime: 30000, // 30 seconds default - data is fresh for 30s
-      gcTime: 300000, // 5 minutes - keep in cache for 5 minutes (cacheTime renamed to gcTime in v5)
+      gcTime: 300000, // 5 minutes - keep in cache for 5 minutes
       retry: false,
+      // Enable query deduplication - multiple identical requests share same promise
+      networkMode: 'online',
+      // Prevent duplicate requests for same query within short time window
+      structuralSharing: true,
     },
     mutations: {
       retry: false,
+      // Prevent mutation spam
+      networkMode: 'online',
     },
   },
 });
