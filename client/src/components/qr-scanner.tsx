@@ -8,10 +8,14 @@ interface QRScannerProps {
   isOpen: boolean;
   onClose: () => void;
   onScanSuccess: (qrData: any) => void;
-  expectedAmount?: string;
+  transactionData: {
+    transactionId: string;
+    amount: string;
+    vmfNumber: string;
+  };
 }
 
-export default function QRScannerComponent({ isOpen, onClose, onScanSuccess, expectedAmount }: QRScannerProps) {
+export default function QRScannerComponent({ isOpen, onClose, onScanSuccess, transactionData }: QRScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [scanner, setScanner] = useState<QrScanner | null>(null);
   const [isScanning, setIsScanning] = useState(false);

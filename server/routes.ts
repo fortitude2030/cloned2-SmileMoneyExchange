@@ -2091,6 +2091,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // QR Code Verification Endpoint
+  app.post('/api/qr/verify', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (user?.role !== 'cashier') {
+        return res.status(403).json({ message: "Only cashiers can verify QR codes" });
+      }
+
+      const qrData = JSON.parse(req.body.qrCode);
+      
+      // Validate QR data structure
+      if (!qrData.transactionId || !qrData.amount || !qrData.timestamp || !qrData.expiresAt) {
+        return res.status(400).json({ message: "Invalid QR code format" });
+      }
+
+      // Check QR code expiration
+      const now = Date.now();
+      if (now > qrData.expiresAt) {
+        return res.status(400).json({ message: "QR code has expired" });
+      }
+
+      // Find the transaction
+      const transaction = await storage.getTransactionByTransactionId(qrData.transactionId);
+      if (!transaction) {
+        return res.status(404).json({ message: "Transaction not found" });
+      }
+
+      // Verify transaction is still pending and matches QR data
+      if (transaction.status !== 'pending') {
+        return res.status(400).json({ message: "Transaction is no longer pending" });
+      }
+
+      if (Math.floor(parseFloat(transaction.amount)) !== Math.floor(parseFloat(qrData.amount))) {
+        return res.status(400).json({ message: "Amount mismatch" });
+      }
+
+      if (transaction.type !== 'qr_code_payment') {
+        return res.status(400).json({ message: "Invalid transaction type" });
+      }
+
+      res.json({ 
+        success: true, 
+        transaction: {
+          id: transaction.id,
+          transactionId: transaction.transactionId,
+          amount: transaction.amount,
+          vmfNumber: transaction.vmfNumber,
+          status: transaction.status,
+          type: transaction.type
+        }
+      });
+    } catch (error) {
+      console.error("Error verifying QR code:", error);
+      res.status(500).json({ message: "Failed to verify QR code" });
+    }
+  });
+
   // AML Configuration Management Routes
   app.get('/api/aml/configurations', isFirebaseAuthenticated, async (req: any, res) => {
     try {

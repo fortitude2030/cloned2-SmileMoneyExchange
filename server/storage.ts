@@ -85,6 +85,7 @@ export interface IStorage {
   getAllPendingTransactions(): Promise<Transaction[]>;
   getQRVerificationTransactions(): Promise<Transaction[]>;
   markExpiredTransactions(): Promise<void>;
+  getTransactionByTransactionId(transactionId: string): Promise<Transaction | undefined>;
   
   // Document operations
   createDocument(document: InsertDocument): Promise<Document>;
@@ -719,6 +720,14 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .orderBy(desc(transactions.createdAt));
+  }
+
+  async getTransactionByTransactionId(transactionId: string): Promise<Transaction | undefined> {
+    const [transaction] = await db
+      .select()
+      .from(transactions)
+      .where(eq(transactions.transactionId, transactionId));
+    return transaction;
   }
 
   // Document operations
