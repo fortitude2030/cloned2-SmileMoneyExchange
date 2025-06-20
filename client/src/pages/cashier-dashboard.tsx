@@ -146,7 +146,7 @@ export default function CashierDashboard() {
     description?: string;
     type?: string;
   }>>({
-    queryKey: ["/api/transactions/pending"],
+    queryKey: queryKeys.transactions.pending(),
     retry: false,
     enabled: isAuthenticated,
     refetchInterval: 5000, // Reduced from 2s to 5s - still responsive for cashier needs
@@ -165,7 +165,7 @@ export default function CashierDashboard() {
     description?: string;
     type: string;
   }>>({
-    queryKey: ["/api/transactions/qr-verification"],
+    queryKey: queryKeys.transactions.qrVerification(),
     retry: false,
     enabled: isAuthenticated,
     refetchInterval: 5000, // Reduced from 2s to 5s - still responsive for QR processing
@@ -184,7 +184,7 @@ export default function CashierDashboard() {
     description?: string;
     rejectionReason?: string;
   }>>({
-    queryKey: ["/api/transactions"],
+    queryKey: queryKeys.transactions.all(),
     retry: false,
     enabled: isAuthenticated,
     refetchInterval: 15000, // Reduced from 3s to 15s - recent transactions don't need constant updates
@@ -201,7 +201,7 @@ export default function CashierDashboard() {
     dailyTransferred: string;
     isActive: boolean;
   }>({
-    queryKey: ["/api/wallet"],
+    queryKey: queryKeys.wallet.current(),
     retry: false,
     enabled: isAuthenticated,
     refetchInterval: 3000, // Reduced from 1s to 3s - still responsive for cashier balance tracking
