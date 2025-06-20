@@ -5,6 +5,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { TransactionNotificationProvider } from "@/hooks/use-transaction-notifications";
 import { TimerProvider } from "@/contexts/timer-context";
+import { cleanupBatchingSystems } from "@/lib/queryBatching";
+import { cleanupCacheServices } from "@/lib/cacheWarming";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import { Login } from "@/pages/login";
