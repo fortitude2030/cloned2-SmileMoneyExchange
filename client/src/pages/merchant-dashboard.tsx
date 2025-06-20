@@ -60,10 +60,10 @@ export default function MerchantDashboard() {
     queryKey: queryKeys.wallet.current(),
     retry: false,
     enabled: isAuthenticated,
-    refetchInterval: 10000, // Reduced from 1s to 10s - balance updates are not critical for merchant view
-    refetchOnWindowFocus: true,
-    refetchOnMount: true,
-    staleTime: 8000, // Data is fresh for 8 seconds
+    refetchInterval: 60000, // Reduced to 60s - balance updates are not critical for merchant view
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    staleTime: 50000, // Data is fresh for 50 seconds
     gcTime: 60000, // Keep in cache for 1 minute
   });
 
