@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { generateQRCode } from "@/lib/qr-utils";
 import { useTimer } from "@/contexts/timer-context";
+import { useAuth } from "@/hooks/useAuth";
 
 interface QRCodeModalProps {
   isOpen: boolean;
@@ -22,6 +23,9 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
   const { timeLeft, isActive, startTimer, markInteraction, stopTimer } = useTimer();
   const [isQrExpired, setIsQrExpired] = useState(false);
   const isExpired = !isActive && timeLeft === 0;
+  
+  // Firebase authentication
+  const { user } = useAuth();
 
   // Auto-generate QR code when modal opens (timer controlled by cashier dashboard)
   useEffect(() => {
@@ -74,10 +78,14 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
         status: 'pending'
       };
 
+      // Get Firebase auth token
+      const token = await user?.getIdToken();
+      
       const transactionResponse = await fetch('/api/transactions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         credentials: 'include',
         body: JSON.stringify(transactionData)
@@ -153,13 +161,6 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
                 <p className="text-gray-600 dark:text-gray-400 text-sm">Generating QR Code...</p>
               </div>
             </div>
-          ) : (isExpired || isQrExpired) ? (
-            <div className="w-48 h-48 mx-auto bg-red-50 dark:bg-red-900/20 rounded-xl flex items-center justify-center border border-red-200 dark:border-red-700">
-              <div className="text-center">
-                <i className="fas fa-times-circle text-6xl text-red-500 mb-3"></i>
-                <p className="text-red-600 dark:text-red-400 font-medium">QR Code Expired</p>
-              </div>
-            </div>
           ) : (
             <div className="qr-code-container w-48 h-48 mx-auto">
               <img 
@@ -173,31 +174,11 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
           
 
           
-          {!(isExpired || isQrExpired) ? (
-            <p className="text-gray-600 dark:text-gray-400 text-sm">
-              Show this QR code to the security cashier to complete the transaction
-            </p>
-          ) : (
-            <p className="text-red-600 dark:text-red-400 text-sm font-medium">
-              This QR code has expired. Please generate a new payment request.
-            </p>
-          )}
+          <p className="text-gray-600 dark:text-gray-400 text-sm">
+            Show this QR code to the security cashier to complete the transaction
+          </p>
           
           <div className="flex gap-2">
-            {(isExpired || isQrExpired) && (
-              <Button 
-                onClick={() => {
-                  setIsQrExpired(false);
-                  startTimer();
-                  markInteraction();
-                  handleGenerateQR();
-                }} 
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                <i className="fas fa-redo mr-2"></i>
-                Generate New QR
-              </Button>
-            )}
             <Button 
               onClick={() => {
                 setIsQrExpired(true); // Expire QR immediately when closing
