@@ -26,12 +26,35 @@ export async function apiRequest(url: string, options: RequestInit = {}) {
   };
 
   try {
-    // Always get fresh token from Firebase Auth for authenticated requests
+    // Smart token management - use cached token first, only refresh when needed
     const currentUser = auth.currentUser;
     if (currentUser) {
-      const freshToken = await currentUser.getIdToken(true);
-      localStorage.setItem('firebaseToken', freshToken);
-      return await makeRequest(freshToken);
+      // Try with cached token first
+      let token = localStorage.getItem('firebaseToken');
+      
+      if (!token) {
+        // Get cached Firebase token (doesn't force network refresh)
+        token = await currentUser.getIdToken(false);
+        localStorage.setItem('firebaseToken', token);
+      }
+      
+      try {
+        return await makeRequest(token);
+      } catch (authError: any) {
+        // Only refresh token on 401 errors
+        if (authError.message?.includes('401')) {
+          try {
+            const freshToken = await currentUser.getIdToken(true);
+            localStorage.setItem('firebaseToken', freshToken);
+            return await makeRequest(freshToken);
+          } catch (refreshError) {
+            console.error('Token refresh failed:', refreshError);
+            localStorage.removeItem('firebaseToken');
+            throw refreshError;
+          }
+        }
+        throw authError;
+      }
     }
     
     // For unauthenticated requests, try without token

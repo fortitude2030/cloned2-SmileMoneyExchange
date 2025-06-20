@@ -35,35 +35,86 @@ export function useAuth() {
           return null;
         }
 
-        // Force refresh the token to ensure it's valid
-        const freshToken = await authState.getIdToken(true);
-        localStorage.setItem('firebaseToken', freshToken);
+        // Get cached token first, only refresh if expired or missing
+        let token = localStorage.getItem('firebaseToken');
         
+        // Check if we need to refresh the token (only refresh if necessary)
+        try {
+          if (!token) {
+            const cachedToken = await authState.getIdToken(false); // Get cached token first
+            if (cachedToken) {
+              token = cachedToken;
+              localStorage.setItem('firebaseToken', cachedToken);
+            }
+          }
+        } catch (tokenError) {
+          // If cached token fails, force refresh with exponential backoff
+          console.warn('Token refresh needed:', tokenError);
+          const freshToken = await authState.getIdToken(true);
+          token = freshToken;
+          localStorage.setItem('firebaseToken', freshToken);
+        }
+        
+        if (!token) {
+          throw new Error('No authentication token available');
+        }
+
         const response = await fetch('/api/auth/user', {
           headers: {
-            'Authorization': `Bearer ${freshToken}`,
+            'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
         });
         
         if (!response.ok) {
           if (response.status === 401) {
+            // Token expired, try one refresh before failing
+            try {
+              const freshToken = await authState.getIdToken(true);
+              localStorage.setItem('firebaseToken', freshToken);
+              
+              const retryResponse = await fetch('/api/auth/user', {
+                headers: {
+                  'Authorization': `Bearer ${freshToken}`,
+                  'Content-Type': 'application/json',
+                },
+              });
+              
+              if (retryResponse.ok) {
+                return retryResponse.json();
+              }
+            } catch (refreshError) {
+              console.error('Token refresh failed:', refreshError);
+            }
+            
             localStorage.removeItem('firebaseToken');
             return null;
           }
-          throw new Error('Failed to fetch user');
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         
         return response.json();
-      } catch (error) {
+      } catch (error: any) {
         console.error('Auth query failed:', error);
-        localStorage.removeItem('firebaseToken');
+        // Only clear token on specific auth errors, not network errors
+        if (error?.code?.includes('auth/')) {
+          localStorage.removeItem('firebaseToken');
+        }
         return null;
       }
     },
-    retry: false,
+    retry: (failureCount, error) => {
+      // Implement exponential backoff for network errors
+      if (error?.code === 'auth/network-request-failed' && failureCount < 3) {
+        return true;
+      }
+      return false;
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff with 30s max
     refetchOnWindowFocus: false,
     enabled: !!authState, // Only run query when Firebase user is available
+    staleTime: 60000, // User data is fresh for 1 minute
+    gcTime: 300000, // Keep user data in cache for 5 minutes
   });
 
   // Refetch user data when auth state changes
