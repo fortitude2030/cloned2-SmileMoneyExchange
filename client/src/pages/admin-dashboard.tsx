@@ -17,6 +17,7 @@ import AmlConfigurationDashboard from "@/components/aml-configuration-dashboard"
 import AmlAlertManagement from "@/components/aml-alert-management";
 import ComplianceReportsDashboard from "@/components/compliance-reports-dashboard";
 import { apiRequest } from "@/lib/queryClient";
+import { DashboardStatsSkeleton, SettlementRequestSkeleton, TransactionListSkeleton } from "@/components/ui/loading-skeletons";
 
 interface ActionDialogState {
   isOpen: boolean;
@@ -299,39 +300,45 @@ export default function AdminDashboard() {
         {activeTab === 'overview' && (
           <>
             {/* System Overview */}
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-2xl font-bold text-red-600">
-                        {pendingRequests.length}
-                      </p>
-                      <p className="text-gray-600 dark:text-gray-400 text-sm">Pending Approvals</p>
+            {settlementRequestsLoading || transactionsLoading ? (
+              <div className="mb-6">
+                <DashboardStatsSkeleton />
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-2xl font-bold text-red-600">
+                          {pendingRequests.length}
+                        </p>
+                        <p className="text-gray-600 dark:text-gray-400 text-sm">Pending Approvals</p>
+                      </div>
+                      <div className="w-10 h-10 bg-red-100 dark:bg-red-900 rounded-lg flex items-center justify-center">
+                        <i className="fas fa-exclamation-triangle text-red-600 dark:text-red-400"></i>
+                      </div>
                     </div>
-                    <div className="w-10 h-10 bg-red-100 dark:bg-red-900 rounded-lg flex items-center justify-center">
-                      <i className="fas fa-exclamation-triangle text-red-600 dark:text-red-400"></i>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
 
-              <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-2xl font-bold text-green-600">
-                        {Array.isArray(transactions) ? transactions.filter((t: any) => t.status === 'completed').length : 0}
-                      </p>
-                      <p className="text-gray-600 dark:text-gray-400 text-sm">Completed Today</p>
+                <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-2xl font-bold text-green-600">
+                          {Array.isArray(transactions) ? transactions.filter((t: any) => t.status === 'completed').length : 0}
+                        </p>
+                        <p className="text-gray-600 dark:text-gray-400 text-sm">Completed Today</p>
+                      </div>
+                      <div className="w-10 h-10 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
+                        <i className="fas fa-check-circle text-green-600 dark:text-green-400"></i>
+                      </div>
                     </div>
-                    <div className="w-10 h-10 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
-                      <i className="fas fa-check-circle text-green-600 dark:text-green-400"></i>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
 
             {/* Transaction Overview Card */}
             <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">

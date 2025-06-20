@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { WalletBalanceSkeleton, TransactionListSkeleton } from "@/components/ui/loading-skeletons";
 
 export default function MerchantDashboard() {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -253,7 +254,7 @@ export default function MerchantDashboard() {
     };
   };
 
-  if (isLoading || walletLoading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
@@ -277,15 +278,19 @@ export default function MerchantDashboard() {
 
       <div className="p-4">
         {/* Transfer Limits - Shows Wallet Balance */}
-        {wallet && <WalletLimitsDisplay wallet={{
-          balance: wallet.balance,
-          dailyLimit: wallet.dailyLimit,
-          dailyCollected: wallet.dailyCollected || '0',
-          dailyTransferred: wallet.dailyTransferred || '0',
-          isActive: wallet.isActive,
-          todayCompleted: wallet.todayCompleted,
-          todayTotal: wallet.todayTotal
-        }} userRole="merchant" />}
+        {walletLoading ? (
+          <WalletBalanceSkeleton />
+        ) : wallet ? (
+          <WalletLimitsDisplay wallet={{
+            balance: wallet.balance,
+            dailyLimit: wallet.dailyLimit,
+            dailyCollected: wallet.dailyCollected || '0',
+            dailyTransferred: wallet.dailyTransferred || '0',
+            isActive: wallet.isActive,
+            todayCompleted: wallet.todayCompleted,
+            todayTotal: wallet.todayTotal
+          }} userRole="merchant" />
+        ) : null}
 
         {/* Payment Request Form */}
         <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
@@ -395,23 +400,7 @@ export default function MerchantDashboard() {
             </div>
             
             {transactionsLoading ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg animate-pulse">
-                    <div className="flex items-center">
-                      <div className="w-10 h-10 bg-gray-300 dark:bg-gray-700 rounded-lg mr-3"></div>
-                      <div>
-                        <div className="w-24 h-4 bg-gray-300 dark:bg-gray-700 rounded mb-1"></div>
-                        <div className="w-16 h-3 bg-gray-300 dark:bg-gray-700 rounded"></div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="w-20 h-4 bg-gray-300 dark:bg-gray-700 rounded mb-1"></div>
-                      <div className="w-16 h-3 bg-gray-300 dark:bg-gray-700 rounded"></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <TransactionListSkeleton count={3} />
             ) : !Array.isArray(transactions) || transactions.length === 0 ? (
               <div className="text-center py-8">
                 <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
