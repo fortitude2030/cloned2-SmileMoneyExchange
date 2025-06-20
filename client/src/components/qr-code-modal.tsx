@@ -78,8 +78,8 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
         status: 'pending'
       };
 
-      // Get Firebase auth token
-      const token = await user?.getIdToken();
+      // Get fresh Firebase auth token
+      const token = await user?.getIdToken(true); // Force refresh token
       
       const transactionResponse = await fetch('/api/transactions', {
         method: 'POST',
