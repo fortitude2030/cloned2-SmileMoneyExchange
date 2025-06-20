@@ -332,7 +332,7 @@ export default function MerchantDashboard() {
             onClick={() => {
               if (!paymentAmount || !vmfNumber.trim()) {
                 toast({
-                  title: "Missing Information",
+                  title: "Missing Information", 
                   description: "Please enter both amount and VMF number before generating QR code",
                   variant: "destructive",
                 });
@@ -353,7 +353,7 @@ export default function MerchantDashboard() {
                 return;
               }
 
-              // Show QR modal directly with the entered data
+              // Follow 3-step flow like RTP: validate → show QR modal
               setShowQRModal(true);
             }}
             disabled={createPaymentRequest.isPending}

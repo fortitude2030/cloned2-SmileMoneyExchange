@@ -1419,7 +1419,11 @@ export default function CashierDashboard() {
           setShowQRScanner(false);
           setCurrentTransaction(null);
         }}
-        expectedAmount={currentTransaction?.amount}
+        transactionData={{
+          transactionId: currentTransaction?.transactionId || "",
+          amount: currentTransaction?.amount || "0",
+          vmfNumber: currentTransaction?.vmfNumber || ""
+        }}
       />
 
       <SimpleDocumentUpload
