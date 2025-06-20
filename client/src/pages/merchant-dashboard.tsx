@@ -67,7 +67,7 @@ export default function MerchantDashboard() {
     gcTime: 60000, // Keep in cache for 1 minute
   });
 
-  // Fetch transactions with smart caching
+  // Fetch transactions with optimized caching to prevent flashing
   const { data: transactions = [], isLoading: transactionsLoading, refetch } = useQuery<Array<{
     id: number;
     transactionId: string;
@@ -82,41 +82,40 @@ export default function MerchantDashboard() {
     queryKey: queryKeys.transactions.all(),
     retry: false,
     enabled: isAuthenticated,
-    refetchInterval: 15000, // Reduced from 2s to 15s - merchant transaction history doesn't need frequent updates
-    refetchOnWindowFocus: true,
-    refetchOnMount: true,
-    staleTime: 12000, // Data is fresh for 12 seconds
-    gcTime: 120000, // Keep in cache for 2 minutes
+    refetchInterval: 30000, // Increased to 30s to reduce flashing
+    refetchOnWindowFocus: false, // Disable to prevent flashing on focus changes
+    refetchOnMount: false, // Disable to prevent flashing on component remount
+    staleTime: 25000, // Increased stale time to 25 seconds
+    gcTime: 300000 // Keep in cache for 5 minutes
   });
 
-  // Monitor QR transactions for auto-closing modal
+  // Monitor QR transactions for auto-closing modal with stable reference
   useEffect(() => {
-    if (!showQRModal || !transactions) return;
+    if (!showQRModal || !Array.isArray(transactions) || !lastQrTransactionId) return;
 
-    // Find the most recent QR transaction for this user
-    const recentQrTransaction = transactions
-      .filter(t => t.type === "qr_code_payment")
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+    // Only check the specific transaction we're tracking
+    const targetTransaction = transactions.find((t: any) => 
+      t.transactionId === lastQrTransactionId && t.type === "qr_code_payment"
+    );
 
-    if (recentQrTransaction && (recentQrTransaction.status === "completed" || recentQrTransaction.status === "rejected")) {
-      // QR transaction completed or rejected - close modal immediately
+    if (targetTransaction && (targetTransaction.status === "completed" || targetTransaction.status === "rejected")) {
       setShowQRModal(false);
       setLastQrTransactionId(null);
       
-      if (recentQrTransaction.status === "completed") {
+      if (targetTransaction.status === "completed") {
         toast({
           title: "QR Payment Completed",
-          description: `Payment of ZMW ${Math.round(parseFloat(recentQrTransaction.amount)).toLocaleString()} has been processed successfully`,
+          description: `Payment of ZMW ${Math.round(parseFloat(targetTransaction.amount)).toLocaleString()} has been processed successfully`,
         });
-      } else if (recentQrTransaction.status === "rejected") {
+      } else if (targetTransaction.status === "rejected") {
         toast({
           title: "QR Payment Rejected",
-          description: recentQrTransaction.rejectionReason || "QR payment was rejected by the cashier",
+          description: targetTransaction.rejectionReason || "QR payment was rejected by the cashier",
           variant: "destructive",
         });
       }
     }
-  }, [transactions, showQRModal, toast]);
+  }, [transactions, showQRModal, lastQrTransactionId, toast]);
 
   // Create payment request mutation
   const createPaymentRequest = useMutation({
