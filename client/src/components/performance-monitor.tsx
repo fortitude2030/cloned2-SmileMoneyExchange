@@ -63,6 +63,17 @@ export default function PerformanceMonitor() {
     }
   }, [isVisible]);
 
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key === 'P') {
+        e.preventDefault();
+        setIsVisible(!isVisible);
+      }
+    };
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [isVisible]);
+
   const clearCache = () => {
     queryClient.clear();
     updateMetrics();
@@ -97,13 +108,13 @@ export default function PerformanceMonitor() {
 
   if (!isVisible) {
     return (
-      <div className="fixed bottom-4 right-4 z-50">
+      <div className="fixed bottom-4 right-4 z-[9999]">
         <Button
           onClick={() => setIsVisible(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3"
+          className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-4 shadow-lg border-2 border-white"
           title="Performance Monitor"
         >
-          <i className="fas fa-chart-line"></i>
+          <i className="fas fa-chart-line text-lg"></i>
         </Button>
       </div>
     );
