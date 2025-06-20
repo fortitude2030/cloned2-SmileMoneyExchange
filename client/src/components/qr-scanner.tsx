@@ -51,7 +51,7 @@ export default function QRScannerComponent({ isOpen, onClose, onScanSuccess, tra
               console.log("QR Code detected:", result.data);
               
               // Verify QR code with secure server-side validation
-              const response = await fetch('/api/qr-codes/verify', {
+              const response = await fetch('/api/qr/verify', {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
@@ -154,7 +154,7 @@ export default function QRScannerComponent({ isOpen, onClose, onScanSuccess, tra
         }
       }
     };
-  }, [isOpen, expectedAmount, retryCount]);
+  }, [isOpen, transactionData, retryCount]);
 
   const handleClose = () => {
     if (scanner) {
@@ -232,7 +232,17 @@ export default function QRScannerComponent({ isOpen, onClose, onScanSuccess, tra
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="w-full max-w-md mx-4">
         <DialogHeader>
-          <DialogTitle className="text-center">Scan QR Code</DialogTitle>
+          <DialogTitle className="text-center">
+            QR Pay - Approve {transactionData.transactionId}
+          </DialogTitle>
+          <div className="text-center mt-2 space-y-1">
+            <p className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+              ZMW {Math.floor(parseFloat(transactionData.amount)).toLocaleString()}
+            </p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              VMF: {transactionData.vmfNumber}
+            </p>
+          </div>
         </DialogHeader>
         
         <div className="space-y-4">
