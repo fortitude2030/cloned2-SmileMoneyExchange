@@ -300,7 +300,7 @@ export default function AdminDashboard() {
         {activeTab === 'overview' && (
           <>
             {/* System Overview */}
-            {settlementRequestsLoading || transactionsLoading ? (
+            {settlementsLoading || transactionsLoading ? (
               <div className="mb-6">
                 <DashboardStatsSkeleton />
               </div>
@@ -450,18 +450,7 @@ export default function AdminDashboard() {
                 </div>
                 
                 {transactionsLoading ? (
-                  <div className="space-y-3">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 animate-pulse">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="w-32 h-4 bg-gray-300 dark:bg-gray-700 rounded"></div>
-                          <div className="w-20 h-4 bg-gray-300 dark:bg-gray-700 rounded"></div>
-                        </div>
-                        <div className="w-48 h-3 bg-gray-300 dark:bg-gray-700 rounded mb-1"></div>
-                        <div className="w-24 h-3 bg-gray-300 dark:bg-gray-700 rounded"></div>
-                      </div>
-                    ))}
-                  </div>
+                  <TransactionListSkeleton count={3} />
                 ) : transactions && Array.isArray(transactions) && transactions.length > 0 ? (
                   <div className="space-y-3 max-h-96 overflow-y-auto">
                     {(transactions as any[])
