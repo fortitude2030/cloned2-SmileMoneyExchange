@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Building, Plus, MapPin, FileText, Users, Calendar, CheckCircle, XCircle, Clock, AlertCircle } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest } from "@/lib/apiClient";
 
 interface Organization {
   id: number;
@@ -53,7 +53,11 @@ export default function AdminOrganizationManagement() {
   // Create organization mutation
   const createOrgMutation = useMutation({
     mutationFn: async (orgData: typeof newOrg) => {
-      return apiRequest('/api/admin/organizations', 'POST', orgData);
+      const response = await apiRequest('/api/admin/organizations', {
+        method: 'POST',
+        body: JSON.stringify(orgData),
+      });
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/organizations'] });
@@ -83,7 +87,11 @@ export default function AdminOrganizationManagement() {
   // Status update mutations
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: number; status: string }) => {
-      return apiRequest(`/api/admin/organizations/${id}/status`, 'PUT', { status });
+      const response = await apiRequest(`/api/admin/organizations/${id}/status`, {
+        method: 'PUT',
+        body: JSON.stringify({ status }),
+      });
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/organizations'] });
