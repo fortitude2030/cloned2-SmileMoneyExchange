@@ -32,12 +32,16 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
     }
   }, [isOpen, amount, vmfNumber]);
 
-  // Expire QR code immediately when timer expires (30s or 120s)
+  // Auto-regenerate QR code when timer expires instead of showing expired message
   useEffect(() => {
-    if (!isActive && timeLeft === 0) {
-      setIsQrExpired(true);
+    if (!isActive && timeLeft === 0 && isOpen) {
+      // Reset QR generation state and create a fresh QR code
+      setHasGeneratedQr(false);
+      setTransactionId("");
+      setError("");
+      handleGenerateQR();
     }
-  }, [isActive, timeLeft]);
+  }, [isActive, timeLeft, isOpen]);
 
   // Reset state when modal is closed
   useEffect(() => {

@@ -325,47 +325,48 @@ export default function MerchantDashboard() {
           </CardContent>
         </Card>
 
-        {/* Auto-generate QR Code when both fields are filled */}
-        {paymentAmount && vmfNumber.trim() && !showQRModal && (
-          <div className="mb-6">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 dark:bg-blue-900/20 dark:border-blue-700">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-medium text-blue-800 dark:text-blue-200">QR Code Ready</h3>
-                  <p className="text-sm text-blue-600 dark:text-blue-400">
-                    Amount: ZMW {Math.floor(parseFloat(paymentAmount)).toLocaleString()} • VMF: {vmfNumber}
-                  </p>
-                </div>
-                <Button
-                  onClick={() => {
-                    const amount = Math.floor(parseFloat(paymentAmount));
-                    const dailyCollected = Math.round(parseFloat(wallet?.dailyCollected || "0"));
-                    const dailyLimit = 1000000;
-                    const remainingLimit = dailyLimit - dailyCollected;
-
-                    if (amount > remainingLimit) {
-                      toast({
-                        title: "Daily Limit Exceeded",
-                        description: `Amount (ZMW ${amount.toLocaleString()}) exceeds available daily limit. Available: ZMW ${remainingLimit.toLocaleString()}`,
-                        variant: "destructive",
-                      });
-                      return;
-                    }
-
-                    setShowQRModal(true);
-                  }}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  <i className="fas fa-qrcode mr-2"></i>
-                  Show QR Code
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 gap-4 mb-6 mt-6">
+        <div className="grid grid-cols-2 gap-4 mb-6 mt-6">
+          <Button
+            onClick={() => {
+              if (!paymentAmount || !vmfNumber.trim()) {
+                toast({
+                  title: "Missing Information", 
+                  description: "Please enter both amount and VMF number before generating QR code",
+                  variant: "destructive",
+                });
+                return;
+              }
+              
+              const amount = Math.floor(parseFloat(paymentAmount));
+              const dailyCollected = Math.round(parseFloat(wallet?.dailyCollected || "0"));
+              const dailyLimit = 1000000;
+              const remainingLimit = dailyLimit - dailyCollected;
+
+              if (amount > remainingLimit) {
+                toast({
+                  title: "Daily Limit Exceeded",
+                  description: `Amount (ZMW ${amount.toLocaleString()}) exceeds available daily limit. Available: ZMW ${remainingLimit.toLocaleString()}`,
+                  variant: "destructive",
+                });
+                return;
+              }
+
+              // Follow 3-step flow like RTP: validate → show QR modal
+              setShowQRModal(true);
+            }}
+            disabled={createPaymentRequest.isPending}
+            className="bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow h-auto"
+            variant="ghost"
+          >
+            <div className="text-center">
+              <div className="w-12 h-12 bg-primary bg-opacity-10 rounded-xl flex items-center justify-center mx-auto mb-2">
+                <i className="fas fa-qrcode text-primary text-xl"></i>
+              </div>
+              <h3 className="font-semibold text-sm">Generate QR</h3>
+              <p className="text-gray-600 dark:text-gray-400 text-xs">Payment Request</p>
+            </div>
+          </Button>
           
           <Button
             onClick={handleRequestPayment}
