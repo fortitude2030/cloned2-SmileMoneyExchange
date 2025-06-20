@@ -134,7 +134,7 @@ export default function CashierDashboard() {
     }
   }, [isAuthenticated, isLoading, toast]);
 
-  // Fetch pending transactions (only RTP) - high frequency polling for immediate updates
+  // Fetch pending transactions (only RTP) - optimized polling for cashier operations
   const { data: pendingTransactions = [], isLoading: transactionsLoading } = useQuery<Array<{
     id: number;
     transactionId: string;
@@ -148,12 +148,12 @@ export default function CashierDashboard() {
     queryKey: ["/api/transactions/pending"],
     retry: false,
     enabled: isAuthenticated,
-    refetchInterval: 2000, // Poll every 2 seconds for immediate new requests
+    refetchInterval: 5000, // Reduced from 2s to 5s - still responsive for cashier needs
     refetchOnWindowFocus: true,
     refetchOnMount: true,
   });
 
-  // Fetch QR transactions separately for direct processing - high frequency polling
+  // Fetch QR transactions separately for direct processing - optimized polling
   const { data: qrTransactions = [], isLoading: qrTransactionsLoading } = useQuery<Array<{
     id: number;
     transactionId: string;
@@ -167,12 +167,12 @@ export default function CashierDashboard() {
     queryKey: ["/api/transactions/qr-verification"],
     retry: false,
     enabled: isAuthenticated,
-    refetchInterval: 2000, // Poll every 2 seconds for immediate QR updates
+    refetchInterval: 5000, // Reduced from 2s to 5s - still responsive for QR processing
     refetchOnWindowFocus: true,
     refetchOnMount: true,
   });
 
-  // Fetch all transactions for Recent Transactions section - faster polling for real-time updates
+  // Fetch all transactions for Recent Transactions section - optimized polling
   const { data: transactions = [], isLoading: allTransactionsLoading } = useQuery<Array<{
     id: number;
     transactionId: string;
@@ -186,7 +186,7 @@ export default function CashierDashboard() {
     queryKey: ["/api/transactions"],
     retry: false,
     enabled: isAuthenticated,
-    refetchInterval: 3000, // Poll every 3 seconds for faster updates
+    refetchInterval: 15000, // Reduced from 3s to 15s - recent transactions don't need constant updates
     refetchOnWindowFocus: true,
     refetchOnMount: true,
   });

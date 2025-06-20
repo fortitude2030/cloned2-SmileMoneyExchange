@@ -62,13 +62,13 @@ export default function AdminDashboard() {
   // Fetch settlement requests
   const { data: settlementRequests = [], isLoading: settlementsLoading } = useQuery({
     queryKey: ['/api/settlement-requests'],
-    refetchInterval: 3000,
+    refetchInterval: 30000, // 30 seconds instead of 3 seconds
   });
 
   // Fetch transaction log
   const { data: transactions = [], isLoading: transactionsLoading } = useQuery({
     queryKey: ['/api/admin/transactions'],
-    refetchInterval: 3000,
+    refetchInterval: 60000, // 60 seconds instead of 3 seconds
   });
 
   // Filter pending requests (include both pending and hold status as "pending approval")
