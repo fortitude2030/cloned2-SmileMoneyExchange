@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CalendarIcon, TrendingUp, DollarSign, FileText, BarChart3, Download, Share2, Settings } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/apiClient";
 
 interface FinancialStatement {
   assets: { [key: string]: { name: string; balance: number } };
@@ -109,12 +110,7 @@ export default function AccountingDashboard() {
       const params = new URLSearchParams();
       if (dateRange.from) params.set('startDate', dateRange.from.toISOString());
       if (dateRange.to) params.set('endDate', dateRange.to.toISOString());
-      const response = await fetch(`/api/accounting/financial-statements?${params}`, {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      });
+      const response = await apiRequest(`/api/accounting/financial-statements?${params}`);
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`Failed to fetch financial statements: ${response.status} ${errorText}`);
@@ -131,10 +127,7 @@ export default function AccountingDashboard() {
       const params = new URLSearchParams();
       if (dateRange.from) params.set('startDate', dateRange.from.toISOString());
       if (dateRange.to) params.set('endDate', dateRange.to.toISOString());
-      const response = await fetch(`/api/accounting/revenue-report?${params}`, {
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' }
-      });
+      const response = await apiRequest(`/api/accounting/revenue-report?${params}`);
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`Failed to fetch revenue report: ${response.status} ${errorText}`);
@@ -148,10 +141,7 @@ export default function AccountingDashboard() {
   const { data: journalEntries, isLoading: isLoadingJournal } = useQuery<JournalEntry[]>({
     queryKey: ['/api/accounting/journal-entries'],
     queryFn: async () => {
-      const response = await fetch('/api/accounting/journal-entries?limit=20', {
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' }
-      });
+      const response = await apiRequest('/api/accounting/journal-entries?limit=20');
       if (!response.ok) throw new Error('Failed to fetch journal entries');
       return response.json();
     },
@@ -162,10 +152,7 @@ export default function AccountingDashboard() {
   const { data: chartOfAccounts, isLoading: isLoadingChart } = useQuery<ChartOfAccounts[]>({
     queryKey: ['/api/accounting/chart-of-accounts'],
     queryFn: async () => {
-      const response = await fetch('/api/accounting/chart-of-accounts', {
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' }
-      });
+      const response = await apiRequest('/api/accounting/chart-of-accounts');
       if (!response.ok) throw new Error('Failed to fetch chart of accounts');
       return response.json();
     },

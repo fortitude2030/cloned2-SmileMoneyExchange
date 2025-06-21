@@ -100,7 +100,14 @@ export class AccountingService {
     let monthlyServiceFee = 0;
 
     if (transactionType === 'settlement') {
-      settlementFee = 150; // ZMW 150 per settlement
+      // Tiered settlement fees
+      if (amount < 500000) {
+        // Tier 1: 0.99% + K50 for settlements < 500,000
+        settlementFee = (amount * 0.0099) + 50;
+      } else {
+        // Tier 2: 1% flat for settlements >= 500,000
+        settlementFee = amount * 0.01;
+      }
     }
 
     // Monthly service fees are calculated separately in billing cycle
