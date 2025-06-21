@@ -21,6 +21,7 @@ import {
   chartOfAccounts,
   journalEntries,
   journalEntryLines,
+  emailSettings,
 } from "@shared/schema";
 import crypto from "crypto";
 import { accountingService } from "./accountingService";
