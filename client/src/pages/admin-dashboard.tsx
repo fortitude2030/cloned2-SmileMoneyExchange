@@ -277,7 +277,7 @@ export default function AdminDashboard() {
             { id: 'operations', label: 'Operations', icon: 'fas fa-cogs', hasSubMenu: true },
             { id: 'aml', label: 'AML', icon: 'fas fa-shield-alt', hasSubMenu: true },
             { id: 'compliance', label: 'Compliance', icon: 'fas fa-file-alt' },
-            { id: 'accounting', label: 'Accounting', icon: 'fas fa-chart-line' }
+            { id: 'accounting', label: 'Accounting', icon: 'fas fa-chart-line', hasSubMenu: true }
           ].map((tab) => (
             <button
               key={tab.id}
@@ -288,6 +288,7 @@ export default function AdminDashboard() {
                   if (tab.id === 'customers') setActiveSubTab('users');
                   else if (tab.id === 'operations') setActiveSubTab('transactions');
                   else if (tab.id === 'aml') setActiveSubTab('aml-config');
+                  else if (tab.id === 'accounting') setActiveSubTab('overview');
                 } else {
                   setActiveSubTab('');
                 }
@@ -348,6 +349,27 @@ export default function AdminDashboard() {
               {activeTab === 'aml' && [
                 { id: 'aml-config', label: 'AML Config', icon: 'fas fa-cog' },
                 { id: 'aml-alerts', label: 'AML Alerts', icon: 'fas fa-exclamation-triangle' }
+              ].map((subTab) => (
+                <button
+                  key={subTab.id}
+                  onClick={() => setActiveSubTab(subTab.id)}
+                  className={`flex items-center px-3 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+                    activeSubTab === subTab.id
+                      ? 'border-red-400 text-red-600 dark:text-red-400 bg-white dark:bg-gray-600'
+                      : 'border-transparent text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100'
+                  }`}
+                >
+                  <i className={`${subTab.icon} mr-2 text-xs`}></i>
+                  {subTab.label}
+                </button>
+              ))}
+              
+              {activeTab === 'accounting' && [
+                { id: 'overview', label: 'Overview', icon: 'fas fa-tachometer-alt' },
+                { id: 'revenue', label: 'Revenue', icon: 'fas fa-dollar-sign' },
+                { id: 'statements', label: 'Statements', icon: 'fas fa-file-invoice' },
+                { id: 'journal', label: 'Journal & Ledger', icon: 'fas fa-book' },
+                { id: 'reports', label: 'Reports', icon: 'fas fa-chart-bar' }
               ].map((subTab) => (
                 <button
                   key={subTab.id}
@@ -1260,9 +1282,160 @@ export default function AdminDashboard() {
           <AmlAlertManagement />
         )}
 
-        {/* Financials Tab */}
-        {activeTab === 'accounting' && (
+        {/* Accounting - Overview Tab */}
+        {activeTab === 'accounting' && activeSubTab === 'overview' && (
+          <>
+            {/* Financial Overview Dashboard */}
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-2xl font-bold text-green-600">K12,450</p>
+                      <p className="text-gray-600 dark:text-gray-400 text-sm">Monthly Revenue</p>
+                    </div>
+                    <div className="w-10 h-10 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
+                      <i className="fas fa-chart-line text-green-600 dark:text-green-400"></i>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-2xl font-bold text-blue-600">K8,920</p>
+                      <p className="text-gray-600 dark:text-gray-400 text-sm">Transaction Fees</p>
+                    </div>
+                    <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+                      <i className="fas fa-coins text-blue-600 dark:text-blue-400"></i>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Quick Financial Summary */}
+            <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
+              <CardContent className="p-4">
+                <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
+                  <i className="fas fa-tachometer-alt text-blue-600 mr-2"></i>
+                  Financial Overview
+                </h3>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-lg font-bold text-gray-800 dark:text-gray-200">K45,280</p>
+                    <p className="text-gray-600 dark:text-gray-400 text-sm">Total Assets</p>
+                  </div>
+                  <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-lg font-bold text-gray-800 dark:text-gray-200">K32,150</p>
+                    <p className="text-gray-600 dark:text-gray-400 text-sm">Total Liabilities</p>
+                  </div>
+                  <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-lg font-bold text-primary">K13,130</p>
+                    <p className="text-gray-600 dark:text-gray-400 text-sm">Net Worth</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
+
+        {/* Accounting - Revenue Tab */}
+        {activeTab === 'accounting' && activeSubTab === 'revenue' && (
           <AccountingDashboard />
+        )}
+
+        {/* Accounting - Statements Tab */}
+        {activeTab === 'accounting' && activeSubTab === 'statements' && (
+          <>
+            {/* Financial Statements Content */}
+            <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
+              <CardContent className="p-4">
+                <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
+                  <i className="fas fa-file-invoice text-blue-600 mr-2"></i>
+                  Financial Statements
+                </h3>
+                <div className="space-y-4">
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Balance Sheet</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Assets, Liabilities & Equity overview</p>
+                  </div>
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Income Statement</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Revenue and expenses breakdown</p>
+                  </div>
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Chart of Accounts</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Account structure management</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
+
+        {/* Accounting - Journal Tab */}
+        {activeTab === 'accounting' && activeSubTab === 'journal' && (
+          <>
+            {/* Journal Entries Content */}
+            <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
+              <CardContent className="p-4">
+                <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
+                  <i className="fas fa-book text-blue-600 mr-2"></i>
+                  Journal Entries & Ledger
+                </h3>
+                <div className="space-y-3">
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="font-medium text-sm text-gray-800 dark:text-gray-200">JE-2024-001</p>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">Transaction Fee Revenue</p>
+                      </div>
+                      <p className="font-bold text-sm text-gray-800 dark:text-gray-200">K850.00</p>
+                    </div>
+                  </div>
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="font-medium text-sm text-gray-800 dark:text-gray-200">JE-2024-002</p>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">Settlement Processing</p>
+                      </div>
+                      <p className="font-bold text-sm text-gray-800 dark:text-gray-200">K1,250.00</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
+
+        {/* Accounting - Reports Tab */}
+        {activeTab === 'accounting' && activeSubTab === 'reports' && (
+          <>
+            {/* Reports Content */}
+            <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
+              <CardContent className="p-4">
+                <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
+                  <i className="fas fa-chart-bar text-blue-600 mr-2"></i>
+                  Financial Reports & Export
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Monthly Reports</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Generate monthly financial summaries</p>
+                    <Button className="mt-2 w-full text-xs">Generate PDF</Button>
+                  </div>
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Revenue Analysis</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Detailed revenue breakdown</p>
+                    <Button className="mt-2 w-full text-xs">Export Excel</Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </>
         )}
 
         {/* Compliance Tab */}
