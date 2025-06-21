@@ -77,12 +77,30 @@ export default function AccountingDashboard() {
   const [feeConfig, setFeeConfig] = useState({
     transactionFeeType: 'percentage',
     transactionFeeValue: '1.0',
-    settlementFeeType: 'fixed',
+    settlementFeeType: 'tiered',
     settlementFeeValue: '150',
     monthlyServiceFeeType: 'fixed',
     monthlyServiceFeeValue: '1500',
-    frequency: 'per_transaction'
+    frequency: 'per_transaction',
+    // Tiered charging configuration
+    tieredCharging: {
+      enabled: true,
+      tier1: {
+        threshold: 500000,
+        percentageFee: 0.99,
+        fixedFee: 50,
+        description: 'Settlements < K500,000: 0.99% + K50'
+      },
+      tier2: {
+        threshold: 500000,
+        percentageFee: 1.0,
+        fixedFee: 0,
+        description: 'Settlements ≥ K500,000: 1.0% flat'
+      }
+    }
   });
+
+  const [calculatorAmount, setCalculatorAmount] = useState('');
 
   // Financial Statements Query
   const { data: financialStatements, isLoading: isLoadingStatements } = useQuery<FinancialStatement>({
@@ -628,7 +646,7 @@ export default function AccountingDashboard() {
 
                 {/* Settlement Fee */}
                 <div className="space-y-3">
-                  <Label className="text-sm font-medium">Settlement Fee</Label>
+                  <Label className="text-sm font-medium">Settlement Fee Structure</Label>
                   <div className="grid grid-cols-2 gap-3">
                     <Select value={feeConfig.settlementFeeType} onValueChange={(value) => setFeeConfig(prev => ({ ...prev, settlementFeeType: value }))}>
                       <SelectTrigger>
@@ -637,19 +655,120 @@ export default function AccountingDashboard() {
                       <SelectContent>
                         <SelectItem value="fixed">Fixed Amount (ZMW)</SelectItem>
                         <SelectItem value="percentage">Percentage (%)</SelectItem>
+                        <SelectItem value="tiered">Tiered Charging</SelectItem>
                       </SelectContent>
                     </Select>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={feeConfig.settlementFeeValue}
-                      onChange={(e) => setFeeConfig(prev => ({ ...prev, settlementFeeValue: e.target.value }))}
-                      placeholder={feeConfig.settlementFeeType === 'fixed' ? '150' : '2.0'}
-                    />
+                    {feeConfig.settlementFeeType !== 'tiered' && (
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={feeConfig.settlementFeeValue}
+                        onChange={(e) => setFeeConfig(prev => ({ ...prev, settlementFeeValue: e.target.value }))}
+                        placeholder={feeConfig.settlementFeeType === 'fixed' ? '150' : '2.0'}
+                      />
+                    )}
                   </div>
-                  <p className="text-xs text-gray-500">
-                    Current: {feeConfig.settlementFeeType === 'fixed' ? `ZMW ${feeConfig.settlementFeeValue}` : `${feeConfig.settlementFeeValue}%`} per settlement
-                  </p>
+                  
+                  {feeConfig.settlementFeeType === 'tiered' && (
+                    <div className="space-y-4 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                      <h4 className="font-medium text-blue-900 dark:text-blue-100">Tiered Charging Configuration</h4>
+                      
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-3 gap-2 text-xs font-medium">
+                          <span>Amount Range</span>
+                          <span>Percentage</span>
+                          <span>Fixed Fee</span>
+                        </div>
+                        
+                        {/* Tier 1 */}
+                        <div className="grid grid-cols-3 gap-2">
+                          <Input
+                            type="number"
+                            value={feeConfig.tieredCharging.tier1.threshold}
+                            onChange={(e) => setFeeConfig(prev => ({
+                              ...prev,
+                              tieredCharging: {
+                                ...prev.tieredCharging,
+                                tier1: { ...prev.tieredCharging.tier1, threshold: parseInt(e.target.value) }
+                              }
+                            }))}
+                            placeholder="500000"
+                            className="text-xs"
+                          />
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={feeConfig.tieredCharging.tier1.percentageFee}
+                            onChange={(e) => setFeeConfig(prev => ({
+                              ...prev,
+                              tieredCharging: {
+                                ...prev.tieredCharging,
+                                tier1: { ...prev.tieredCharging.tier1, percentageFee: parseFloat(e.target.value) }
+                              }
+                            }))}
+                            placeholder="0.99"
+                            className="text-xs"
+                          />
+                          <Input
+                            type="number"
+                            value={feeConfig.tieredCharging.tier1.fixedFee}
+                            onChange={(e) => setFeeConfig(prev => ({
+                              ...prev,
+                              tieredCharging: {
+                                ...prev.tieredCharging,
+                                tier1: { ...prev.tieredCharging.tier1, fixedFee: parseInt(e.target.value) }
+                              }
+                            }))}
+                            placeholder="50"
+                            className="text-xs"
+                          />
+                        </div>
+                        
+                        {/* Tier 2 */}
+                        <div className="grid grid-cols-3 gap-2">
+                          <span className="text-xs text-gray-600 dark:text-gray-400 flex items-center">≥ K{feeConfig.tieredCharging.tier1.threshold.toLocaleString()}</span>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={feeConfig.tieredCharging.tier2.percentageFee}
+                            onChange={(e) => setFeeConfig(prev => ({
+                              ...prev,
+                              tieredCharging: {
+                                ...prev.tieredCharging,
+                                tier2: { ...prev.tieredCharging.tier2, percentageFee: parseFloat(e.target.value) }
+                              }
+                            }))}
+                            placeholder="1.0"
+                            className="text-xs"
+                          />
+                          <Input
+                            type="number"
+                            value={feeConfig.tieredCharging.tier2.fixedFee}
+                            onChange={(e) => setFeeConfig(prev => ({
+                              ...prev,
+                              tieredCharging: {
+                                ...prev.tieredCharging,
+                                tier2: { ...prev.tieredCharging.tier2, fixedFee: parseInt(e.target.value) }
+                              }
+                            }))}
+                            placeholder="0"
+                            className="text-xs"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
+                        <div>• Tier 1: Less than K{feeConfig.tieredCharging.tier1.threshold.toLocaleString()} → {feeConfig.tieredCharging.tier1.percentageFee}% + K{feeConfig.tieredCharging.tier1.fixedFee}</div>
+                        <div>• Tier 2: K{feeConfig.tieredCharging.tier1.threshold.toLocaleString()} and above → {feeConfig.tieredCharging.tier2.percentageFee}% flat</div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {feeConfig.settlementFeeType !== 'tiered' && (
+                    <p className="text-xs text-gray-500">
+                      Current: {feeConfig.settlementFeeType === 'fixed' ? `ZMW ${feeConfig.settlementFeeValue}` : `${feeConfig.settlementFeeValue}%`} per settlement
+                    </p>
+                  )}
                 </div>
 
                 {/* Monthly Service Fee */}
@@ -693,42 +812,94 @@ export default function AccountingDashboard() {
             {/* Fee Calculator */}
             <Card>
               <CardHeader>
-                <CardTitle>Fee Calculator</CardTitle>
+                <CardTitle>Fee Calculator with Tiered Charging</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-3">
-                  <Label htmlFor="amount">Transaction Amount (ZMW)</Label>
+                  <Label htmlFor="amount">Settlement Amount (ZMW)</Label>
                   <Input
                     id="amount"
                     type="number"
-                    placeholder="1000"
+                    placeholder="1000000"
                     step="0.01"
+                    value={calculatorAmount}
+                    onChange={(e) => setCalculatorAmount(e.target.value)}
                   />
                 </div>
                 
-                <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Transaction Fee:</span>
-                    <span>ZMW 10.00</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Settlement Fee:</span>
-                    <span>ZMW 150.00</span>
-                  </div>
-                  <div className="flex justify-between text-sm border-t pt-2 font-medium">
-                    <span>Total Fees:</span>
-                    <span>ZMW 160.00</span>
-                  </div>
-                </div>
+                {calculatorAmount && (() => {
+                  const amount = parseFloat(calculatorAmount);
+                  let transactionFee = 0;
+                  let settlementFee = 0;
+                  
+                  // Calculate transaction fee
+                  if (feeConfig.transactionFeeType === 'percentage') {
+                    transactionFee = amount * (parseFloat(feeConfig.transactionFeeValue) / 100);
+                  } else {
+                    transactionFee = parseFloat(feeConfig.transactionFeeValue);
+                  }
+                  
+                  // Calculate settlement fee based on type
+                  if (feeConfig.settlementFeeType === 'tiered') {
+                    if (amount < feeConfig.tieredCharging.tier1.threshold) {
+                      // Tier 1: Percentage + Fixed
+                      settlementFee = (amount * feeConfig.tieredCharging.tier1.percentageFee / 100) + feeConfig.tieredCharging.tier1.fixedFee;
+                    } else {
+                      // Tier 2: Percentage only
+                      settlementFee = amount * feeConfig.tieredCharging.tier2.percentageFee / 100;
+                    }
+                  } else if (feeConfig.settlementFeeType === 'percentage') {
+                    settlementFee = amount * (parseFloat(feeConfig.settlementFeeValue) / 100);
+                  } else {
+                    settlementFee = parseFloat(feeConfig.settlementFeeValue);
+                  }
+                  
+                  const totalFees = transactionFee + settlementFee;
+                  const tier = amount < feeConfig.tieredCharging.tier1.threshold ? 1 : 2;
+                  
+                  return (
+                    <>
+                      <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span>Transaction Fee:</span>
+                          <span>ZMW {transactionFee.toLocaleString('en-ZM', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span>Settlement Fee:</span>
+                          <span>ZMW {settlementFee.toLocaleString('en-ZM', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between text-sm border-t pt-2 font-medium">
+                          <span>Total Fees:</span>
+                          <span>ZMW {totalFees.toLocaleString('en-ZM', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                      </div>
 
-                <div className="space-y-2">
-                  <h4 className="font-medium text-sm">Fee Impact Analysis</h4>
-                  <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
-                    <div>• Monthly revenue from 100 transactions: ZMW 1,600</div>
-                    <div>• Annual revenue projection: ZMW 19,200</div>
-                    <div>• Competitive analysis: 15% below market average</div>
-                  </div>
-                </div>
+                      {feeConfig.settlementFeeType === 'tiered' && (
+                        <div className={`p-3 rounded-lg ${tier === 1 ? 'bg-blue-50 dark:bg-blue-950' : 'bg-green-50 dark:bg-green-950'}`}>
+                          <h4 className={`font-medium text-sm ${tier === 1 ? 'text-blue-900 dark:text-blue-100' : 'text-green-900 dark:text-green-100'}`}>
+                            Tier {tier} Applied
+                          </h4>
+                          <p className={`text-xs ${tier === 1 ? 'text-blue-700 dark:text-blue-300' : 'text-green-700 dark:text-green-300'}`}>
+                            {tier === 1 
+                              ? `Amount < K${feeConfig.tieredCharging.tier1.threshold.toLocaleString()}: ${feeConfig.tieredCharging.tier1.percentageFee}% + K${feeConfig.tieredCharging.tier1.fixedFee}` 
+                              : `Amount ≥ K${feeConfig.tieredCharging.tier1.threshold.toLocaleString()}: ${feeConfig.tieredCharging.tier2.percentageFee}% flat`
+                            }
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="space-y-2">
+                        <h4 className="font-medium text-sm">Fee Impact Analysis</h4>
+                        <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                          <div>• Effective fee rate: {((totalFees / amount) * 100).toFixed(3)}%</div>
+                          <div>• Monthly revenue (100 similar transactions): ZMW {(totalFees * 100).toLocaleString('en-ZM', { minimumFractionDigits: 2 })}</div>
+                          <div>• Annual revenue projection: ZMW {(totalFees * 1200).toLocaleString('en-ZM', { minimumFractionDigits: 2 })}</div>
+                          <div>• Net amount to merchant: ZMW {(amount - totalFees).toLocaleString('en-ZM', { minimumFractionDigits: 2 })}</div>
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
               </CardContent>
             </Card>
           </div>
