@@ -7,7 +7,7 @@ import fs from "fs";
 import { storage } from "./storage";
 import { setupFirebaseAuth, isFirebaseAuthenticated } from "./firebaseAuth";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import {
   insertOrganizationSchema,
   insertBranchSchema,
@@ -18,6 +18,9 @@ import {
   insertKycDocumentSchema,
   users,
   wallets,
+  chartOfAccounts,
+  journalEntries,
+  journalEntryLines,
 } from "@shared/schema";
 import crypto from "crypto";
 import { accountingService } from "./accountingService";

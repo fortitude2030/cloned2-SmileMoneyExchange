@@ -41,6 +41,7 @@ import {
 import { db } from "./db";
 import { eq, desc, and, gte, lt, lte, sql, or, isNull, gt, not, inArray } from "drizzle-orm";
 import { generateTransactionId } from "./utils";
+import { accountingService } from "./accountingService";
 
 export interface IStorage {
   // User operations (mandatory for Replit Auth)
@@ -652,6 +653,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateTransactionStatus(id: number, status: string, rejectionReason?: string): Promise<void> {
+    // Get transaction details before updating for accounting
+    const [transaction] = await db
+      .select()
+      .from(transactions)
+      .where(eq(transactions.id, id));
+
+    if (!transaction) {
+      throw new Error("Transaction not found");
+    }
+
     const updateData: any = { 
       status, 
       updatedAt: new Date() 
@@ -661,10 +672,51 @@ export class DatabaseStorage implements IStorage {
       updateData.rejectionReason = rejectionReason;
     }
     
+    // Update transaction status
     await db
       .update(transactions)
       .set(updateData)
       .where(eq(transactions.id, id));
+
+    // Process accounting entries when transaction is completed
+    if (status === 'completed' && transaction.status !== 'completed') {
+      try {
+        // Get user organization for accounting
+        const user = await this.getUser(transaction.fromUserId);
+        const organizationId = user?.organizationId || 1; // Default to organization 1
+
+        // Determine transaction type for accounting
+        let transactionType: 'cash_in' | 'cash_out' | 'p2p_transfer' | 'settlement' = 'cash_in';
+        
+        if (transaction.type === 'qr_code_payment') {
+          transactionType = 'cash_in'; // QR payments are cash digitization
+        } else if (transaction.type === 'settlement') {
+          transactionType = 'settlement'; // Settlement requests
+        } else if (transaction.type === 'transfer') {
+          transactionType = 'p2p_transfer'; // P2P transfers
+        } else {
+          transactionType = 'cash_in'; // Default case
+        }
+
+        // Create accounting transaction
+        const accountingTransaction = {
+          transactionId: transaction.transactionId,
+          amount: parseFloat(transaction.amount),
+          organizationId,
+          description: `${transaction.type || 'Transaction'} - ${transaction.transactionId}`,
+          createdBy: transaction.processedBy || 'system',
+          transactionType
+        };
+
+        // Process the accounting entries
+        await accountingService.processTransaction(accountingTransaction);
+        
+        console.log(`✓ Accounting entries created for transaction ${transaction.transactionId}`);
+      } catch (accountingError) {
+        console.error(`Failed to create accounting entries for transaction ${transaction.transactionId}:`, accountingError);
+        // Don't fail the transaction update if accounting fails
+      }
+    }
   }
 
   async updateTransactionProcessor(id: number, processorId: string): Promise<void> {
