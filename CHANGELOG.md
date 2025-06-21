@@ -6,16 +6,43 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Planned
+- Security Cashier Float Management System
+- Enhanced Double-Spending Prevention
+- Disaster Recovery Implementation
+- Advanced Analytics Dashboard
+
+## [2.6.0] - 2025-06-21
+
 ### Added
-- Comprehensive technical documentation system
-- CHANGELOG file for tracking all system modifications
+- **Float Reconciliation System**: Complete balance verification between user wallets and system float
+- **System Float Configuration**: Management interface for Cash Reserves account (1100)
+- **Daily Reconciliation Reports**: Automated variance detection with ZMW 1000 threshold
+- **Locked Accounts Tracking**: Monitoring for negative balance accounts
+- **Future Features Roadmap**: Comprehensive business and technical documentation with priority matrix
+- **Security Enhancement Analysis**: Double-spending prevention and disaster recovery planning
+
+### Enhanced
+- **Admin Dashboard**: Accounting tab with Float Reconciliation interface
+- **Real-time Balance Monitoring**: Live updates for reconciliation status
+- **Audit Trail Improvements**: Enhanced journal entry tracking for float adjustments
+- **Error Handling**: Better authentication and API error management
 
 ### Fixed
+- **Float Reconciliation Loading**: Resolved authentication issues with reconciliation endpoints
+- **Balance Display**: Proper formatting and real-time updates for financial data
+- **State Management**: Improved reconciliation result handling and storage
 - Organizations table missing address column causing admin portal errors
 - Firebase authentication token expiration in QR code generation
 - QR scanner authentication using proper Firebase token refresh
 - Recent Transactions card flickering by disabling auto-refresh intervals
 - Added manual refresh button to Recent Transactions for user-controlled updates
+
+### Technical
+- **Database Optimization**: Enhanced journal entry queries for reconciliation
+- **API Endpoints**: New reconciliation endpoints with proper authentication
+- **Frontend Integration**: React state management for reconciliation data
+- **Documentation**: Updated technical documentation with implementation details
 
 ## [2.5.0] - 2025-06-20
 
