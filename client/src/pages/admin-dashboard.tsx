@@ -2,11 +2,13 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import MobileHeader from "@/components/mobile-header";
@@ -1331,23 +1333,72 @@ export default function AdminDashboard() {
                   <i className="fas fa-book text-blue-600 mr-2"></i>
                   Journal Entries & Ledger
                 </h3>
-                <div className="space-y-3">
-                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                    <div className="flex justify-between items-center">
+                <div className="space-y-4">
+                  <div className="border rounded-lg p-4">
+                    <div className="flex justify-between items-start mb-3">
                       <div>
-                        <p className="font-medium text-sm text-gray-800 dark:text-gray-200">JE-2024-001</p>
-                        <p className="text-xs text-gray-600 dark:text-gray-400">Transaction Fee Revenue</p>
+                        <h4 className="font-medium">JE-2024-001</h4>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Transaction Fee Revenue</p>
+                        <p className="text-xs text-gray-500">Dec 21, 2025 • K850.00</p>
                       </div>
-                      <p className="font-bold text-sm text-gray-800 dark:text-gray-200">K850.00</p>
+                      <Badge variant="default">posted</Badge>
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <div className="grid grid-cols-3 gap-4 text-sm font-medium border-b pb-2">
+                        <span>Account</span>
+                        <span className="text-right">Debit</span>
+                        <span className="text-right">Credit</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4 text-sm">
+                        <span>1200 - Cash</span>
+                        <span className="text-right">K850.00</span>
+                        <span className="text-right">-</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4 text-sm">
+                        <span>4100 - Transaction Fee Revenue</span>
+                        <span className="text-right">-</span>
+                        <span className="text-right">K850.00</span>
+                      </div>
                     </div>
                   </div>
-                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                    <div className="flex justify-between items-center">
+
+                  <div className="border rounded-lg p-4">
+                    <div className="flex justify-between items-start mb-3">
                       <div>
-                        <p className="font-medium text-sm text-gray-800 dark:text-gray-200">JE-2024-002</p>
-                        <p className="text-xs text-gray-600 dark:text-gray-400">Settlement Processing</p>
+                        <h4 className="font-medium">JE-2024-002</h4>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Settlement Processing</p>
+                        <p className="text-xs text-gray-500">Dec 21, 2025 • K1,250.00</p>
                       </div>
-                      <p className="font-bold text-sm text-gray-800 dark:text-gray-200">K1,250.00</p>
+                      <Badge variant="default">posted</Badge>
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <div className="grid grid-cols-3 gap-4 text-sm font-medium border-b pb-2">
+                        <span>Account</span>
+                        <span className="text-right">Debit</span>
+                        <span className="text-right">Credit</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4 text-sm">
+                        <span>1200 - Cash</span>
+                        <span className="text-right">K150.00</span>
+                        <span className="text-right">-</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4 text-sm">
+                        <span>2100 - Settlement Liability</span>
+                        <span className="text-right">K1,100.00</span>
+                        <span className="text-right">-</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4 text-sm">
+                        <span>4200 - Settlement Fee Revenue</span>
+                        <span className="text-right">-</span>
+                        <span className="text-right">K150.00</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4 text-sm">
+                        <span>2200 - Customer Deposits</span>
+                        <span className="text-right">-</span>
+                        <span className="text-right">K1,100.00</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1546,6 +1597,106 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
 
+            {/* Reports & Export from AccountingDashboard */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <i className="fas fa-file-text"></i>
+                    Generate Reports
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button variant="outline" className="h-20 flex-col gap-2" onClick={() => {
+                      alert('Generating Financial Statements - PDF will be downloaded shortly');
+                    }}>
+                      <i className="fas fa-file-text text-lg"></i>
+                      <span className="text-xs">Financial Statements</span>
+                    </Button>
+                    
+                    <Button variant="outline" className="h-20 flex-col gap-2" onClick={() => {
+                      alert('Generating Revenue Report - Excel file will be downloaded shortly');
+                    }}>
+                      <i className="fas fa-chart-bar text-lg"></i>
+                      <span className="text-xs">Revenue Analysis</span>
+                    </Button>
+                    
+                    <Button variant="outline" className="h-20 flex-col gap-2" onClick={() => {
+                      alert('Generating Journal Entries - CSV file will be downloaded shortly');
+                    }}>
+                      <i className="fas fa-download text-lg"></i>
+                      <span className="text-xs">Journal Entries</span>
+                    </Button>
+                    
+                    <Button variant="outline" className="h-20 flex-col gap-2" onClick={() => {
+                      alert('Generating Audit Trail - Comprehensive audit report being prepared');
+                    }}>
+                      <i className="fas fa-file-text text-lg"></i>
+                      <span className="text-xs">Audit Trail</span>
+                    </Button>
+                  </div>
+
+                  <div className="space-y-3">
+                    <Label>Report Format</Label>
+                    <Select defaultValue="pdf">
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pdf">PDF Document</SelectItem>
+                        <SelectItem value="excel">Excel Spreadsheet</SelectItem>
+                        <SelectItem value="csv">CSV File</SelectItem>
+                        <SelectItem value="json">JSON Data</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <i className="fas fa-share-alt"></i>
+                    Sharing & Distribution
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-3">
+                    <Label>Email Recipients</Label>
+                    <Input placeholder="finance@smilemoney.co.zm, audit@smilemoney.co.zm" />
+                  </div>
+
+                  <div className="space-y-3">
+                    <Label>Schedule</Label>
+                    <Select defaultValue="manual">
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="manual">Manual Only</SelectItem>
+                        <SelectItem value="daily">Daily at 9:00 AM</SelectItem>
+                        <SelectItem value="weekly">Weekly on Monday</SelectItem>
+                        <SelectItem value="monthly">Monthly on 1st</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <Button className="w-full" onClick={() => {
+                    alert('Report Shared Successfully - Financial report sent to specified recipients');
+                  }}>
+                    <i className="fas fa-share-alt mr-2"></i>
+                    Share Report
+                  </Button>
+
+                  <div className="text-xs text-gray-500">
+                    <p>• Automatic reports sent monthly on 1st</p>
+                    <p>• Regulatory compliance reports quarterly</p>
+                    <p>• Custom reports available on request</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </>
         )}
 
