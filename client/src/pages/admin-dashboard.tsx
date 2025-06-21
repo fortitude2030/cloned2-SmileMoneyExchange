@@ -277,7 +277,7 @@ export default function AdminDashboard() {
             { id: 'operations', label: 'Operations', icon: 'fas fa-cogs', hasSubMenu: true },
             { id: 'aml', label: 'AML', icon: 'fas fa-shield-alt', hasSubMenu: true },
             { id: 'compliance', label: 'Compliance', icon: 'fas fa-file-alt' },
-            { id: 'accounting', label: 'Financials', icon: 'fas fa-chart-line' }
+            { id: 'accounting', label: 'Accounting', icon: 'fas fa-chart-line' }
           ].map((tab) => (
             <button
               key={tab.id}
