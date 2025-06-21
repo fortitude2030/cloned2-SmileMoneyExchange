@@ -253,6 +253,61 @@ export const complianceReports = pgTable("compliance_reports", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Chart of Accounts for Smile Money Platform
+export const chartOfAccounts = pgTable("chart_of_accounts", {
+  id: serial("id").primaryKey(),
+  accountCode: varchar("account_code", { length: 10 }).notNull().unique(),
+  accountName: varchar("account_name").notNull(),
+  accountType: varchar("account_type").notNull(), // asset, liability, equity, revenue, expense
+  parentAccountId: integer("parent_account_id"),
+  isActive: boolean("is_active").default(true),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Journal Entry System for Double-Entry Accounting
+export const journalEntries = pgTable("journal_entries", {
+  id: serial("id").primaryKey(),
+  entryNumber: varchar("entry_number").notNull().unique(), // JE-YYYYMMDD-XXXX
+  transactionId: varchar("transaction_id"), // Link to transaction if applicable
+  entryDate: timestamp("entry_date").notNull(),
+  description: text("description").notNull(),
+  totalAmount: decimal("total_amount", { precision: 15, scale: 2 }).notNull(),
+  status: varchar("status").default("posted"), // draft, posted, reversed
+  createdBy: varchar("created_by").notNull(),
+  approvedBy: varchar("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Journal Entry Lines for Each Debit/Credit
+export const journalEntryLines = pgTable("journal_entry_lines", {
+  id: serial("id").primaryKey(),
+  journalEntryId: integer("journal_entry_id").notNull(),
+  accountCode: varchar("account_code", { length: 10 }).notNull(),
+  accountName: varchar("account_name").notNull(),
+  debitAmount: decimal("debit_amount", { precision: 15, scale: 2 }).default("0.00"),
+  creditAmount: decimal("credit_amount", { precision: 15, scale: 2 }).default("0.00"),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Smile Money Revenue Tracking
+export const smileMoneyRevenue = pgTable("smile_money_revenue", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").notNull(), // Customer organization
+  transactionId: varchar("transaction_id"), // Source transaction
+  journalEntryId: integer("journal_entry_id"), // Link to accounting entry
+  revenueType: varchar("revenue_type").notNull(), // transaction_fee, settlement_fee, monthly_service
+  feeAmount: decimal("fee_amount", { precision: 12, scale: 2 }).notNull(),
+  feePercentage: decimal("fee_percentage", { precision: 5, scale: 2 }), // For percentage-based fees
+  billingPeriod: varchar("billing_period"), // YYYY-MM for monthly fees
+  collectedAt: timestamp("collected_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Relations
 export const userRelations = relations(users, ({ one, many }) => ({
   organization: one(organizations, {
@@ -357,6 +412,53 @@ export const kycDocumentRelations = relations(kycDocuments, ({ one }) => ({
   reviewer: one(users, {
     fields: [kycDocuments.reviewedBy], 
     references: [users.id],
+  }),
+}));
+
+export const chartOfAccountsRelations = relations(chartOfAccounts, ({ one, many }) => ({
+  parentAccount: one(chartOfAccounts, {
+    fields: [chartOfAccounts.parentAccountId],
+    references: [chartOfAccounts.id],
+    relationName: "subAccounts",
+  }),
+  subAccounts: many(chartOfAccounts, { relationName: "subAccounts" }),
+  journalEntryLines: many(journalEntryLines),
+}));
+
+export const journalEntryRelations = relations(journalEntries, ({ one, many }) => ({
+  creator: one(users, {
+    fields: [journalEntries.createdBy],
+    references: [users.id],
+    relationName: "createdEntries",
+  }),
+  approver: one(users, {
+    fields: [journalEntries.approvedBy],
+    references: [users.id],
+    relationName: "approvedEntries",
+  }),
+  journalEntryLines: many(journalEntryLines),
+  smileMoneyRevenue: many(smileMoneyRevenue),
+}));
+
+export const journalEntryLineRelations = relations(journalEntryLines, ({ one }) => ({
+  journalEntry: one(journalEntries, {
+    fields: [journalEntryLines.journalEntryId],
+    references: [journalEntries.id],
+  }),
+  account: one(chartOfAccounts, {
+    fields: [journalEntryLines.accountCode],
+    references: [chartOfAccounts.accountCode],
+  }),
+}));
+
+export const smileMoneyRevenueRelations = relations(smileMoneyRevenue, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [smileMoneyRevenue.organizationId],
+    references: [organizations.id],
+  }),
+  journalEntry: one(journalEntries, {
+    fields: [smileMoneyRevenue.journalEntryId],
+    references: [journalEntries.id],
   }),
 }));
 
