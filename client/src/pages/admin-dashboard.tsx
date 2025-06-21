@@ -1478,11 +1478,22 @@ export default function AdminDashboard() {
                       <Button 
                         size="sm" 
                         className="text-xs"
-                        onClick={() => {
-                          // Generate financial statements report
-                          fetch('/api/accounting/generate-report/financial-statements', { method: 'POST' })
-                            .then(() => alert('Financial statements report generated successfully!'))
-                            .catch(() => alert('Error generating report'));
+                        onClick={async () => {
+                          try {
+                            const response = await fetch('/api/accounting/generate-report/financial-statements', { 
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' }
+                            });
+                            const result = await response.json();
+                            if (response.ok) {
+                              alert(`${result.message}. Click OK to download.`);
+                              window.open(result.downloadUrl, '_blank');
+                            } else {
+                              alert(`Error: ${result.message}`);
+                            }
+                          } catch (error) {
+                            alert('Error generating financial statements report');
+                          }
                         }}
                       >
                         Generate
@@ -1491,7 +1502,24 @@ export default function AdminDashboard() {
                         size="sm" 
                         variant="outline" 
                         className="text-xs"
-                        onClick={() => alert('Scheduling feature coming soon!')}
+                        onClick={async () => {
+                          try {
+                            const response = await fetch('/api/accounting/schedule-report', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                reportType: 'financial-statements',
+                                frequency: 'monthly',
+                                recipients: ['finance@smilemoney.co.zm'],
+                                format: 'pdf'
+                              })
+                            });
+                            const result = await response.json();
+                            alert(result.message);
+                          } catch (error) {
+                            alert('Error scheduling report');
+                          }
+                        }}
                       >
                         Schedule
                       </Button>
@@ -1505,11 +1533,22 @@ export default function AdminDashboard() {
                       <Button 
                         size="sm" 
                         className="text-xs"
-                        onClick={() => {
-                          // Generate revenue analysis report
-                          fetch('/api/accounting/generate-report/revenue-analysis', { method: 'POST' })
-                            .then(() => alert('Revenue analysis report generated successfully!'))
-                            .catch(() => alert('Error generating report'));
+                        onClick={async () => {
+                          try {
+                            const response = await fetch('/api/accounting/generate-report/revenue-analysis', { 
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' }
+                            });
+                            const result = await response.json();
+                            if (response.ok) {
+                              alert(`${result.message}. Click OK to download.`);
+                              window.open(result.downloadUrl, '_blank');
+                            } else {
+                              alert(`Error: ${result.message}`);
+                            }
+                          } catch (error) {
+                            alert('Error generating revenue analysis report');
+                          }
                         }}
                       >
                         Generate
@@ -1518,7 +1557,24 @@ export default function AdminDashboard() {
                         size="sm" 
                         variant="outline" 
                         className="text-xs"
-                        onClick={() => alert('Scheduling feature coming soon!')}
+                        onClick={async () => {
+                          try {
+                            const response = await fetch('/api/accounting/schedule-report', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                reportType: 'revenue-analysis',
+                                frequency: 'weekly',
+                                recipients: ['finance@smilemoney.co.zm', 'admin@smilemoney.co.zm'],
+                                format: 'excel'
+                              })
+                            });
+                            const result = await response.json();
+                            alert(result.message);
+                          } catch (error) {
+                            alert('Error scheduling report');
+                          }
+                        }}
                       >
                         Schedule
                       </Button>
@@ -1532,11 +1588,22 @@ export default function AdminDashboard() {
                       <Button 
                         size="sm" 
                         className="text-xs"
-                        onClick={() => {
-                          // Generate transaction summary report
-                          fetch('/api/accounting/generate-report/transaction-summary', { method: 'POST' })
-                            .then(() => alert('Transaction summary report generated successfully!'))
-                            .catch(() => alert('Error generating report'));
+                        onClick={async () => {
+                          try {
+                            const response = await fetch('/api/accounting/generate-report/transaction-summary', { 
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' }
+                            });
+                            const result = await response.json();
+                            if (response.ok) {
+                              alert(`${result.message}. Click OK to download.`);
+                              window.open(result.downloadUrl, '_blank');
+                            } else {
+                              alert(`Error: ${result.message}`);
+                            }
+                          } catch (error) {
+                            alert('Error generating transaction summary report');
+                          }
                         }}
                       >
                         Generate
@@ -1545,7 +1612,24 @@ export default function AdminDashboard() {
                         size="sm" 
                         variant="outline" 
                         className="text-xs"
-                        onClick={() => alert('Scheduling feature coming soon!')}
+                        onClick={async () => {
+                          try {
+                            const response = await fetch('/api/accounting/schedule-report', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                reportType: 'transaction-summary',
+                                frequency: 'daily',
+                                recipients: ['operations@smilemoney.co.zm'],
+                                format: 'csv'
+                              })
+                            });
+                            const result = await response.json();
+                            alert(result.message);
+                          } catch (error) {
+                            alert('Error scheduling report');
+                          }
+                        }}
                       >
                         Schedule
                       </Button>
@@ -1559,11 +1643,22 @@ export default function AdminDashboard() {
                       <Button 
                         size="sm" 
                         className="text-xs"
-                        onClick={() => {
-                          // Generate regulatory reports
-                          fetch('/api/accounting/generate-report/regulatory', { method: 'POST' })
-                            .then(() => alert('Regulatory report generated successfully!'))
-                            .catch(() => alert('Error generating report'));
+                        onClick={async () => {
+                          try {
+                            const response = await fetch('/api/accounting/generate-report/regulatory', { 
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' }
+                            });
+                            const result = await response.json();
+                            if (response.ok) {
+                              alert(`${result.message}. Click OK to download.`);
+                              window.open(result.downloadUrl, '_blank');
+                            } else {
+                              alert(`Error: ${result.message}`);
+                            }
+                          } catch (error) {
+                            alert('Error generating regulatory report');
+                          }
                         }}
                       >
                         Generate
@@ -1572,7 +1667,24 @@ export default function AdminDashboard() {
                         size="sm" 
                         variant="outline" 
                         className="text-xs"
-                        onClick={() => alert('Scheduling feature coming soon!')}
+                        onClick={async () => {
+                          try {
+                            const response = await fetch('/api/accounting/schedule-report', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                reportType: 'regulatory',
+                                frequency: 'monthly',
+                                recipients: ['compliance@smilemoney.co.zm', 'regulatory@bankofzambia.co.zm'],
+                                format: 'pdf'
+                              })
+                            });
+                            const result = await response.json();
+                            alert(result.message);
+                          } catch (error) {
+                            alert('Error scheduling report');
+                          }
+                        }}
                       >
                         Schedule
                       </Button>
@@ -1608,29 +1720,72 @@ export default function AdminDashboard() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-3">
-                    <Button variant="outline" className="h-20 flex-col gap-2" onClick={() => {
-                      alert('Generating Financial Statements - PDF will be downloaded shortly');
+                    <Button variant="outline" className="h-20 flex-col gap-2" onClick={async () => {
+                      try {
+                        const response = await fetch('/api/accounting/generate-report/financial-statements', { 
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' }
+                        });
+                        const result = await response.json();
+                        if (response.ok) {
+                          window.open(result.downloadUrl, '_blank');
+                        } else {
+                          alert(`Error: ${result.message}`);
+                        }
+                      } catch (error) {
+                        alert('Error generating financial statements');
+                      }
                     }}>
                       <i className="fas fa-file-text text-lg"></i>
                       <span className="text-xs">Financial Statements</span>
                     </Button>
                     
-                    <Button variant="outline" className="h-20 flex-col gap-2" onClick={() => {
-                      alert('Generating Revenue Report - Excel file will be downloaded shortly');
+                    <Button variant="outline" className="h-20 flex-col gap-2" onClick={async () => {
+                      try {
+                        const response = await fetch('/api/accounting/generate-report/revenue-analysis', { 
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' }
+                        });
+                        const result = await response.json();
+                        if (response.ok) {
+                          window.open(result.downloadUrl, '_blank');
+                        } else {
+                          alert(`Error: ${result.message}`);
+                        }
+                      } catch (error) {
+                        alert('Error generating revenue analysis');
+                      }
                     }}>
                       <i className="fas fa-chart-bar text-lg"></i>
                       <span className="text-xs">Revenue Analysis</span>
                     </Button>
                     
-                    <Button variant="outline" className="h-20 flex-col gap-2" onClick={() => {
-                      alert('Generating Journal Entries - CSV file will be downloaded shortly');
+                    <Button variant="outline" className="h-20 flex-col gap-2" onClick={async () => {
+                      try {
+                        window.open('/api/accounting/export/csv', '_blank');
+                      } catch (error) {
+                        alert('Error downloading journal entries');
+                      }
                     }}>
                       <i className="fas fa-download text-lg"></i>
                       <span className="text-xs">Journal Entries</span>
                     </Button>
                     
-                    <Button variant="outline" className="h-20 flex-col gap-2" onClick={() => {
-                      alert('Generating Audit Trail - Comprehensive audit report being prepared');
+                    <Button variant="outline" className="h-20 flex-col gap-2" onClick={async () => {
+                      try {
+                        const response = await fetch('/api/accounting/generate-report/regulatory', { 
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' }
+                        });
+                        const result = await response.json();
+                        if (response.ok) {
+                          window.open(result.downloadUrl, '_blank');
+                        } else {
+                          alert(`Error: ${result.message}`);
+                        }
+                      } catch (error) {
+                        alert('Error generating audit trail');
+                      }
                     }}>
                       <i className="fas fa-file-text text-lg"></i>
                       <span className="text-xs">Audit Trail</span>

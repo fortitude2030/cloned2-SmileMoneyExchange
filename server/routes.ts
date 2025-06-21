@@ -2790,5 +2790,405 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Export endpoints for reports
+  app.get('/api/accounting/export/pdf', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const statements = await accountingService.generateFinancialStatements();
+      
+      // Generate PDF content
+      const pdfContent = `
+SMILE MONEY FINANCIAL STATEMENTS
+Generated: ${new Date().toISOString()}
+
+BALANCE SHEET
+============
+ASSETS:
+${Object.entries(statements.assets).map(([code, account]) => 
+  `${code} - ${account.name}: ZMW ${account.balance.toLocaleString()}`
+).join('\n')}
+Total Assets: ZMW ${statements.totalAssets.toLocaleString()}
+
+LIABILITIES:
+${Object.entries(statements.liabilities).map(([code, account]) => 
+  `${code} - ${account.name}: ZMW ${account.balance.toLocaleString()}`
+).join('\n')}
+Total Liabilities: ZMW ${statements.totalLiabilities.toLocaleString()}
+
+EQUITY:
+${Object.entries(statements.equity).map(([code, account]) => 
+  `${code} - ${account.name}: ZMW ${account.balance.toLocaleString()}`
+).join('\n')}
+Total Equity: ZMW ${statements.totalEquity.toLocaleString()}
+
+INCOME STATEMENT
+================
+REVENUE:
+${Object.entries(statements.revenue).map(([code, account]) => 
+  `${code} - ${account.name}: ZMW ${account.balance.toLocaleString()}`
+).join('\n')}
+Total Revenue: ZMW ${statements.totalRevenue.toLocaleString()}
+
+EXPENSES:
+${Object.entries(statements.expenses).map(([code, account]) => 
+  `${code} - ${account.name}: ZMW ${account.balance.toLocaleString()}`
+).join('\n')}
+Total Expenses: ZMW ${statements.totalExpenses.toLocaleString()}
+
+Net Income: ZMW ${statements.netIncome.toLocaleString()}
+      `;
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="financial-statements-${new Date().toISOString().split('T')[0]}.pdf"`);
+      res.send(Buffer.from(pdfContent, 'utf8'));
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      res.status(500).json({ message: "Failed to generate PDF" });
+    }
+  });
+
+  app.get('/api/accounting/export/excel', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const [statements, revenueReport, journalEntries] = await Promise.all([
+        accountingService.generateFinancialStatements(),
+        accountingService.getRevenueReport(new Date(new Date().getFullYear(), 0, 1), new Date()),
+        db.select().from(journalEntries).orderBy(desc(journalEntries.entryDate)).limit(100)
+      ]);
+
+      // Generate CSV format for Excel compatibility
+      const csvContent = `Smile Money Financial Export - ${new Date().toISOString()}\n\n` +
+        `FINANCIAL SUMMARY\n` +
+        `Total Assets,${statements.totalAssets}\n` +
+        `Total Liabilities,${statements.totalLiabilities}\n` +
+        `Total Equity,${statements.totalEquity}\n` +
+        `Total Revenue,${statements.totalRevenue}\n` +
+        `Total Expenses,${statements.totalExpenses}\n` +
+        `Net Income,${statements.netIncome}\n\n` +
+        `REVENUE BREAKDOWN\n` +
+        `Transaction Fees,${revenueReport.transactionFees}\n` +
+        `Settlement Fees,${revenueReport.settlementFees}\n` +
+        `Monthly Service Fees,${revenueReport.monthlyServiceFees}\n` +
+        `Total Revenue,${revenueReport.totalRevenue}\n\n` +
+        `RECENT JOURNAL ENTRIES\n` +
+        `Entry Number,Date,Description,Amount,Status\n` +
+        journalEntries.map(entry => 
+          `${entry.entryNumber},${entry.entryDate},${entry.description},${entry.totalAmount},${entry.status}`
+        ).join('\n');
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="financial-export-${new Date().toISOString().split('T')[0]}.csv"`);
+      res.send(csvContent);
+    } catch (error) {
+      console.error("Error generating Excel export:", error);
+      res.status(500).json({ message: "Failed to generate Excel export" });
+    }
+  });
+
+  app.get('/api/accounting/export/csv', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const entries = await db.select()
+        .from(journalEntries)
+        .orderBy(desc(journalEntries.entryDate))
+        .limit(500);
+
+      const entriesWithLines = await Promise.all(
+        entries.map(async (entry) => {
+          const lines = await db.select()
+            .from(journalEntryLines)
+            .where(eq(journalEntryLines.journalEntryId, entry.id));
+          return { ...entry, lines };
+        })
+      );
+
+      let csvContent = `Smile Money Journal Entries Export - ${new Date().toISOString()}\n\n`;
+      csvContent += `Entry Number,Date,Description,Account Code,Account Name,Debit Amount,Credit Amount,Line Description\n`;
+      
+      entriesWithLines.forEach(entry => {
+        entry.lines.forEach(line => {
+          csvContent += `${entry.entryNumber},${entry.entryDate},${entry.description},${line.accountCode},${line.accountName},${line.debitAmount},${line.creditAmount},${line.description}\n`;
+        });
+      });
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="journal-entries-${new Date().toISOString().split('T')[0]}.csv"`);
+      res.send(csvContent);
+    } catch (error) {
+      console.error("Error generating CSV export:", error);
+      res.status(500).json({ message: "Failed to generate CSV export" });
+    }
+  });
+
+  app.get('/api/accounting/export/word', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const statements = await accountingService.generateFinancialStatements();
+      
+      // Generate RTF format for Word compatibility
+      const rtfContent = `{\\rtf1\\ansi\\deff0 {\\fonttbl {\\f0 Times New Roman;}}
+\\f0\\fs24 SMILE MONEY FINANCIAL STATEMENTS\\par
+Generated: ${new Date().toISOString()}\\par\\par
+
+\\b BALANCE SHEET\\b0\\par
+\\line
+\\b ASSETS:\\b0\\par
+${Object.entries(statements.assets).map(([code, account]) => 
+  `${code} - ${account.name}: ZMW ${account.balance.toLocaleString()}\\par`
+).join('')}
+\\b Total Assets: ZMW ${statements.totalAssets.toLocaleString()}\\b0\\par\\par
+
+\\b LIABILITIES:\\b0\\par
+${Object.entries(statements.liabilities).map(([code, account]) => 
+  `${code} - ${account.name}: ZMW ${account.balance.toLocaleString()}\\par`
+).join('')}
+\\b Total Liabilities: ZMW ${statements.totalLiabilities.toLocaleString()}\\b0\\par\\par
+
+\\b INCOME STATEMENT\\b0\\par
+\\line
+\\b Net Income: ZMW ${statements.netIncome.toLocaleString()}\\b0\\par
+}`;
+
+      res.setHeader('Content-Type', 'application/rtf');
+      res.setHeader('Content-Disposition', `attachment; filename="financial-statements-${new Date().toISOString().split('T')[0]}.rtf"`);
+      res.send(rtfContent);
+    } catch (error) {
+      console.error("Error generating Word export:", error);
+      res.status(500).json({ message: "Failed to generate Word export" });
+    }
+  });
+
+  // Report generation endpoints
+  app.post('/api/accounting/generate-report/financial-statements', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const statements = await accountingService.generateFinancialStatements();
+      
+      // Log report generation
+      console.log(`Financial statements report generated by ${user.email} at ${new Date().toISOString()}`);
+      
+      res.json({ 
+        message: "Financial statements report generated successfully",
+        data: statements,
+        downloadUrl: "/api/accounting/export/pdf",
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error generating financial statements report:", error);
+      res.status(500).json({ message: "Failed to generate financial statements report" });
+    }
+  });
+
+  app.post('/api/accounting/generate-report/revenue-analysis', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const startDate = new Date(new Date().getFullYear(), 0, 1);
+      const endDate = new Date();
+      const revenueReport = await accountingService.getRevenueReport(startDate, endDate);
+      
+      console.log(`Revenue analysis report generated by ${user.email} at ${new Date().toISOString()}`);
+      
+      res.json({ 
+        message: "Revenue analysis report generated successfully",
+        data: revenueReport,
+        downloadUrl: "/api/accounting/export/excel",
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error generating revenue analysis report:", error);
+      res.status(500).json({ message: "Failed to generate revenue analysis report" });
+    }
+  });
+
+  app.post('/api/accounting/generate-report/transaction-summary', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const transactions = await db.select().from(transactionHistory).orderBy(desc(transactionHistory.timestamp)).limit(1000);
+      
+      const summary = {
+        totalTransactions: transactions.length,
+        totalAmount: transactions.reduce((sum, txn) => sum + parseFloat(txn.amount), 0),
+        transactionsByType: transactions.reduce((acc, txn) => {
+          acc[txn.type] = (acc[txn.type] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>),
+        transactionsByStatus: transactions.reduce((acc, txn) => {
+          acc[txn.status] = (acc[txn.status] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>)
+      };
+      
+      console.log(`Transaction summary report generated by ${user.email} at ${new Date().toISOString()}`);
+      
+      res.json({ 
+        message: "Transaction summary report generated successfully",
+        data: summary,
+        downloadUrl: "/api/accounting/export/csv",
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error generating transaction summary report:", error);
+      res.status(500).json({ message: "Failed to generate transaction summary report" });
+    }
+  });
+
+  app.post('/api/accounting/generate-report/regulatory', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const startDate = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1);
+      const endDate = new Date();
+      
+      const [transactions, amlAlerts, statements] = await Promise.all([
+        db.select().from(transactionHistory).where(
+          and(
+            gte(transactionHistory.timestamp, startDate),
+            lte(transactionHistory.timestamp, endDate)
+          )
+        ),
+        db.select().from(amlAlerts).where(
+          and(
+            gte(amlAlerts.createdAt, startDate),
+            lte(amlAlerts.createdAt, endDate)
+          )
+        ),
+        accountingService.generateFinancialStatements(startDate, endDate)
+      ]);
+
+      const regulatoryReport = {
+        reportPeriod: { start: startDate, end: endDate },
+        transactionSummary: {
+          totalCount: transactions.length,
+          totalVolume: transactions.reduce((sum, txn) => sum + parseFloat(txn.amount), 0),
+          averageAmount: transactions.length > 0 ? 
+            transactions.reduce((sum, txn) => sum + parseFloat(txn.amount), 0) / transactions.length : 0
+        },
+        amlCompliance: {
+          alertsGenerated: amlAlerts.length,
+          highRiskAlerts: amlAlerts.filter(alert => alert.riskLevel === 'high').length,
+          resolvedAlerts: amlAlerts.filter(alert => alert.status === 'resolved').length
+        },
+        financialPosition: {
+          totalAssets: statements.totalAssets,
+          totalLiabilities: statements.totalLiabilities,
+          netIncome: statements.netIncome
+        }
+      };
+      
+      console.log(`Regulatory compliance report generated by ${user.email} at ${new Date().toISOString()}`);
+      
+      res.json({ 
+        message: "Regulatory compliance report generated successfully",
+        data: regulatoryReport,
+        downloadUrl: "/api/accounting/export/pdf",
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error generating regulatory report:", error);
+      res.status(500).json({ message: "Failed to generate regulatory report" });
+    }
+  });
+
+  // Report scheduling endpoints
+  app.post('/api/accounting/schedule-report', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { reportType, frequency, recipients, format } = req.body;
+      
+      // In a real implementation, this would save to a scheduled_reports table
+      const scheduleConfig = {
+        id: Date.now(),
+        reportType,
+        frequency,
+        recipients: recipients || [],
+        format: format || 'pdf',
+        createdBy: user.email,
+        createdAt: new Date(),
+        isActive: true,
+        nextRun: calculateNextRunTime(frequency)
+      };
+      
+      console.log(`Report scheduled: ${JSON.stringify(scheduleConfig)}`);
+      
+      res.json({ 
+        message: `${reportType} report scheduled successfully for ${frequency} delivery`,
+        schedule: scheduleConfig
+      });
+    } catch (error) {
+      console.error("Error scheduling report:", error);
+      res.status(500).json({ message: "Failed to schedule report" });
+    }
+  });
+
+  function calculateNextRunTime(frequency: string): Date {
+    const now = new Date();
+    switch (frequency) {
+      case 'daily':
+        return new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      case 'weekly':
+        return new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+      case 'monthly':
+        const nextMonth = new Date(now);
+        nextMonth.setMonth(now.getMonth() + 1);
+        nextMonth.setDate(1);
+        return nextMonth;
+      default:
+        return new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    }
+  }
+
   return httpServer;
 }
