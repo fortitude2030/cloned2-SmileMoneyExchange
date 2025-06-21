@@ -205,7 +205,7 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(organizations)
       .where(eq(organizations.id, id));
-    return org;
+    return org || undefined;
   }
 
   async getOrganizationsByUserId(userId: string): Promise<Organization[]> {
@@ -1268,6 +1268,44 @@ export class DatabaseStorage implements IStorage {
       .set(updateData)
       .where(eq(organizations.id, organizationId));
   }
+
+  // Organization transaction volume tracking
+  async getOrganizationTransactionVolume(organizationId: number, startDate: Date, endDate: Date): Promise<number> {
+    try {
+      // Get all users from the organization
+      const orgUsers = await this.getUsersByOrganization(organizationId);
+      const userIds = orgUsers.map(user => user.id);
+
+      if (userIds.length === 0) {
+        return 0;
+      }
+
+      // Sum transactions from all organization users within date range
+      const result = await db
+        .select({
+          total: sql<string>`COALESCE(SUM(CAST(${transactions.amount} AS DECIMAL)), 0)`
+        })
+        .from(transactions)
+        .where(
+          and(
+            or(
+              inArray(transactions.fromUserId, userIds),
+              inArray(transactions.toUserId, userIds)
+            ),
+            eq(transactions.status, 'completed'),
+            gte(transactions.createdAt, startDate),
+            lte(transactions.createdAt, endDate)
+          )
+        );
+
+      return parseFloat(result[0]?.total || '0');
+    } catch (error) {
+      console.error('Error calculating organization transaction volume:', error);
+      return 0;
+    }
+  }
+
+
 
   // Admin operations
   async getUserByEmail(email: string): Promise<User | undefined> {

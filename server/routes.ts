@@ -403,6 +403,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Import organization limits validator
+  const { validateOrganizationLimits } = await import('./organizationLimitsValidator');
+
   // Transaction routes
   app.post('/api/transactions', isFirebaseAuthenticated, async (req: any, res) => {
     console.log("POST /api/transactions - Request received");
@@ -412,6 +415,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const userId = req.user.userId;
     
     try {
+      // Parse amount as decimal for accurate currency handling
+      const parsedAmount = parseFloat(req.body.amount || "0");
+      
+      // ORGANIZATION LIMITS VALIDATION: Check organization limits before processing
+      const orgLimitsValidation = await validateOrganizationLimits(userId, parsedAmount, req.body.type);
+      if (!orgLimitsValidation.isValid) {
+        console.log(`Transaction blocked by organization limits: ${orgLimitsValidation.reason}`);
+        return res.status(400).json({ 
+          message: orgLimitsValidation.reason,
+          organizationUsage: orgLimitsValidation.organizationUsage,
+          code: 'ORGANIZATION_LIMITS_EXCEEDED'
+        });
+      }
+
       // Set proper status for QR transactions
       let finalStatus = req.body.status || 'pending';
       if (req.body.type === 'qr_code_payment') {
@@ -422,9 +439,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const expiresAt = (finalStatus === 'pending') 
         ? new Date(Date.now() + 120 * 1000) 
         : null;
-      
-      // Parse amount as decimal for accurate currency handling
-      const parsedAmount = parseFloat(req.body.amount || "0");
       
       // REAL-TIME AML MONITORING: Check transaction against AML thresholds before processing
       const amlAlerts = await storage.checkTransactionForAmlViolations(
