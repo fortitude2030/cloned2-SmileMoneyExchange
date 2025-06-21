@@ -403,8 +403,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Import organization limits validator
+  // Import organization limits validator and user status inheritance
   const { validateOrganizationLimits } = await import('./organizationLimitsValidator');
+  const { validateUserOrganizationStatus, getEffectiveTransactionLimits } = await import('./userStatusInheritance');
 
   // Transaction routes
   app.post('/api/transactions', isFirebaseAuthenticated, async (req: any, res) => {
@@ -1760,6 +1761,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching organizations:", error);
       res.status(500).json({ message: "Failed to fetch organizations" });
+    }
+  });
+
+  // Get organization limits usage and validation status
+  app.get('/api/organizations/:id/limits-status', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      const organizationId = parseInt(req.params.id);
+      
+      // Validate access (admin or user from same organization)
+      if (!user || (!['admin', 'super_admin'].includes(user.role) && user.organizationId !== organizationId)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const organization = await storage.getOrganizationById(organizationId);
+      if (!organization) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+
+      // Calculate usage for today and this month
+      const today = new Date();
+      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+      const dailyUsage = await storage.getOrganizationTransactionVolume(organizationId, startOfDay, new Date());
+      const monthlyUsage = await storage.getOrganizationTransactionVolume(organizationId, startOfMonth, new Date());
+
+      const dailyLimit = parseFloat(organization.dailyTransactionLimit || '5000000');
+      const monthlyLimit = parseFloat(organization.monthlyTransactionLimit || '50000000');
+      const singleLimit = parseFloat(organization.singleTransactionLimit || '500000');
+
+      // Get organization users count
+      const orgUsers = await storage.getUsersByOrganization(organizationId);
+
+      res.json({
+        organization: {
+          id: organization.id,
+          name: organization.name,
+          status: organization.status,
+          kycStatus: organization.kycStatus,
+          isActive: organization.isActive
+        },
+        limits: {
+          daily: { used: dailyUsage, limit: dailyLimit, remaining: dailyLimit - dailyUsage },
+          monthly: { used: monthlyUsage, limit: monthlyLimit, remaining: monthlyLimit - monthlyUsage },
+          single: { limit: singleLimit }
+        },
+        usage: {
+          dailyPercentage: Math.round((dailyUsage / dailyLimit) * 100),
+          monthlyPercentage: Math.round((monthlyUsage / monthlyLimit) * 100)
+        },
+        users: {
+          total: orgUsers.length,
+          active: orgUsers.filter(u => u.isActive).length
+        },
+        compliance: {
+          canProcess: organization.status === 'approved' && organization.isActive && organization.kycStatus === 'verified',
+          statusReason: organization.status !== 'approved' ? `Organization status: ${organization.status}` :
+                       !organization.isActive ? 'Organization is inactive' :
+                       organization.kycStatus !== 'verified' ? `KYC status: ${organization.kycStatus}` : null
+        }
+      });
+
+    } catch (error) {
+      console.error("Error fetching organization limits status:", error);
+      res.status(500).json({ message: "Failed to fetch organization limits status" });
     }
   });
 
