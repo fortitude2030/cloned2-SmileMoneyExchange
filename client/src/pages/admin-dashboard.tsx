@@ -475,7 +475,6 @@ export default function AdminDashboard() {
               
               {activeTab === 'accounting' && [
                 { id: 'overview', label: 'Dashboard', icon: 'fas fa-tachometer-alt' },
-                { id: 'revenue', label: 'Revenue', icon: 'fas fa-dollar-sign' },
                 { id: 'statements', label: 'Statements', icon: 'fas fa-file-invoice' },
                 { id: 'journal', label: 'Journal & Ledger', icon: 'fas fa-book' },
                 { id: 'reconciliation', label: 'Reconciliation', icon: 'fas fa-balance-scale' },
@@ -1959,10 +1958,7 @@ export default function AdminDashboard() {
           <AccountingDashboard />
         )}
 
-        {/* Accounting - Revenue Tab */}
-        {activeTab === 'accounting' && activeSubTab === 'revenue' && (
-          <AccountingDashboard />
-        )}
+
 
         {/* Accounting - Statements Tab */}
         {activeTab === 'accounting' && activeSubTab === 'statements' && (
