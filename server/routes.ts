@@ -3406,6 +3406,64 @@ Net Income: ZMW ${statements.netIncome.toLocaleString()}
     }
   });
 
+  // Email configuration endpoints
+  app.post('/api/admin/email-settings', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { financeEmails, operationsEmails, complianceEmails, adminEmails } = req.body;
+      
+      // Clear existing settings and insert new ones
+      await db.delete(emailSettings);
+      
+      const settingsToInsert = [
+        { settingKey: 'finance_emails', settingValue: financeEmails },
+        { settingKey: 'operations_emails', settingValue: operationsEmails },
+        { settingKey: 'compliance_emails', settingValue: complianceEmails },
+        { settingKey: 'admin_emails', settingValue: adminEmails }
+      ].filter(setting => setting.settingValue);
+
+      if (settingsToInsert.length > 0) {
+        await db.insert(emailSettings).values(settingsToInsert);
+      }
+      
+      res.json({ message: 'Email settings saved successfully' });
+    } catch (error) {
+      console.error('Error saving email settings:', error);
+      res.status(500).json({ message: 'Failed to save email settings' });
+    }
+  });
+
+  app.get('/api/admin/email-settings', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const settings = await db.select().from(emailSettings);
+      
+      const emailConfig = {
+        financeEmails: settings.find(s => s.settingKey === 'finance_emails')?.settingValue || 'test@cash.smilemoney.africa',
+        operationsEmails: settings.find(s => s.settingKey === 'operations_emails')?.settingValue || 'test@cash.smilemoney.africa',
+        complianceEmails: settings.find(s => s.settingKey === 'compliance_emails')?.settingValue || 'test@cash.smilemoney.africa',
+        adminEmails: settings.find(s => s.settingKey === 'admin_emails')?.settingValue || 'test@cash.smilemoney.africa'
+      };
+      
+      res.json(emailConfig);
+    } catch (error) {
+      console.error('Error loading email settings:', error);
+      res.status(500).json({ message: 'Failed to load email settings' });
+    }
+  });
+
   // Test email configuration
   app.post('/api/notifications/test-email', isFirebaseAuthenticated, async (req: any, res) => {
     try {
