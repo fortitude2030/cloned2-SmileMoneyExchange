@@ -294,14 +294,14 @@ export class EmailTemplates {
 // Default email configuration - will be overridden by environment variables
 const getEmailConfig = (): EmailConfig => {
   return {
-    host: process.env.SMTP_HOST || 'mail.cash.smilemoney.africa',
-    port: parseInt(process.env.SMTP_PORT || '587'),
-    secure: process.env.SMTP_SECURE === 'true',
+    host: process.env.SMTP_HOST || 'cash.smilemoney.africa',
+    port: parseInt(process.env.SMTP_PORT || '465'),
+    secure: process.env.SMTP_SECURE !== 'false', // Default to true for port 465
     auth: {
-      user: process.env.SMTP_USER || 'noreply@cash.smilemoney.africa',
+      user: process.env.SMTP_USER || 'test@cash.smilemoney.africa',
       pass: process.env.SMTP_PASS || ''
     },
-    from: process.env.SMTP_FROM || 'Smile Money <noreply@cash.smilemoney.africa>'
+    from: process.env.SMTP_FROM || 'Smile Money <test@cash.smilemoney.africa>'
   };
 };
 
