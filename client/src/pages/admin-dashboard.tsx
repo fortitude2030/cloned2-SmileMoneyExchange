@@ -48,6 +48,10 @@ export default function AdminDashboard() {
   
   // Float reconciliation state
   const [floatAdjustment, setFloatAdjustment] = useState({ amount: '', reason: '' });
+  const [reconciliationResult, setReconciliationResult] = useState<any>(null);
+  const [lockedAccounts, setLockedAccounts] = useState<any[]>([]);
+  const [dailyReport, setDailyReport] = useState<any>(null);
+  const [isRunningReconciliation, setIsRunningReconciliation] = useState(false);
 
   // System Float API queries
   const { data: systemFloatData } = useQuery({
@@ -94,6 +98,59 @@ export default function AdminDashboard() {
       adjustFloatMutation.mutate(floatAdjustment);
     }
   };
+
+  // Reconciliation check handler
+  const runReconciliationCheck = async () => {
+    setIsRunningReconciliation(true);
+    try {
+      const response = await apiRequest('POST', '/api/reconciliation/run-check');
+      if (response.ok) {
+        const result = await response.json();
+        setReconciliationResult(result);
+        toast({
+          title: "Reconciliation check completed",
+          description: `Status: ${result.status}, Variance: ZMW ${result.variance}`,
+        });
+      } else {
+        throw new Error('Failed to run reconciliation check');
+      }
+    } catch (error: any) {
+      toast({
+        title: "Reconciliation check failed",
+        description: error.message || "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRunningReconciliation(false);
+    }
+  };
+
+  // Load reconciliation data on mount
+  useEffect(() => {
+    const loadReconciliationData = async () => {
+      try {
+        // Load locked accounts
+        const lockedResponse = await apiRequest('/api/reconciliation/locked-accounts');
+        if (lockedResponse.ok) {
+          const locked = await lockedResponse.json();
+          setLockedAccounts(locked);
+        }
+
+        // Load daily report
+        const reportResponse = await apiRequest('/api/reconciliation/daily-report');
+        if (reportResponse.ok) {
+          const report = await reportResponse.json();
+          setDailyReport(report);
+        }
+      } catch (error) {
+        console.error('Error loading reconciliation data:', error);
+      }
+    };
+
+    if (activeTab === 'accounting' && activeSubTab === 'reconciliation') {
+      loadReconciliationData();
+    }
+  }, [activeTab, activeSubTab]);
 
   const queryClient = useQueryClient();
 
@@ -1950,20 +2007,22 @@ export default function AdminDashboard() {
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                   <div className="bg-green-50 dark:bg-green-950 p-4 rounded-lg text-center">
-                    <div className="text-green-600 dark:text-green-400 text-2xl font-bold" id="total-user-balances">
-                      Loading...
+                    <div className="text-green-600 dark:text-green-400 text-2xl font-bold">
+                      {reconciliationResult ? `ZMW ${reconciliationResult.totalUserBalances?.toLocaleString() || '0.00'}` : 'ZMW 0.00'}
                     </div>
                     <div className="text-sm text-green-700 dark:text-green-300">Total User Balances</div>
                   </div>
                   <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg text-center">
-                    <div className="text-blue-600 dark:text-blue-400 text-2xl font-bold" id="system-float">
-                      Loading...
+                    <div className="text-blue-600 dark:text-blue-400 text-2xl font-bold">
+                      {systemFloatData?.balance ? `ZMW ${parseFloat(systemFloatData.balance).toLocaleString()}` : 'ZMW 0.00'}
                     </div>
                     <div className="text-sm text-blue-700 dark:text-blue-300">System Float</div>
                   </div>
                   <div className="bg-red-50 dark:bg-red-950 p-4 rounded-lg text-center">
-                    <div className="text-red-600 dark:text-red-400 text-2xl font-bold" id="reconciliation-variance">
-                      Loading...
+                    <div className={`text-2xl font-bold ${
+                      reconciliationResult?.variance === 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                    }`}>
+                      {reconciliationResult ? `ZMW ${reconciliationResult.variance?.toLocaleString() || '0.00'}` : 'ZMW 0.00'}
                     </div>
                     <div className="text-sm text-red-700 dark:text-red-300">Variance</div>
                   </div>
@@ -1971,37 +2030,11 @@ export default function AdminDashboard() {
 
                 <div className="flex gap-4 mb-4">
                   <Button 
-                    onClick={async () => {
-                      try {
-                        const response = await fetch('/api/reconciliation/run-check', {
-                          method: 'POST',
-                          headers: {
-                            'Authorization': `Bearer ${localStorage.getItem('firebaseToken')}`,
-                            'Content-Type': 'application/json'
-                          }
-                        });
-                        
-                        if (response.ok) {
-                          const result = await response.json();
-                          document.getElementById('total-user-balances').textContent = `ZMW ${result.totalUserBalances.toLocaleString()}`;
-                          document.getElementById('system-float').textContent = `ZMW ${result.systemFloat.toLocaleString()}`;
-                          document.getElementById('reconciliation-variance').textContent = `ZMW ${result.variance.toLocaleString()}`;
-                          
-                          if (result.variance === 0) {
-                            alert('✅ Reconciliation PASSED - No discrepancies found');
-                          } else {
-                            alert(`⚠️ Reconciliation FAILED - Variance of ZMW ${result.variance.toLocaleString()} detected`);
-                          }
-                        } else {
-                          alert('❌ Error running reconciliation check');
-                        }
-                      } catch (error) {
-                        alert('❌ Error: ' + error.message);
-                      }
-                    }}
+                    onClick={runReconciliationCheck}
+                    disabled={isRunningReconciliation}
                   >
                     <i className="fas fa-play mr-2"></i>
-                    Run Reconciliation Check
+                    {isRunningReconciliation ? 'Running Check...' : 'Run Reconciliation Check'}
                   </Button>
 
                   <Button variant="outline">
