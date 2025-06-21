@@ -290,13 +290,11 @@ export default function AccountingDashboard() {
 
       {/* Detailed Financial Information */}
       <Tabs defaultValue="statements" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="statements">Financial Statements</TabsTrigger>
           <TabsTrigger value="revenue">Revenue Breakdown</TabsTrigger>
-          <TabsTrigger value="journal">Journal Entries</TabsTrigger>
           <TabsTrigger value="accounts">Chart of Accounts</TabsTrigger>
           <TabsTrigger value="fees">Fee Management</TabsTrigger>
-          <TabsTrigger value="reports">Reports & Export</TabsTrigger>
         </TabsList>
 
         {/* Financial Statements Tab */}
@@ -499,56 +497,7 @@ export default function AccountingDashboard() {
           )}
         </TabsContent>
 
-        {/* Journal Entries Tab */}
-        <TabsContent value="journal" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Journal Entries</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isLoadingJournal ? (
-                <div className="space-y-4">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="h-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-                  ))}
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {journalEntries?.map((entry) => (
-                    <div key={entry.id} className="border rounded-lg p-4">
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <h4 className="font-medium">{entry.entryNumber}</h4>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">{entry.description}</p>
-                          <p className="text-xs text-gray-500">
-                            {format(new Date(entry.entryDate), "MMM dd, yyyy")} • {formatCurrency(parseFloat(entry.totalAmount))}
-                          </p>
-                        </div>
-                        <Badge variant={entry.status === 'posted' ? 'default' : 'secondary'}>
-                          {entry.status}
-                        </Badge>
-                      </div>
-                      
-                      <div className="space-y-1">
-                        {entry.lines.map((line) => (
-                          <div key={line.id} className="grid grid-cols-3 gap-4 text-sm">
-                            <span>{line.accountCode} - {line.accountName}</span>
-                            <span className="text-right">
-                              {parseFloat(line.debitAmount) > 0 ? formatCurrency(parseFloat(line.debitAmount)) : '-'}
-                            </span>
-                            <span className="text-right">
-                              {parseFloat(line.creditAmount) > 0 ? formatCurrency(parseFloat(line.creditAmount)) : '-'}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+
 
         {/* Chart of Accounts Tab */}
         <TabsContent value="accounts" className="space-y-4">
@@ -892,126 +841,7 @@ export default function AccountingDashboard() {
           </div>
         </TabsContent>
 
-        {/* Reports & Export Tab */}
-        <TabsContent value="reports" className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Generate Reports
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <Button variant="outline" className="h-20 flex-col gap-2" onClick={() => {
-                    toast({
-                      title: "Generating Financial Statements",
-                      description: "PDF will be downloaded shortly",
-                    });
-                  }}>
-                    <FileText className="h-6 w-6" />
-                    <span className="text-xs">Financial Statements</span>
-                  </Button>
-                  
-                  <Button variant="outline" className="h-20 flex-col gap-2" onClick={() => {
-                    toast({
-                      title: "Generating Revenue Report",
-                      description: "Excel file will be downloaded shortly",
-                    });
-                  }}>
-                    <BarChart3 className="h-6 w-6" />
-                    <span className="text-xs">Revenue Analysis</span>
-                  </Button>
-                  
-                  <Button variant="outline" className="h-20 flex-col gap-2" onClick={() => {
-                    toast({
-                      title: "Generating Journal Entries",
-                      description: "CSV file will be downloaded shortly",
-                    });
-                  }}>
-                    <Download className="h-6 w-6" />
-                    <span className="text-xs">Journal Entries</span>
-                  </Button>
-                  
-                  <Button variant="outline" className="h-20 flex-col gap-2" onClick={() => {
-                    toast({
-                      title: "Generating Audit Trail",
-                      description: "Comprehensive audit report being prepared",
-                    });
-                  }}>
-                    <FileText className="h-6 w-6" />
-                    <span className="text-xs">Audit Trail</span>
-                  </Button>
-                </div>
 
-                <div className="space-y-3">
-                  <Label>Report Format</Label>
-                  <Select defaultValue="pdf">
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pdf">PDF Document</SelectItem>
-                      <SelectItem value="excel">Excel Spreadsheet</SelectItem>
-                      <SelectItem value="csv">CSV File</SelectItem>
-                      <SelectItem value="json">JSON Data</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Share2 className="h-5 w-5" />
-                  Sharing & Distribution
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  <Label>Email Recipients</Label>
-                  <Input placeholder="finance@smilemoney.co.zm, audit@smilemoney.co.zm" />
-                </div>
-
-                <div className="space-y-3">
-                  <Label>Schedule</Label>
-                  <Select defaultValue="manual">
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="manual">Manual Only</SelectItem>
-                      <SelectItem value="daily">Daily at 9:00 AM</SelectItem>
-                      <SelectItem value="weekly">Weekly on Monday</SelectItem>
-                      <SelectItem value="monthly">Monthly on 1st</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-3">
-                  <Button className="w-full" onClick={() => {
-                    toast({
-                      title: "Report Shared Successfully",
-                      description: "Financial report sent to specified recipients",
-                    });
-                  }}>
-                    <Share2 className="h-4 w-4 mr-2" />
-                    Share Current Report
-                  </Button>
-                </div>
-
-                <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg">
-                  <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">Compliance Note</h4>
-                  <p className="text-xs text-blue-700 dark:text-blue-300">
-                    All financial reports are automatically logged for Bank of Zambia regulatory compliance and internal audit purposes.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
       </Tabs>
     </div>
   );
