@@ -20,7 +20,8 @@ const DOCUMENT_TYPES = [
   { key: "nrc_side1", label: "NRC Side 1", required: true },
   { key: "nrc_side2", label: "NRC Side 2", required: true },
   { key: "passport", label: "Passport Face Page", required: true },
-  { key: "pacra", label: "PACRA Certificate", required: true },
+  { key: "pacra", label: "PACRA Certificate", required: false, note: "Required if PACRA number provided" },
+  { key: "business_license", label: "Business License", required: false, note: "Required if Business License number provided" },
   { key: "zra_tpin", label: "ZRA TPIN Certificate", required: true },
 ];
 

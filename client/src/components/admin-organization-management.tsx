@@ -76,7 +76,15 @@ export default function AdminOrganizationManagement() {
         address: '',
         contactEmail: '',
         contactPhone: '',
-        businessType: ''
+        businessType: '',
+        pacraNumber: '',
+        zraTpinNumber: '',
+        businessLicenseNumber: '',
+        businessLicenseExpiry: '',
+        directorName: '',
+        directorNrc: '',
+        directorPhone: '',
+        shareCapitalAmount: ''
       });
       toast({
         title: "Success",
@@ -142,15 +150,34 @@ export default function AdminOrganizationManagement() {
   });
 
   const handleCreateOrganization = () => {
-    if (!newOrg.name || !newOrg.registrationNumber || !newOrg.contactEmail) {
+    // Validate required fields
+    if (!newOrg.name || !newOrg.registrationNumber || !newOrg.contactEmail || !newOrg.zraTpinNumber) {
       toast({
         title: "Error",
-        description: "Please fill in all required fields",
+        description: "Please fill in all required fields (Name, Registration Number, Contact Email, ZRA TPIN)",
         variant: "destructive",
       });
       return;
     }
-    createOrgMutation.mutate(newOrg);
+
+    // Validate that at least PACRA Number OR Business License Number is provided
+    if (!newOrg.pacraNumber && !newOrg.businessLicenseNumber) {
+      toast({
+        title: "Error",
+        description: "Please provide either PACRA Number or Business License Number",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Prepare the data for submission
+    const orgData = {
+      ...newOrg,
+      shareCapitalAmount: newOrg.shareCapitalAmount ? parseFloat(newOrg.shareCapitalAmount) : null,
+      businessLicenseExpiry: newOrg.businessLicenseExpiry || null
+    };
+
+    createOrgMutation.mutate(orgData);
   };
 
   const getStatusBadgeColor = (status: string) => {
@@ -239,7 +266,7 @@ export default function AdminOrganizationManagement() {
               Add Organization
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create New Organization</DialogTitle>
             </DialogHeader>
@@ -306,6 +333,94 @@ export default function AdminOrganizationManagement() {
                   </SelectContent>
                 </Select>
               </div>
+              
+              {/* Regulatory Information Section */}
+              <div className="border-t pt-4 mt-4">
+                <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-3">Regulatory Information</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="pacraNumber">PACRA Number *</Label>
+                    <Input
+                      id="pacraNumber"
+                      value={newOrg.pacraNumber}
+                      onChange={(e) => setNewOrg({ ...newOrg, pacraNumber: e.target.value })}
+                      placeholder="PACRA registration number"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="zraTpinNumber">ZRA TPIN Number *</Label>
+                    <Input
+                      id="zraTpinNumber"
+                      value={newOrg.zraTpinNumber}
+                      onChange={(e) => setNewOrg({ ...newOrg, zraTpinNumber: e.target.value })}
+                      placeholder="ZRA TPIN number"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="businessLicenseNumber">Business License Number</Label>
+                    <Input
+                      id="businessLicenseNumber"
+                      value={newOrg.businessLicenseNumber}
+                      onChange={(e) => setNewOrg({ ...newOrg, businessLicenseNumber: e.target.value })}
+                      placeholder="Alternative to PACRA"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="businessLicenseExpiry">License Expiry Date</Label>
+                    <Input
+                      id="businessLicenseExpiry"
+                      type="date"
+                      value={newOrg.businessLicenseExpiry}
+                      onChange={(e) => setNewOrg({ ...newOrg, businessLicenseExpiry: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Director Information Section */}
+              <div className="border-t pt-4 mt-4">
+                <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-3">Director Information (Optional)</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="directorName">Director Name</Label>
+                    <Input
+                      id="directorName"
+                      value={newOrg.directorName}
+                      onChange={(e) => setNewOrg({ ...newOrg, directorName: e.target.value })}
+                      placeholder="Full name of director"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="directorNrc">Director NRC</Label>
+                    <Input
+                      id="directorNrc"
+                      value={newOrg.directorNrc}
+                      onChange={(e) => setNewOrg({ ...newOrg, directorNrc: e.target.value })}
+                      placeholder="NRC number"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="directorPhone">Director Phone</Label>
+                    <Input
+                      id="directorPhone"
+                      value={newOrg.directorPhone}
+                      onChange={(e) => setNewOrg({ ...newOrg, directorPhone: e.target.value })}
+                      placeholder="+260 XXX XXX XXX"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="shareCapitalAmount">Share Capital (ZMW)</Label>
+                    <Input
+                      id="shareCapitalAmount"
+                      type="number"
+                      value={newOrg.shareCapitalAmount}
+                      onChange={(e) => setNewOrg({ ...newOrg, shareCapitalAmount: e.target.value })}
+                      placeholder="Amount in ZMW"
+                    />
+                  </div>
+                </div>
+              </div>
+              
               <div className="flex justify-end space-x-2 pt-4">
                 <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
                   Cancel

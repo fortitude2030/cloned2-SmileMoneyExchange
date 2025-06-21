@@ -1749,6 +1749,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Create organization with enhanced regulatory fields
+  app.post('/api/admin/organizations', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const {
+        name,
+        registrationNumber,
+        address,
+        contactEmail,
+        contactPhone,
+        businessType,
+        pacraNumber,
+        zraTpinNumber,
+        businessLicenseNumber,
+        businessLicenseExpiry,
+        directorName,
+        directorNrc,
+        directorPhone,
+        shareCapitalAmount
+      } = req.body;
+
+      // Validate required fields
+      if (!name?.trim() || !registrationNumber?.trim() || !contactEmail?.trim() || !zraTpinNumber?.trim()) {
+        return res.status(400).json({ 
+          message: "Required fields missing: name, registrationNumber, contactEmail, zraTpinNumber" 
+        });
+      }
+
+      // Validate that either PACRA or Business License is provided
+      if (!pacraNumber?.trim() && !businessLicenseNumber?.trim()) {
+        return res.status(400).json({ 
+          message: "Either PACRA Number or Business License Number is required" 
+        });
+      }
+
+      // Calculate profile completion percentage
+      const totalFields = 13;
+      const completedFields = [
+        name, registrationNumber, contactEmail, zraTpinNumber,
+        pacraNumber || businessLicenseNumber, address, contactPhone,
+        businessType, directorName, directorNrc, directorPhone,
+        shareCapitalAmount, businessLicenseExpiry
+      ].filter(field => field && field.toString().trim()).length;
+      
+      const profileCompletionPercentage = Math.round((completedFields / totalFields) * 100);
+
+      const organizationData = {
+        name: name.trim(),
+        registrationNumber: registrationNumber.trim(),
+        address: address?.trim() || null,
+        contactEmail: contactEmail.trim(),
+        contactPhone: contactPhone?.trim() || null,
+        businessType: businessType || 'retail',
+        pacraNumber: pacraNumber?.trim() || null,
+        zraTpinNumber: zraTpinNumber.trim(),
+        businessLicenseNumber: businessLicenseNumber?.trim() || null,
+        businessLicenseExpiry: businessLicenseExpiry || null,
+        directorName: directorName?.trim() || null,
+        directorNrc: directorNrc?.trim() || null,
+        directorPhone: directorPhone?.trim() || null,
+        shareCapitalAmount: shareCapitalAmount ? parseFloat(shareCapitalAmount.toString()) : null,
+        profileCompletionPercentage,
+        status: 'pending',
+        kycStatus: 'pending'
+      };
+
+      const organization = await storage.createOrganization(organizationData);
+      res.json(organization);
+
+    } catch (error) {
+      console.error("Error creating organization:", error);
+      res.status(500).json({ message: "Failed to create organization" });
+    }
+  });
+
   app.get('/api/admin/organizations/approved', isFirebaseAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.userId;
