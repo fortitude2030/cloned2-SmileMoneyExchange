@@ -131,18 +131,12 @@ export default function AdminDashboard() {
     const loadReconciliationData = async () => {
       try {
         // Load locked accounts
-        const lockedResponse = await apiRequest('/api/reconciliation/locked-accounts');
-        if (lockedResponse.ok) {
-          const locked = await lockedResponse.json();
-          setLockedAccounts(locked);
-        }
+        const locked = await apiRequest('GET', '/api/reconciliation/locked-accounts');
+        setLockedAccounts(locked);
 
         // Load daily report
-        const reportResponse = await apiRequest('/api/reconciliation/daily-report');
-        if (reportResponse.ok) {
-          const report = await reportResponse.json();
-          setDailyReport(report);
-        }
+        const report = await apiRequest('GET', '/api/reconciliation/daily-report');
+        setDailyReport(report);
       } catch (error) {
         console.error('Error loading reconciliation data:', error);
       }

@@ -33,7 +33,7 @@ function ComplianceReportsDashboard() {
   });
 
   const generateReportMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("/api/compliance/reports/generate", "POST", data),
+    mutationFn: (data: any) => apiRequest("POST", "/api/compliance/reports/generate", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/compliance/reports"] });
       setIsGenerateDialogOpen(false);
