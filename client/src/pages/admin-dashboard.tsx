@@ -2387,9 +2387,19 @@ export default function AdminDashboard() {
                     <Button 
                       variant="outline" 
                       className="flex items-center justify-center"
-                      onClick={() => {
-                        // Trigger PDF export of current financial data
-                        window.open('/api/accounting/export/pdf', '_blank');
+                      onClick={async () => {
+                        try {
+                          const response = await apiRequest('/api/accounting/export/pdf');
+                          if (response.ok) {
+                            const blob = await response.blob();
+                            const url = window.URL.createObjectURL(blob);
+                            window.open(url, '_blank');
+                          } else {
+                            alert('Error generating PDF export');
+                          }
+                        } catch (error) {
+                          alert('Error accessing PDF export');
+                        }
                       }}
                     >
                       <i className="fas fa-file-pdf text-red-600 mr-2"></i>
@@ -2398,9 +2408,23 @@ export default function AdminDashboard() {
                     <Button 
                       variant="outline" 
                       className="flex items-center justify-center"
-                      onClick={() => {
-                        // Trigger Excel export
-                        window.open('/api/accounting/export/excel', '_blank');
+                      onClick={async () => {
+                        try {
+                          const response = await apiRequest('/api/accounting/export/excel');
+                          if (response.ok) {
+                            const blob = await response.blob();
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `financial-data-${new Date().toISOString().split('T')[0]}.xlsx`;
+                            a.click();
+                            window.URL.revokeObjectURL(url);
+                          } else {
+                            alert('Error generating Excel export');
+                          }
+                        } catch (error) {
+                          alert('Error accessing Excel export');
+                        }
                       }}
                     >
                       <i className="fas fa-file-excel text-green-600 mr-2"></i>
@@ -2420,9 +2444,23 @@ export default function AdminDashboard() {
                     <Button 
                       variant="outline" 
                       className="flex items-center justify-center"
-                      onClick={() => {
-                        // Trigger CSV export
-                        window.open('/api/accounting/export/csv', '_blank');
+                      onClick={async () => {
+                        try {
+                          const response = await apiRequest('/api/accounting/export/csv');
+                          if (response.ok) {
+                            const blob = await response.blob();
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `journal-entries-${new Date().toISOString().split('T')[0]}.csv`;
+                            a.click();
+                            window.URL.revokeObjectURL(url);
+                          } else {
+                            alert('Error generating CSV export');
+                          }
+                        } catch (error) {
+                          alert('Error accessing CSV export');
+                        }
                       }}
                     >
                       <i className="fas fa-file-csv text-orange-600 mr-2"></i>
@@ -2442,19 +2480,17 @@ export default function AdminDashboard() {
                         className="text-xs"
                         onClick={async () => {
                           try {
-                            const response = await fetch('/api/accounting/generate-report/financial-statements', { 
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' }
-                            });
-                            const result = await response.json();
+                            const response = await apiRequest('POST', '/api/accounting/generate-report/financial-statements', {});
                             if (response.ok) {
+                              const result = await response.json();
                               alert(`${result.message}. Click OK to download.`);
                               window.open(result.downloadUrl, '_blank');
                             } else {
-                              alert(`Error: ${result.message}`);
+                              const error = await response.json();
+                              alert(`Error: ${error.message}`);
                             }
-                          } catch (error) {
-                            alert('Error generating financial statements report');
+                          } catch (error: any) {
+                            alert('Error generating financial statements report: ' + error.message);
                           }
                         }}
                       >
@@ -2760,7 +2796,18 @@ export default function AdminDashboard() {
                     
                     <Button variant="outline" className="h-20 flex-col gap-2" onClick={async () => {
                       try {
-                        window.open('/api/accounting/export/csv', '_blank');
+                        const response = await apiRequest('/api/accounting/export/csv');
+                        if (response.ok) {
+                          const blob = await response.blob();
+                          const url = window.URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `journal-entries-${new Date().toISOString().split('T')[0]}.csv`;
+                          a.click();
+                          window.URL.revokeObjectURL(url);
+                        } else {
+                          alert('Error generating CSV export');
+                        }
                       } catch (error) {
                         alert('Error downloading journal entries');
                       }
