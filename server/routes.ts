@@ -24,6 +24,7 @@ import {
 } from "@shared/schema";
 import crypto from "crypto";
 import { accountingService } from "./accountingService";
+import { emailService, EmailTemplates } from "./emailService";
 
 // Optimized image processing - minimal conversion for faster uploads
 async function processImage(imagePath: string, outputPath: string): Promise<void> {
@@ -3163,6 +3164,26 @@ ${Object.entries(statements.liabilities).map(([code, account]) =>
       
       console.log(`Report scheduled: ${JSON.stringify(scheduleConfig)}`);
       
+      // Send immediate confirmation email
+      try {
+        const confirmationTemplate = EmailTemplates.reportDelivery(
+          reportType, 
+          `Scheduled for ${frequency} delivery`
+        );
+        
+        await emailService.sendEmail(
+          user.email,
+          {
+            subject: `Report Scheduling Confirmed - ${reportType}`,
+            html: confirmationTemplate.html,
+            text: confirmationTemplate.text
+          }
+        );
+      } catch (emailError) {
+        console.log('Email confirmation failed:', emailError);
+        // Don't fail the scheduling if email fails
+      }
+      
       res.json({ 
         message: `${reportType} report scheduled successfully for ${frequency} delivery`,
         schedule: scheduleConfig
@@ -3170,6 +3191,77 @@ ${Object.entries(statements.liabilities).map(([code, account]) =>
     } catch (error) {
       console.error("Error scheduling report:", error);
       res.status(500).json({ message: "Failed to schedule report" });
+    }
+  });
+
+  // Email report delivery endpoint
+  app.post('/api/accounting/email-report', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { reportType, recipients, format } = req.body;
+      
+      let reportData: any;
+      let filename: string;
+      let contentType: string;
+      
+      // Generate report based on type
+      switch (reportType) {
+        case 'financial-statements':
+          reportData = await accountingService.generateFinancialStatements();
+          if (format === 'pdf') {
+            const pdfContent = generateFinancialStatementsPDF(reportData);
+            filename = `financial-statements-${new Date().toISOString().split('T')[0]}.pdf`;
+            contentType = 'application/pdf';
+            reportData = Buffer.from(pdfContent, 'utf8');
+          }
+          break;
+          
+        case 'revenue-analysis':
+          const startDate = new Date(new Date().getFullYear(), 0, 1);
+          const endDate = new Date();
+          reportData = await accountingService.getRevenueReport(startDate, endDate);
+          filename = `revenue-analysis-${new Date().toISOString().split('T')[0]}.csv`;
+          contentType = 'text/csv';
+          reportData = Buffer.from(JSON.stringify(reportData, null, 2));
+          break;
+          
+        default:
+          return res.status(400).json({ message: "Unsupported report type" });
+      }
+      
+      // Send email with attachment
+      const emailTemplate = EmailTemplates.reportDelivery(
+        reportType,
+        new Date().toLocaleDateString()
+      );
+      
+      const emailResult = await emailService.sendEmail(
+        recipients,
+        emailTemplate,
+        [{
+          filename,
+          content: reportData,
+          contentType
+        }]
+      );
+      
+      if (emailResult) {
+        res.json({ 
+          message: `${reportType} report sent successfully to ${recipients.length} recipients`,
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        res.status(500).json({ message: "Failed to send email report" });
+      }
+    } catch (error) {
+      console.error("Error sending email report:", error);
+      res.status(500).json({ message: "Failed to send email report" });
     }
   });
 
@@ -3189,6 +3281,174 @@ ${Object.entries(statements.liabilities).map(([code, account]) =>
         return new Date(now.getTime() + 24 * 60 * 60 * 1000);
     }
   }
+
+  function generateFinancialStatementsPDF(statements: any): string {
+    return `
+SMILE MONEY FINANCIAL STATEMENTS
+Generated: ${new Date().toISOString()}
+
+BALANCE SHEET
+============
+ASSETS:
+${Object.entries(statements.assets).map(([code, account]: [string, any]) => 
+  `${code} - ${account.name}: ZMW ${account.balance.toLocaleString()}`
+).join('\n')}
+Total Assets: ZMW ${statements.totalAssets.toLocaleString()}
+
+LIABILITIES:
+${Object.entries(statements.liabilities).map(([code, account]: [string, any]) => 
+  `${code} - ${account.name}: ZMW ${account.balance.toLocaleString()}`
+).join('\n')}
+Total Liabilities: ZMW ${statements.totalLiabilities.toLocaleString()}
+
+EQUITY:
+${Object.entries(statements.equity).map(([code, account]: [string, any]) => 
+  `${code} - ${account.name}: ZMW ${account.balance.toLocaleString()}`
+).join('\n')}
+Total Equity: ZMW ${statements.totalEquity.toLocaleString()}
+
+INCOME STATEMENT
+================
+REVENUE:
+${Object.entries(statements.revenue).map(([code, account]: [string, any]) => 
+  `${code} - ${account.name}: ZMW ${account.balance.toLocaleString()}`
+).join('\n')}
+Total Revenue: ZMW ${statements.totalRevenue.toLocaleString()}
+
+EXPENSES:
+${Object.entries(statements.expenses).map(([code, account]: [string, any]) => 
+  `${code} - ${account.name}: ZMW ${account.balance.toLocaleString()}`
+).join('\n')}
+Total Expenses: ZMW ${statements.totalExpenses.toLocaleString()}
+
+Net Income: ZMW ${statements.netIncome.toLocaleString()}
+    `;
+  }
+
+  // Email notification endpoints
+  app.post('/api/notifications/send-welcome', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const { userEmail, userName, organizationName } = req.body;
+      
+      const welcomeTemplate = EmailTemplates.welcomeEmail(userName, organizationName);
+      const success = await emailService.sendEmail(userEmail, welcomeTemplate);
+      
+      if (success) {
+        res.json({ message: "Welcome email sent successfully" });
+      } else {
+        res.status(500).json({ message: "Failed to send welcome email" });
+      }
+    } catch (error) {
+      console.error("Error sending welcome email:", error);
+      res.status(500).json({ message: "Failed to send welcome email" });
+    }
+  });
+
+  app.post('/api/notifications/send-transaction-alert', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const { userEmail, amount, type, transactionId } = req.body;
+      
+      const alertTemplate = EmailTemplates.transactionNotification(amount, type, transactionId);
+      const success = await emailService.sendEmail(userEmail, alertTemplate);
+      
+      if (success) {
+        res.json({ message: "Transaction alert sent successfully" });
+      } else {
+        res.status(500).json({ message: "Failed to send transaction alert" });
+      }
+    } catch (error) {
+      console.error("Error sending transaction alert:", error);
+      res.status(500).json({ message: "Failed to send transaction alert" });
+    }
+  });
+
+  app.post('/api/notifications/send-aml-alert', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { alertType, details, recipients } = req.body;
+      
+      const amlTemplate = EmailTemplates.amlAlert(alertType, details);
+      const defaultRecipients = recipients || ['compliance@smilemoney.co.zm', 'admin@smilemoney.co.zm'];
+      
+      const result = await emailService.sendBulkEmails(defaultRecipients, amlTemplate);
+      
+      res.json({ 
+        message: `AML alert sent to ${result.sent} recipients`,
+        details: result
+      });
+    } catch (error) {
+      console.error("Error sending AML alert:", error);
+      res.status(500).json({ message: "Failed to send AML alert" });
+    }
+  });
+
+  app.post('/api/notifications/send-kyc-update', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const { userEmail, status, userName, comments } = req.body;
+      
+      const kycTemplate = EmailTemplates.kycStatusUpdate(status, userName, comments);
+      const success = await emailService.sendEmail(userEmail, kycTemplate);
+      
+      if (success) {
+        res.json({ message: "KYC status notification sent successfully" });
+      } else {
+        res.status(500).json({ message: "Failed to send KYC notification" });
+      }
+    } catch (error) {
+      console.error("Error sending KYC notification:", error);
+      res.status(500).json({ message: "Failed to send KYC notification" });
+    }
+  });
+
+  // Test email configuration
+  app.post('/api/notifications/test-email', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const isConnected = await emailService.testConnection();
+      
+      if (isConnected) {
+        // Send test email
+        const testTemplate = {
+          subject: "Smile Money Email System Test",
+          html: `
+            <h2>Email System Test</h2>
+            <p>This is a test email from Smile Money's email system.</p>
+            <p>Sent at: ${new Date().toISOString()}</p>
+            <p>System is working correctly.</p>
+          `,
+          text: `Email System Test - Sent at ${new Date().toISOString()}`
+        };
+        
+        const success = await emailService.sendEmail(user.email, testTemplate);
+        
+        res.json({ 
+          message: "Email system test completed successfully",
+          connectionTest: true,
+          emailSent: success
+        });
+      } else {
+        res.status(500).json({ 
+          message: "Email system connection failed",
+          connectionTest: false
+        });
+      }
+    } catch (error) {
+      console.error("Error testing email system:", error);
+      res.status(500).json({ message: "Email system test failed" });
+    }
+  });
 
   return httpServer;
 }
