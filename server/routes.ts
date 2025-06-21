@@ -3465,6 +3465,196 @@ Net Income: ZMW ${statements.netIncome.toLocaleString()}
     }
   });
 
+  // Float Reconciliation System
+  app.post('/api/reconciliation/run-check', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      // Calculate total user balances from all wallets
+      const userBalancesQuery = await db.select({
+        totalBalance: sql<number>`SUM(CAST(${wallets.balance} AS DECIMAL))`
+      }).from(wallets);
+      
+      const totalUserBalances = userBalancesQuery[0]?.totalBalance || 0;
+
+      // Calculate system float from cash reserves account (account code 1100)
+      const systemFloatQuery = await db.select({
+        balance: chartOfAccounts.balance
+      }).from(chartOfAccounts).where(eq(chartOfAccounts.accountCode, '1100'));
+      
+      const systemFloat = parseFloat(systemFloatQuery[0]?.balance || '0');
+
+      // Calculate variance
+      const variance = Math.abs(totalUserBalances - systemFloat);
+      
+      // Log reconciliation check
+      const reconciliationEntry = {
+        description: `Reconciliation Check - User Balances: ${totalUserBalances}, System Float: ${systemFloat}`,
+        totalDebit: "0.00",
+        totalCredit: "0.00",
+        createdBy: user.email,
+        createdAt: new Date()
+      };
+
+      await db.insert(journalEntries).values(reconciliationEntry);
+
+      // Trigger alerts if variance exceeds threshold
+      if (variance > 1000) {
+        // Log auto-action for variance detection
+        console.log(`RECONCILIATION ALERT: Variance of ${variance} detected - exceeds threshold`);
+        
+        // In a production system, this would trigger email/SMS alerts
+        // await emailService.sendEmail(...) 
+        // await smsService.sendSMS(...)
+      }
+
+      res.json({
+        totalUserBalances: parseFloat(totalUserBalances.toFixed(2)),
+        systemFloat: parseFloat(systemFloat.toFixed(2)),
+        variance: parseFloat(variance.toFixed(2)),
+        status: variance === 0 ? 'BALANCED' : 'VARIANCE_DETECTED',
+        timestamp: new Date().toISOString(),
+        thresholdExceeded: variance > 1000
+      });
+
+    } catch (error: any) {
+      console.error("Error running reconciliation check:", error);
+      res.status(500).json({ message: `Reconciliation check failed: ${error.message}` });
+    }
+  });
+
+  app.get('/api/reconciliation/locked-accounts', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      // Find wallets with negative balances or suspended status
+      const lockedAccounts = await db.select({
+        id: wallets.id,
+        userId: wallets.userId,
+        balance: wallets.balance,
+        status: wallets.status,
+        lockedAt: wallets.updatedAt
+      }).from(wallets)
+      .where(or(
+        sql`CAST(${wallets.balance} AS DECIMAL) < 0`,
+        eq(wallets.status, 'suspended')
+      ));
+
+      res.json(lockedAccounts);
+
+    } catch (error: any) {
+      console.error("Error fetching locked accounts:", error);
+      res.status(500).json({ message: `Failed to fetch locked accounts: ${error.message}` });
+    }
+  });
+
+  app.get('/api/reconciliation/daily-report', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const today = new Date();
+      const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+      const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+
+      // Get reconciliation checks from journal entries
+      const reconciliationChecks = await db.select()
+        .from(journalEntries)
+        .where(and(
+          like(journalEntries.entryNumber, 'REC-%'),
+          gte(journalEntries.createdAt, startOfDay),
+          lte(journalEntries.createdAt, endOfDay)
+        ));
+
+      const checksRun = reconciliationChecks.length;
+      const variancesFound = reconciliationChecks.filter(check => 
+        check.status === 'variance_detected'
+      ).length;
+
+      // Extract variance amounts from descriptions
+      let largestVariance = 0;
+      reconciliationChecks.forEach(check => {
+        if (check.description?.includes('User Balances:')) {
+          const match = check.description.match(/User Balances: ([\d.]+), System Float: ([\d.]+)/);
+          if (match) {
+            const userBal = parseFloat(match[1]);
+            const sysFlo = parseFloat(match[2]);
+            const variance = Math.abs(userBal - sysFlo);
+            if (variance > largestVariance) {
+              largestVariance = variance;
+            }
+          }
+        }
+      });
+
+      res.json({
+        date: today.toISOString().split('T')[0],
+        checksRun,
+        variancesFound,
+        largestVariance,
+        status: variancesFound === 0 ? 'ALL_BALANCED' : 'VARIANCES_DETECTED',
+        lastCheckTime: reconciliationChecks[reconciliationChecks.length - 1]?.createdAt || null
+      });
+
+    } catch (error: any) {
+      console.error("Error generating daily report:", error);
+      res.status(500).json({ message: `Failed to generate daily report: ${error.message}` });
+    }
+  });
+
+  // Auto-lock mechanism for negative balances
+  app.post('/api/reconciliation/auto-lock-check', async () => {
+    try {
+      // Find wallets with negative balances
+      const negativeBalanceWallets = await db.select()
+        .from(wallets)
+        .where(sql`CAST(${wallets.balance} AS DECIMAL) < 0`);
+
+      for (const wallet of negativeBalanceWallets) {
+        // Auto-lock the wallet
+        await db.update(wallets)
+          .set({ 
+            status: 'suspended',
+            updatedAt: new Date()
+          })
+          .where(eq(wallets.id, wallet.id));
+
+        // Log the auto-action
+        console.log(`AUTO-LOCK: Wallet ${wallet.id} locked due to negative balance: ${wallet.balance}`);
+
+        // Create journal entry for the auto-lock action
+        await db.insert(journalEntries).values({
+          entryNumber: `AL-${Date.now()}-${wallet.id}`,
+          description: `Auto-lock applied to wallet ${wallet.id} due to negative balance: ${wallet.balance}`,
+          totalDebit: 0,
+          totalCredit: 0,
+          status: 'auto_lock_applied',
+          createdBy: 'system',
+          createdAt: new Date()
+        });
+      }
+
+      return { lockedCount: negativeBalanceWallets.length };
+    } catch (error) {
+      console.error("Error in auto-lock check:", error);
+      return { error: error.message };
+    }
+  });
+
   // Test SMS configuration
   app.post('/api/notifications/test-sms', isFirebaseAuthenticated, async (req: any, res) => {
     try {

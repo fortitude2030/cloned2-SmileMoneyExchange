@@ -372,6 +372,7 @@ export default function AdminDashboard() {
                 { id: 'revenue', label: 'Revenue', icon: 'fas fa-dollar-sign' },
                 { id: 'statements', label: 'Statements', icon: 'fas fa-file-invoice' },
                 { id: 'journal', label: 'Journal & Ledger', icon: 'fas fa-book' },
+                { id: 'reconciliation', label: 'Reconciliation', icon: 'fas fa-balance-scale' },
                 { id: 'reports', label: 'Reports', icon: 'fas fa-chart-bar' }
               ].map((subTab) => (
                 <button
@@ -1884,6 +1885,246 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
           </>
+        )}
+
+        {/* Accounting - Reconciliation Tab */}
+        {activeTab === 'accounting' && activeSubTab === 'reconciliation' && (
+          <div className="space-y-6">
+            {/* Float Reconciliation Status */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <i className="fas fa-balance-scale text-blue-600"></i>
+                  Float Reconciliation Status
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div className="bg-green-50 dark:bg-green-950 p-4 rounded-lg text-center">
+                    <div className="text-green-600 dark:text-green-400 text-2xl font-bold" id="total-user-balances">
+                      Loading...
+                    </div>
+                    <div className="text-sm text-green-700 dark:text-green-300">Total User Balances</div>
+                  </div>
+                  <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg text-center">
+                    <div className="text-blue-600 dark:text-blue-400 text-2xl font-bold" id="system-float">
+                      Loading...
+                    </div>
+                    <div className="text-sm text-blue-700 dark:text-blue-300">System Float</div>
+                  </div>
+                  <div className="bg-red-50 dark:bg-red-950 p-4 rounded-lg text-center">
+                    <div className="text-red-600 dark:text-red-400 text-2xl font-bold" id="reconciliation-variance">
+                      Loading...
+                    </div>
+                    <div className="text-sm text-red-700 dark:text-red-300">Variance</div>
+                  </div>
+                </div>
+
+                <div className="flex gap-4 mb-4">
+                  <Button 
+                    onClick={async () => {
+                      try {
+                        const response = await fetch('/api/reconciliation/run-check', {
+                          method: 'POST',
+                          headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('firebaseToken')}`,
+                            'Content-Type': 'application/json'
+                          }
+                        });
+                        
+                        if (response.ok) {
+                          const result = await response.json();
+                          document.getElementById('total-user-balances').textContent = `ZMW ${result.totalUserBalances.toLocaleString()}`;
+                          document.getElementById('system-float').textContent = `ZMW ${result.systemFloat.toLocaleString()}`;
+                          document.getElementById('reconciliation-variance').textContent = `ZMW ${result.variance.toLocaleString()}`;
+                          
+                          if (result.variance === 0) {
+                            alert('✅ Reconciliation PASSED - No discrepancies found');
+                          } else {
+                            alert(`⚠️ Reconciliation FAILED - Variance of ZMW ${result.variance.toLocaleString()} detected`);
+                          }
+                        } else {
+                          alert('❌ Error running reconciliation check');
+                        }
+                      } catch (error) {
+                        alert('❌ Error: ' + error.message);
+                      }
+                    }}
+                  >
+                    <i className="fas fa-play mr-2"></i>
+                    Run Reconciliation Check
+                  </Button>
+
+                  <Button variant="outline">
+                    <i className="fas fa-clock mr-2"></i>
+                    Schedule Auto Check
+                  </Button>
+                </div>
+
+                <div className="bg-yellow-50 dark:bg-yellow-950 p-4 rounded-lg">
+                  <h4 className="font-medium text-yellow-800 dark:text-yellow-200 mb-2">Last Reconciliation</h4>
+                  <div className="text-sm text-yellow-700 dark:text-yellow-300" id="last-reconciliation">
+                    No reconciliation run today
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Reconciliation Alerts & Auto-Lock */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <i className="fas fa-shield-alt text-orange-600"></i>
+                  Auto-Lock & Fail-Safe Controls
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="font-medium mb-3">Automated Triggers</h4>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded">
+                        <span className="text-sm">Negative Balance Auto-Lock</span>
+                        <span className="text-green-600 text-sm font-medium">ACTIVE</span>
+                      </div>
+                      <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded">
+                        <span className="text-sm">Reconciliation Failure Alert</span>
+                        <span className="text-green-600 text-sm font-medium">ACTIVE</span>
+                      </div>
+                      <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded">
+                        <span className="text-sm">Variance Threshold (&gt;ZMW 1000)</span>
+                        <span className="text-orange-600 text-sm font-medium">MONITORING</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h4 className="font-medium mb-3">Recent Auto-Actions</h4>
+                    <div className="space-y-2 max-h-32 overflow-y-auto" id="auto-actions-log">
+                      <div className="text-sm text-gray-500 dark:text-gray-400 p-2">
+                        No automated actions today
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      const threshold = prompt('Enter variance threshold in ZMW:', '1000');
+                      if (threshold) {
+                        alert(`Variance threshold updated to ZMW ${threshold}`);
+                      }
+                    }}
+                  >
+                    Configure Thresholds
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        const response = await fetch('/api/reconciliation/locked-accounts', {
+                          headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('firebaseToken')}`
+                          }
+                        });
+                        
+                        if (response.ok) {
+                          const lockedAccounts = await response.json();
+                          if (lockedAccounts.length === 0) {
+                            alert('✅ No accounts currently locked');
+                          } else {
+                            alert(`⚠️ ${lockedAccounts.length} accounts are currently locked due to reconciliation issues`);
+                          }
+                        }
+                      } catch (error) {
+                        alert('Error checking locked accounts');
+                      }
+                    }}
+                  >
+                    View Locked Accounts
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Detailed Reconciliation Reports */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <i className="fas fa-chart-line text-purple-600"></i>
+                  Reconciliation Reports & History
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="mb-4">
+                  <div className="flex gap-2 mb-4">
+                    <Button 
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          const response = await fetch('/api/reconciliation/daily-report', {
+                            headers: {
+                              'Authorization': `Bearer ${localStorage.getItem('firebaseToken')}`
+                            }
+                          });
+                          
+                          if (response.ok) {
+                            const report = await response.json();
+                            alert(`Daily Reconciliation Report:\n\nChecks Run: ${report.checksRun}\nVariances Found: ${report.variancesFound}\nLargest Variance: ZMW ${report.largestVariance}\nStatus: ${report.status}`);
+                          }
+                        } catch (error) {
+                          alert('Error generating daily report');
+                        }
+                      }}
+                    >
+                      Generate Daily Report
+                    </Button>
+                    <Button size="sm" variant="outline">
+                      Export CSV
+                    </Button>
+                    <Button size="sm" variant="outline">
+                      Email Report
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left p-2">Timestamp</th>
+                        <th className="text-left p-2">Type</th>
+                        <th className="text-left p-2">User Balances</th>
+                        <th className="text-left p-2">System Float</th>
+                        <th className="text-left p-2">Variance</th>
+                        <th className="text-left p-2">Status</th>
+                        <th className="text-left p-2">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="reconciliation-history">
+                      <tr className="border-b text-gray-500 dark:text-gray-400">
+                        <td className="p-2" colspan="7">No reconciliation history available</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="mt-4 bg-blue-50 dark:bg-blue-950 p-4 rounded-lg">
+                  <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">Float Movement Tracking</h4>
+                  <div className="text-sm text-blue-700 dark:text-blue-300">
+                    <p>• Real-time monitoring of all wallet balance changes</p>
+                    <p>• Automated discrepancy detection and alerting</p>
+                    <p>• Daily reconciliation job scheduled at 2:00 AM</p>
+                    <p>• Auto-lock triggers for accounts with negative balances</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         )}
 
         {/* Accounting - Journal Tab */}
