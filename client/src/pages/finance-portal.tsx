@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, TrendingUp, DollarSign, FileText, BarChart3 } from "lucide-react";
 import { format } from "date-fns";
+import { useAuth } from "@/hooks/useAuth";
 
 interface FinancialStatement {
   assets: { [key: string]: { name: string; balance: number } };
@@ -62,10 +63,50 @@ interface ChartOfAccounts {
 }
 
 export default function FinancePortal() {
+  const { user, isAuthenticated, isLoading } = useAuth();
   const [dateRange, setDateRange] = useState({
     from: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
     to: new Date()
   });
+
+  // Check authentication and admin role
+  useEffect(() => {
+    if (!isLoading && (!isAuthenticated || !['admin', 'super_admin'].includes((user as any)?.role))) {
+      window.location.href = '/';
+    }
+  }, [isLoading, isAuthenticated, user]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-green-600 rounded-2xl flex items-center justify-center mx-auto mb-4 animate-pulse">
+            <i className="fas fa-chart-line text-white text-2xl"></i>
+          </div>
+          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || !['admin', 'super_admin'].includes((user as any)?.role)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i className="fas fa-lock text-red-600 dark:text-red-400 text-2xl"></i>
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">Access Denied</h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">
+            Admin access required to view financial information
+          </p>
+          <Button onClick={() => window.location.href = '/'}>
+            Return to Dashboard
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   // Financial Statements Query
   const { data: financialStatements, isLoading: isLoadingStatements } = useQuery<FinancialStatement>({
