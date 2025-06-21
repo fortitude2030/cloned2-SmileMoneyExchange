@@ -1414,31 +1414,59 @@ export default function AdminDashboard() {
         {/* Accounting - Reports Tab */}
         {activeTab === 'accounting' && activeSubTab === 'reports' && (
           <>
-            {/* Reports Content */}
+            {/* Quick Export Actions */}
             <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
               <CardContent className="p-4">
                 <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
-                  <i className="fas fa-chart-bar text-blue-600 mr-2"></i>
-                  Financial Reports & Export
+                  <i className="fas fa-download text-blue-600 mr-2"></i>
+                  Quick Export Actions
                 </h3>
                 
                 {/* Export Format Options */}
                 <div className="mb-6">
-                  <h4 className="text-md font-medium text-gray-800 dark:text-gray-200 mb-3">Export Formats</h4>
+                  <h4 className="text-md font-medium text-gray-800 dark:text-gray-200 mb-3">Export Current Data</h4>
                   <div className="grid grid-cols-4 gap-3">
-                    <Button variant="outline" className="flex items-center justify-center">
+                    <Button 
+                      variant="outline" 
+                      className="flex items-center justify-center"
+                      onClick={() => {
+                        // Trigger PDF export of current financial data
+                        window.open('/api/accounting/export/pdf', '_blank');
+                      }}
+                    >
                       <i className="fas fa-file-pdf text-red-600 mr-2"></i>
                       PDF
                     </Button>
-                    <Button variant="outline" className="flex items-center justify-center">
+                    <Button 
+                      variant="outline" 
+                      className="flex items-center justify-center"
+                      onClick={() => {
+                        // Trigger Excel export
+                        window.open('/api/accounting/export/excel', '_blank');
+                      }}
+                    >
                       <i className="fas fa-file-excel text-green-600 mr-2"></i>
                       Excel
                     </Button>
-                    <Button variant="outline" className="flex items-center justify-center">
+                    <Button 
+                      variant="outline" 
+                      className="flex items-center justify-center"
+                      onClick={() => {
+                        // Trigger Word export
+                        window.open('/api/accounting/export/word', '_blank');
+                      }}
+                    >
                       <i className="fas fa-file-word text-blue-600 mr-2"></i>
                       Word
                     </Button>
-                    <Button variant="outline" className="flex items-center justify-center">
+                    <Button 
+                      variant="outline" 
+                      className="flex items-center justify-center"
+                      onClick={() => {
+                        // Trigger CSV export
+                        window.open('/api/accounting/export/csv', '_blank');
+                      }}
+                    >
                       <i className="fas fa-file-csv text-orange-600 mr-2"></i>
                       CSV
                     </Button>
@@ -1451,8 +1479,26 @@ export default function AdminDashboard() {
                     <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Financial Statements</p>
                     <p className="text-xs text-gray-600 dark:text-gray-400">Balance Sheet, Income Statement, Cash Flow</p>
                     <div className="flex gap-2 mt-2">
-                      <Button size="sm" className="text-xs">Generate</Button>
-                      <Button size="sm" variant="outline" className="text-xs">Schedule</Button>
+                      <Button 
+                        size="sm" 
+                        className="text-xs"
+                        onClick={() => {
+                          // Generate financial statements report
+                          fetch('/api/accounting/generate-report/financial-statements', { method: 'POST' })
+                            .then(() => alert('Financial statements report generated successfully!'))
+                            .catch(() => alert('Error generating report'));
+                        }}
+                      >
+                        Generate
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="text-xs"
+                        onClick={() => alert('Scheduling feature coming soon!')}
+                      >
+                        Schedule
+                      </Button>
                     </div>
                   </div>
                   
@@ -1460,8 +1506,26 @@ export default function AdminDashboard() {
                     <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Revenue Analysis</p>
                     <p className="text-xs text-gray-600 dark:text-gray-400">Transaction fees, settlement charges breakdown</p>
                     <div className="flex gap-2 mt-2">
-                      <Button size="sm" className="text-xs">Generate</Button>
-                      <Button size="sm" variant="outline" className="text-xs">Schedule</Button>
+                      <Button 
+                        size="sm" 
+                        className="text-xs"
+                        onClick={() => {
+                          // Generate revenue analysis report
+                          fetch('/api/accounting/generate-report/revenue-analysis', { method: 'POST' })
+                            .then(() => alert('Revenue analysis report generated successfully!'))
+                            .catch(() => alert('Error generating report'));
+                        }}
+                      >
+                        Generate
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="text-xs"
+                        onClick={() => alert('Scheduling feature coming soon!')}
+                      >
+                        Schedule
+                      </Button>
                     </div>
                   </div>
                   
@@ -1469,8 +1533,26 @@ export default function AdminDashboard() {
                     <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Transaction Summary</p>
                     <p className="text-xs text-gray-600 dark:text-gray-400">Daily, weekly, monthly transaction reports</p>
                     <div className="flex gap-2 mt-2">
-                      <Button size="sm" className="text-xs">Generate</Button>
-                      <Button size="sm" variant="outline" className="text-xs">Schedule</Button>
+                      <Button 
+                        size="sm" 
+                        className="text-xs"
+                        onClick={() => {
+                          // Generate transaction summary report
+                          fetch('/api/accounting/generate-report/transaction-summary', { method: 'POST' })
+                            .then(() => alert('Transaction summary report generated successfully!'))
+                            .catch(() => alert('Error generating report'));
+                        }}
+                      >
+                        Generate
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="text-xs"
+                        onClick={() => alert('Scheduling feature coming soon!')}
+                      >
+                        Schedule
+                      </Button>
                     </div>
                   </div>
                   
@@ -1478,8 +1560,26 @@ export default function AdminDashboard() {
                     <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Regulatory Reports</p>
                     <p className="text-xs text-gray-600 dark:text-gray-400">Bank of Zambia compliance reports</p>
                     <div className="flex gap-2 mt-2">
-                      <Button size="sm" className="text-xs">Generate</Button>
-                      <Button size="sm" variant="outline" className="text-xs">Schedule</Button>
+                      <Button 
+                        size="sm" 
+                        className="text-xs"
+                        onClick={() => {
+                          // Generate regulatory reports
+                          fetch('/api/accounting/generate-report/regulatory', { method: 'POST' })
+                            .then(() => alert('Regulatory report generated successfully!'))
+                            .catch(() => alert('Error generating report'));
+                        }}
+                      >
+                        Generate
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="text-xs"
+                        onClick={() => alert('Scheduling feature coming soon!')}
+                      >
+                        Schedule
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -1488,13 +1588,21 @@ export default function AdminDashboard() {
                 <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
                   <h4 className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-2">Automated Email Distribution</h4>
                   <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">Configure automatic report delivery to stakeholders</p>
-                  <Button size="sm" variant="outline" className="text-xs">
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="text-xs"
+                    onClick={() => alert('Email configuration feature coming soon!')}
+                  >
                     <i className="fas fa-envelope mr-2"></i>
                     Configure Recipients
                   </Button>
                 </div>
               </CardContent>
             </Card>
+
+            {/* Full Accounting Dashboard */}
+            <AccountingDashboard />
           </>
         )}
 
