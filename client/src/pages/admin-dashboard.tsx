@@ -2389,7 +2389,12 @@ export default function AdminDashboard() {
                       className="flex items-center justify-center"
                       onClick={async () => {
                         try {
-                          const response = await apiRequest('/api/accounting/export/pdf');
+                          const token = localStorage.getItem('firebaseToken');
+                          const response = await fetch('/api/accounting/export/pdf', {
+                            headers: {
+                              'Authorization': `Bearer ${token}`
+                            }
+                          });
                           if (response.ok) {
                             const blob = await response.blob();
                             const url = window.URL.createObjectURL(blob);
@@ -2410,7 +2415,12 @@ export default function AdminDashboard() {
                       className="flex items-center justify-center"
                       onClick={async () => {
                         try {
-                          const response = await apiRequest('/api/accounting/export/excel');
+                          const token = localStorage.getItem('firebaseToken');
+                          const response = await fetch('/api/accounting/export/excel', {
+                            headers: {
+                              'Authorization': `Bearer ${token}`
+                            }
+                          });
                           if (response.ok) {
                             const blob = await response.blob();
                             const url = window.URL.createObjectURL(blob);
@@ -2446,7 +2456,12 @@ export default function AdminDashboard() {
                       className="flex items-center justify-center"
                       onClick={async () => {
                         try {
-                          const response = await apiRequest('/api/accounting/export/csv');
+                          const token = localStorage.getItem('firebaseToken');
+                          const response = await fetch('/api/accounting/export/csv', {
+                            headers: {
+                              'Authorization': `Bearer ${token}`
+                            }
+                          });
                           if (response.ok) {
                             const blob = await response.blob();
                             const url = window.URL.createObjectURL(blob);
@@ -2480,16 +2495,11 @@ export default function AdminDashboard() {
                         className="text-xs"
                         onClick={async () => {
                           try {
-                            const response = await apiRequest('POST', '/api/accounting/generate-report/financial-statements', {});
-                            if (response.ok) {
-                              const result = await response.json();
-                              alert(`${result.message}. Click OK to download.`);
-                              window.open(result.downloadUrl, '_blank');
-                            } else {
-                              const error = await response.json();
-                              alert(`Error: ${error.message}`);
-                            }
+                            const result = await apiRequest('POST', '/api/accounting/generate-report/financial-statements', {});
+                            alert(`${result.message}. Click OK to download.`);
+                            window.open(result.downloadUrl, '_blank');
                           } catch (error: any) {
+                            console.error('Error details:', error);
                             alert('Error generating financial statements report: ' + error.message);
                           }
                         }}
@@ -2796,7 +2806,12 @@ export default function AdminDashboard() {
                     
                     <Button variant="outline" className="h-20 flex-col gap-2" onClick={async () => {
                       try {
-                        const response = await apiRequest('/api/accounting/export/csv');
+                        const token = localStorage.getItem('firebaseToken');
+                        const response = await fetch('/api/accounting/export/csv', {
+                          headers: {
+                            'Authorization': `Bearer ${token}`
+                          }
+                        });
                         if (response.ok) {
                           const blob = await response.blob();
                           const url = window.URL.createObjectURL(blob);
