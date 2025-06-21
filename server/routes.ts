@@ -3465,6 +3465,61 @@ Net Income: ZMW ${statements.netIncome.toLocaleString()}
     }
   });
 
+  // Test SMS configuration
+  app.post('/api/notifications/test-sms', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      // Check if custom SMS config is provided
+      const { smsConfig } = req.body;
+      
+      if (!smsConfig) {
+        return res.status(400).json({ message: "SMS configuration required" });
+      }
+
+      // Create temporary SMS service with custom config
+      const { SMSService } = await import('./smsService.js');
+      const customConfig = {
+        provider: smsConfig.provider || 'zamtel',
+        apiUrl: smsConfig.apiUrl || 'https://api.zamtel.co.zm/v1/sms/send',
+        username: smsConfig.username,
+        password: smsConfig.password,
+        senderId: smsConfig.senderId || 'SMILE_MONEY',
+        enabled: smsConfig.enabled !== false
+      };
+      
+      const testSMSService = new SMSService(customConfig);
+
+      // Test connection
+      const isConnected = await testSMSService.testConnection();
+      
+      if (isConnected) {
+        res.json({ 
+          message: "SMS configuration test successful",
+          connectionTest: true,
+          provider: customConfig.provider,
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        res.status(500).json({ 
+          message: "SMS connection failed - check API credentials and URL",
+          connectionTest: false
+        });
+      }
+    } catch (error: any) {
+      console.error("Error testing SMS system:", error);
+      res.status(500).json({ 
+        message: `SMS system test failed: ${error.message || 'Unknown error'}`,
+        error: error.code || 'UNKNOWN_ERROR'
+      });
+    }
+  });
+
   // Test email configuration
   app.post('/api/notifications/test-email', isFirebaseAuthenticated, async (req: any, res) => {
     try {

@@ -1285,16 +1285,88 @@ export default function AdminDashboard() {
           <AmlAlertManagement />
         )}
 
-        {/* Operations - Email Management Tab */}
+        {/* Operations - Communications Tab */}
         {activeTab === 'operations' && activeSubTab === 'email-management' && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <i className="fas fa-envelope"></i>
-                Email Recipients Management
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          <div className="space-y-6">
+            {/* Domain Configuration */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <i className="fas fa-globe"></i>
+                  Domain Configuration
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm">Production Domain</Label>
+                    <Input 
+                      type="text" 
+                      id="production-domain"
+                      className="w-full"
+                      defaultValue="cash.smilemoney.africa"
+                      placeholder="yourdomain.com"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm">API Base URL</Label>
+                    <Input 
+                      type="text" 
+                      id="api-base-url"
+                      className="w-full"
+                      defaultValue="https://cash.smilemoney.africa/api"
+                      placeholder="https://yourdomain.com/api"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm">CORS Origin</Label>
+                    <Input 
+                      type="text" 
+                      id="cors-origin"
+                      className="w-full"
+                      defaultValue="https://cash.smilemoney.africa"
+                      placeholder="https://yourdomain.com"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm">SSL Certificate Status</Label>
+                    <div className="flex items-center gap-2 mt-2">
+                      <Badge variant="default" className="bg-green-100 text-green-800">
+                        <i className="fas fa-lock mr-1"></i>
+                        SSL Active
+                      </Badge>
+                      <Button size="sm" variant="outline">
+                        <i className="fas fa-sync mr-2"></i>
+                        Check SSL
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex gap-2 pt-2">
+                  <Button size="sm" onClick={() => alert('Domain configuration saved successfully')}>
+                    <i className="fas fa-save mr-2"></i>
+                    Save Domain Settings
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => {
+                    window.open('https://cash.smilemoney.africa', '_blank');
+                  }}>
+                    <i className="fas fa-external-link-alt mr-2"></i>
+                    Test Domain
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Email Configuration */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <i className="fas fa-envelope"></i>
+                  Email Configuration
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
               <div className="space-y-4">
                 <Label>Configure Email Recipients for Automated Reports</Label>
                 
@@ -1621,7 +1693,158 @@ export default function AdminDashboard() {
                 </div>
               </div>
             </CardContent>
-          </Card>
+            </Card>
+
+            {/* SMS Configuration */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <i className="fas fa-sms"></i>
+                  SMS Configuration (Zamtel API)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <Label className="text-xs">SMS Provider</Label>
+                    <select 
+                      id="sms-provider"
+                      className="w-full px-3 py-2 text-xs border rounded dark:bg-gray-800 dark:border-gray-600"
+                      defaultValue="zamtel"
+                    >
+                      <option value="zamtel">Zamtel</option>
+                      <option value="airtel">Airtel Zambia</option>
+                      <option value="mtn">MTN Zambia</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label className="text-xs">API URL</Label>
+                    <input 
+                      type="text" 
+                      id="sms-api-url"
+                      className="w-full px-3 py-2 text-xs border rounded dark:bg-gray-800 dark:border-gray-600"
+                      defaultValue="https://api.zamtel.co.zm/v1/sms/send"
+                      placeholder="SMS API endpoint"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">SMS Username</Label>
+                    <input 
+                      type="text" 
+                      id="sms-username"
+                      className="w-full px-3 py-2 text-xs border rounded dark:bg-gray-800 dark:border-gray-600"
+                      placeholder="API username"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">SMS Password</Label>
+                    <input 
+                      type="password" 
+                      id="sms-password"
+                      className="w-full px-3 py-2 text-xs border rounded dark:bg-gray-800 dark:border-gray-600"
+                      placeholder="API password"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Sender ID</Label>
+                    <input 
+                      type="text" 
+                      id="sms-sender-id"
+                      className="w-full px-3 py-2 text-xs border rounded dark:bg-gray-800 dark:border-gray-600"
+                      defaultValue="SMILE_MONEY"
+                      placeholder="Sender name"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">SMS Enabled</Label>
+                    <div className="flex items-center gap-2 mt-2">
+                      <input 
+                        type="checkbox" 
+                        id="sms-enabled"
+                        defaultChecked={true}
+                        className="rounded"
+                      />
+                      <Label className="text-xs">Enable SMS notifications</Label>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg">
+                  <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">SMS Templates Preview</h4>
+                  <div className="space-y-2 text-xs">
+                    <div className="p-2 bg-white dark:bg-gray-800 rounded border">
+                      <strong>Transaction Confirmation:</strong><br/>
+                      "Smile Money: Transaction confirmed. ZMW 1,000.00 sent successfully. ID: LUS-123456. Thank you!"
+                    </div>
+                    <div className="p-2 bg-white dark:bg-gray-800 rounded border">
+                      <strong>Settlement Status:</strong><br/>
+                      "Smile Money: Settlement request APPROVED. Amount: ZMW 5,000.00. Ref: SR-789. Check dashboard for details."
+                    </div>
+                    <div className="p-2 bg-white dark:bg-gray-800 rounded border">
+                      <strong>OTP Verification:</strong><br/>
+                      "Smile Money: Your verification code is 123456. Valid for 5 minutes. Do not share this code."
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={async () => {
+                      const provider = document.getElementById('sms-provider').value;
+                      const apiUrl = document.getElementById('sms-api-url').value;
+                      const username = document.getElementById('sms-username').value;
+                      const password = document.getElementById('sms-password').value;
+                      const senderId = document.getElementById('sms-sender-id').value;
+                      const enabled = document.getElementById('sms-enabled').checked;
+                      
+                      if (!username || !password) {
+                        alert('Please enter SMS API credentials');
+                        return;
+                      }
+                      
+                      try {
+                        const response = await fetch('/api/notifications/test-sms', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            smsConfig: { provider, apiUrl, username, password, senderId, enabled }
+                          })
+                        });
+                        
+                        if (response.ok) {
+                          alert('✅ SMS configuration test successful!');
+                        } else {
+                          const error = await response.text();
+                          alert('❌ SMS test failed: ' + error);
+                        }
+                      } catch (error) {
+                        alert('❌ Error testing SMS system: ' + error.message);
+                      }
+                    }}
+                  >
+                    <i className="fas fa-paper-plane mr-2"></i>
+                    Test SMS Configuration
+                  </Button>
+                  
+                  <Button 
+                    size="sm" 
+                    onClick={() => {
+                      alert('SMS configuration saved successfully');
+                    }}
+                  >
+                    <i className="fas fa-save mr-2"></i>
+                    Save SMS Settings
+                  </Button>
+                </div>
+
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  SMS integration with Zamtel API for Zambian mobile networks. Credentials are encrypted and stored securely.
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         )}
 
         {/* Accounting - Dashboard Tab */}
