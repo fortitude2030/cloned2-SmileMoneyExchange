@@ -1421,17 +1421,77 @@ export default function AdminDashboard() {
                   <i className="fas fa-chart-bar text-blue-600 mr-2"></i>
                   Financial Reports & Export
                 </h3>
+                
+                {/* Export Format Options */}
+                <div className="mb-6">
+                  <h4 className="text-md font-medium text-gray-800 dark:text-gray-200 mb-3">Export Formats</h4>
+                  <div className="grid grid-cols-4 gap-3">
+                    <Button variant="outline" className="flex items-center justify-center">
+                      <i className="fas fa-file-pdf text-red-600 mr-2"></i>
+                      PDF
+                    </Button>
+                    <Button variant="outline" className="flex items-center justify-center">
+                      <i className="fas fa-file-excel text-green-600 mr-2"></i>
+                      Excel
+                    </Button>
+                    <Button variant="outline" className="flex items-center justify-center">
+                      <i className="fas fa-file-word text-blue-600 mr-2"></i>
+                      Word
+                    </Button>
+                    <Button variant="outline" className="flex items-center justify-center">
+                      <i className="fas fa-file-csv text-orange-600 mr-2"></i>
+                      CSV
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Report Types */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Monthly Reports</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">Generate monthly financial summaries</p>
-                    <Button className="mt-2 w-full text-xs">Generate PDF</Button>
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Financial Statements</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Balance Sheet, Income Statement, Cash Flow</p>
+                    <div className="flex gap-2 mt-2">
+                      <Button size="sm" className="text-xs">Generate</Button>
+                      <Button size="sm" variant="outline" className="text-xs">Schedule</Button>
+                    </div>
                   </div>
+                  
                   <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                     <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Revenue Analysis</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">Detailed revenue breakdown</p>
-                    <Button className="mt-2 w-full text-xs">Export Excel</Button>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Transaction fees, settlement charges breakdown</p>
+                    <div className="flex gap-2 mt-2">
+                      <Button size="sm" className="text-xs">Generate</Button>
+                      <Button size="sm" variant="outline" className="text-xs">Schedule</Button>
+                    </div>
                   </div>
+                  
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Transaction Summary</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Daily, weekly, monthly transaction reports</p>
+                    <div className="flex gap-2 mt-2">
+                      <Button size="sm" className="text-xs">Generate</Button>
+                      <Button size="sm" variant="outline" className="text-xs">Schedule</Button>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Regulatory Reports</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Bank of Zambia compliance reports</p>
+                    <div className="flex gap-2 mt-2">
+                      <Button size="sm" className="text-xs">Generate</Button>
+                      <Button size="sm" variant="outline" className="text-xs">Schedule</Button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Email Distribution */}
+                <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                  <h4 className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-2">Automated Email Distribution</h4>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">Configure automatic report delivery to stakeholders</p>
+                  <Button size="sm" variant="outline" className="text-xs">
+                    <i className="fas fa-envelope mr-2"></i>
+                    Configure Recipients
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -1440,7 +1500,199 @@ export default function AdminDashboard() {
 
         {/* Compliance Tab */}
         {activeTab === 'compliance' && (
-          <ComplianceReportsDashboard />
+          <>
+            {/* Compliance Reports Overview */}
+            <div className="grid grid-cols-3 gap-4 mb-6">
+              <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <p className="text-lg font-bold text-blue-600">12</p>
+                      <p className="text-gray-600 dark:text-gray-400 text-sm">Monthly Reports</p>
+                    </div>
+                    <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+                      <i className="fas fa-calendar-alt text-blue-600 dark:text-blue-400"></i>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-500">Last: Dec 2024</p>
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <p className="text-lg font-bold text-green-600">4</p>
+                      <p className="text-gray-600 dark:text-gray-400 text-sm">Quarterly Reports</p>
+                    </div>
+                    <div className="w-10 h-10 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
+                      <i className="fas fa-chart-line text-green-600 dark:text-green-400"></i>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-500">Last: Q4 2024</p>
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <p className="text-lg font-bold text-purple-600">1</p>
+                      <p className="text-gray-600 dark:text-gray-400 text-sm">Annual Reports</p>
+                    </div>
+                    <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center">
+                      <i className="fas fa-file-alt text-purple-600 dark:text-purple-400"></i>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-500">Last: 2024</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Monthly Reports */}
+            <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
+              <CardContent className="p-4">
+                <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
+                  <i className="fas fa-calendar-alt text-blue-600 mr-2"></i>
+                  Monthly Compliance Reports
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">AML Transaction Monitoring</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Monthly suspicious activity and threshold breaches</p>
+                    <div className="flex gap-2 mt-2">
+                      <Button size="sm" className="text-xs">Generate Current</Button>
+                      <Button size="sm" variant="outline" className="text-xs">View History</Button>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Transaction Volume Report</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Monthly transaction statistics for BoZ</p>
+                    <div className="flex gap-2 mt-2">
+                      <Button size="sm" className="text-xs">Generate Current</Button>
+                      <Button size="sm" variant="outline" className="text-xs">View History</Button>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">KYC Compliance Status</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Customer verification and documentation status</p>
+                    <div className="flex gap-2 mt-2">
+                      <Button size="sm" className="text-xs">Generate Current</Button>
+                      <Button size="sm" variant="outline" className="text-xs">View History</Button>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Risk Assessment Summary</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Monthly risk evaluation and mitigation measures</p>
+                    <div className="flex gap-2 mt-2">
+                      <Button size="sm" className="text-xs">Generate Current</Button>
+                      <Button size="sm" variant="outline" className="text-xs">View History</Button>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Quarterly Reports */}
+            <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
+              <CardContent className="p-4">
+                <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
+                  <i className="fas fa-chart-line text-green-600 mr-2"></i>
+                  Quarterly Compliance Reports
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Regulatory Compliance Review</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Comprehensive compliance assessment for BoZ</p>
+                    <div className="flex gap-2 mt-2">
+                      <Button size="sm" className="text-xs">Generate Q1 2025</Button>
+                      <Button size="sm" variant="outline" className="text-xs">Previous Quarters</Button>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">AML Program Effectiveness</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Quarterly review of AML controls and procedures</p>
+                    <div className="flex gap-2 mt-2">
+                      <Button size="sm" className="text-xs">Generate Q1 2025</Button>
+                      <Button size="sm" variant="outline" className="text-xs">Previous Quarters</Button>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Business Growth Analysis</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Quarterly business metrics and expansion plans</p>
+                    <div className="flex gap-2 mt-2">
+                      <Button size="sm" className="text-xs">Generate Q1 2025</Button>
+                      <Button size="sm" variant="outline" className="text-xs">Previous Quarters</Button>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Financial Performance Report</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Quarterly financial health and sustainability metrics</p>
+                    <div className="flex gap-2 mt-2">
+                      <Button size="sm" className="text-xs">Generate Q1 2025</Button>
+                      <Button size="sm" variant="outline" className="text-xs">Previous Quarters</Button>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Annual Reports */}
+            <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
+              <CardContent className="p-4">
+                <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
+                  <i className="fas fa-file-alt text-purple-600 mr-2"></i>
+                  Annual Compliance Reports
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Annual Regulatory Filing</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Comprehensive annual report for Bank of Zambia</p>
+                    <div className="flex gap-2 mt-2">
+                      <Button size="sm" className="text-xs">Generate 2025</Button>
+                      <Button size="sm" variant="outline" className="text-xs">View 2024</Button>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">AML Program Annual Review</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Annual assessment of AML effectiveness and updates</p>
+                    <div className="flex gap-2 mt-2">
+                      <Button size="sm" className="text-xs">Generate 2025</Button>
+                      <Button size="sm" variant="outline" className="text-xs">View 2024</Button>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Risk Management Report</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Annual risk assessment and mitigation strategies</p>
+                    <div className="flex gap-2 mt-2">
+                      <Button size="sm" className="text-xs">Generate 2025</Button>
+                      <Button size="sm" variant="outline" className="text-xs">View 2024</Button>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Business Continuity Plan</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Annual review of business continuity and disaster recovery</p>
+                    <div className="flex gap-2 mt-2">
+                      <Button size="sm" className="text-xs">Generate 2025</Button>
+                      <Button size="sm" variant="outline" className="text-xs">View 2024</Button>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Original Compliance Dashboard */}
+            <ComplianceReportsDashboard />
+          </>
         )}
 
         {/* System Tab */}
