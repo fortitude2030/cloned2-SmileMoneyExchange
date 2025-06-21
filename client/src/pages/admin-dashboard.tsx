@@ -1627,9 +1627,18 @@ export default function AdminDashboard() {
                         const complianceEmails = getEmailsFromContainer('#compliance-recipients').join(',');
                         const adminEmails = getEmailsFromContainer('#admin-recipients').join(',');
                         
+                        const token = await getCurrentToken();
+                        if (!token) {
+                          alert('Please log in again');
+                          return;
+                        }
+                        
                         const response = await fetch('/api/admin/email-settings', {
                           method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
+                          headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                          },
                           body: JSON.stringify({
                             financeEmails,
                             operationsEmails,
@@ -1655,7 +1664,17 @@ export default function AdminDashboard() {
                     variant="outline"
                     onClick={async () => {
                       try {
-                        const response = await fetch('/api/admin/email-settings');
+                        const token = await getCurrentToken();
+                        if (!token) {
+                          alert('Please log in again');
+                          return;
+                        }
+                        
+                        const response = await fetch('/api/admin/email-settings', {
+                          headers: {
+                            'Authorization': `Bearer ${token}`
+                          }
+                        });
                         if (response.ok) {
                           const settings = await response.json();
                           
@@ -1753,9 +1772,18 @@ export default function AdminDashboard() {
                         }
                         
                         try {
+                          const token = await getCurrentToken();
+                          if (!token) {
+                            alert('Please log in again');
+                            return;
+                          }
+                          
                           const response = await fetch('/api/notifications/test-email', {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: { 
+                              'Content-Type': 'application/json',
+                              'Authorization': `Bearer ${token}`
+                            },
                             body: JSON.stringify({
                               smtpConfig: { host, port: parseInt(port), user, pass }
                             })
