@@ -892,6 +892,31 @@ export default function AdminDashboard() {
           <AmlAlertManagement />
         )}
 
+        {/* Accounting Tab */}
+        {activeTab === 'accounting' && (
+          <div className="text-center py-8">
+            <div className="w-16 h-16 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mx-auto mb-4">
+              <i className="fas fa-chart-line text-green-600 dark:text-green-400 text-2xl"></i>
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+              Smile Money Financial Portal
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              Access comprehensive accounting system with revenue tracking and financial statements
+            </p>
+            <Button 
+              onClick={() => window.open('/finance-portal', '_blank')}
+              className="bg-green-600 hover:bg-green-700 text-white px-6 py-2"
+            >
+              <i className="fas fa-external-link-alt mr-2"></i>
+              Open Financial Portal
+            </Button>
+            <div className="mt-6 text-sm text-gray-500 dark:text-gray-400">
+              <p>Features: Financial Statements • Revenue Reports • Journal Entries • Chart of Accounts</p>
+            </div>
+          </div>
+        )}
+
         {/* Compliance Reports Tab */}
         {activeTab === 'compliance' && (
           <ComplianceReportsDashboard />
