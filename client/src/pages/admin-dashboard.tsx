@@ -33,6 +33,7 @@ export default function AdminDashboard() {
   const { toast } = useToast();
   
   const [activeTab, setActiveTab] = useState('overview');
+  const [activeSubTab, setActiveSubTab] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [sortBy, setSortBy] = useState('date');
   const [actionDialog, setActionDialog] = useState<ActionDialogState>({
@@ -267,23 +268,31 @@ export default function AdminDashboard() {
         color="red-600"
       />
 
-      {/* Tab Navigation */}
+      {/* Main Navigation */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
         <div className="flex overflow-x-auto">
           {[
             { id: 'overview', label: 'Overview', icon: 'fas fa-tachometer-alt' },
-            { id: 'users', label: 'Users', icon: 'fas fa-users' },
-            { id: 'organizations', label: 'Organizations', icon: 'fas fa-building' },
-            { id: 'transactions', label: 'Transactions', icon: 'fas fa-exchange-alt' },
+            { id: 'customers', label: 'Customers', icon: 'fas fa-users', hasSubMenu: true },
+            { id: 'operations', label: 'Operations', icon: 'fas fa-cogs', hasSubMenu: true },
+            { id: 'aml', label: 'AML', icon: 'fas fa-shield-alt', hasSubMenu: true },
+            { id: 'compliance', label: 'Compliance', icon: 'fas fa-file-alt' },
             { id: 'settlements', label: 'Settlements', icon: 'fas fa-university' },
-            { id: 'accounting', label: 'Smile Money Financials', icon: 'fas fa-chart-line' },
-            { id: 'aml-config', label: 'AML Config', icon: 'fas fa-shield-alt' },
-            { id: 'aml-alerts', label: 'AML Alerts', icon: 'fas fa-exclamation-triangle' },
-            { id: 'compliance', label: 'Compliance', icon: 'fas fa-file-alt' }
+            { id: 'accounting', label: 'Financials', icon: 'fas fa-chart-line' }
           ].map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => {
+                setActiveTab(tab.id);
+                if (tab.hasSubMenu) {
+                  // Set default sub-tab for menus with sub-items
+                  if (tab.id === 'customers') setActiveSubTab('users');
+                  else if (tab.id === 'operations') setActiveSubTab('transactions');
+                  else if (tab.id === 'aml') setActiveSubTab('aml-config');
+                } else {
+                  setActiveSubTab('');
+                }
+              }}
               className={`flex items-center px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
                 activeTab === tab.id
                   ? 'border-red-500 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950'
@@ -292,9 +301,70 @@ export default function AdminDashboard() {
             >
               <i className={`${tab.icon} mr-2`}></i>
               {tab.label}
+              {tab.hasSubMenu && <i className="fas fa-chevron-down ml-1 text-xs"></i>}
             </button>
           ))}
         </div>
+        
+        {/* Sub-navigation for menu items with sub-menus */}
+        {(activeTab === 'customers' || activeTab === 'operations' || activeTab === 'aml') && (
+          <div className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+            <div className="flex overflow-x-auto px-4">
+              {activeTab === 'customers' && [
+                { id: 'users', label: 'Users', icon: 'fas fa-user' },
+                { id: 'organizations', label: 'Organizations', icon: 'fas fa-building' }
+              ].map((subTab) => (
+                <button
+                  key={subTab.id}
+                  onClick={() => setActiveSubTab(subTab.id)}
+                  className={`flex items-center px-3 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+                    activeSubTab === subTab.id
+                      ? 'border-red-400 text-red-600 dark:text-red-400 bg-white dark:bg-gray-600'
+                      : 'border-transparent text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100'
+                  }`}
+                >
+                  <i className={`${subTab.icon} mr-2 text-xs`}></i>
+                  {subTab.label}
+                </button>
+              ))}
+              
+              {activeTab === 'operations' && [
+                { id: 'transactions', label: 'Transactions', icon: 'fas fa-exchange-alt' }
+              ].map((subTab) => (
+                <button
+                  key={subTab.id}
+                  onClick={() => setActiveSubTab(subTab.id)}
+                  className={`flex items-center px-3 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+                    activeSubTab === subTab.id
+                      ? 'border-red-400 text-red-600 dark:text-red-400 bg-white dark:bg-gray-600'
+                      : 'border-transparent text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100'
+                  }`}
+                >
+                  <i className={`${subTab.icon} mr-2 text-xs`}></i>
+                  {subTab.label}
+                </button>
+              ))}
+              
+              {activeTab === 'aml' && [
+                { id: 'aml-config', label: 'AML Config', icon: 'fas fa-cog' },
+                { id: 'aml-alerts', label: 'AML Alerts', icon: 'fas fa-exclamation-triangle' }
+              ].map((subTab) => (
+                <button
+                  key={subTab.id}
+                  onClick={() => setActiveSubTab(subTab.id)}
+                  className={`flex items-center px-3 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+                    activeSubTab === subTab.id
+                      ? 'border-red-400 text-red-600 dark:text-red-400 bg-white dark:bg-gray-600'
+                      : 'border-transparent text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100'
+                  }`}
+                >
+                  <i className={`${subTab.icon} mr-2 text-xs`}></i>
+                  {subTab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="p-4">
@@ -873,32 +943,32 @@ export default function AdminDashboard() {
           </>
         )}
 
-        {/* User Management Tab */}
-        {activeTab === 'users' && (
+        {/* Customers - Users Tab */}
+        {activeTab === 'customers' && activeSubTab === 'users' && (
           <AdminUserManagement />
         )}
 
-        {/* Organization Management Tab */}
-        {activeTab === 'organizations' && (
+        {/* Customers - Organizations Tab */}
+        {activeTab === 'customers' && activeSubTab === 'organizations' && (
           <AdminOrganizationManagement />
         )}
 
-        {/* AML Configuration Tab */}
-        {activeTab === 'aml-config' && (
+        {/* AML - Config Tab */}
+        {activeTab === 'aml' && activeSubTab === 'aml-config' && (
           <AmlConfigurationDashboard />
         )}
 
-        {/* AML Alerts Tab */}
-        {activeTab === 'aml-alerts' && (
+        {/* AML - Alerts Tab */}
+        {activeTab === 'aml' && activeSubTab === 'aml-alerts' && (
           <AmlAlertManagement />
         )}
 
-        {/* Accounting Tab */}
+        {/* Financials Tab */}
         {activeTab === 'accounting' && (
           <AccountingDashboard />
         )}
 
-        {/* Compliance Reports Tab */}
+        {/* Compliance Tab */}
         {activeTab === 'compliance' && (
           <ComplianceReportsDashboard />
         )}
