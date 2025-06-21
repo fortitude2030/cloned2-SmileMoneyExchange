@@ -42,7 +42,15 @@ export default function AdminOrganizationManagement() {
     address: '',
     contactEmail: '',
     contactPhone: '',
-    businessType: ''
+    businessType: '',
+    pacraNumber: '',
+    zraTpinNumber: '',
+    businessLicenseNumber: '',
+    businessLicenseExpiry: '',
+    directorName: '',
+    directorNrc: '',
+    directorPhone: '',
+    shareCapitalAmount: ''
   });
 
   // Fetch organizations

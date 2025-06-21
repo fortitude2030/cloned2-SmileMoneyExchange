@@ -9,6 +9,7 @@ import {
   integer,
   decimal,
   boolean,
+  date,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
@@ -49,6 +50,13 @@ export const organizations = pgTable("organizations", {
   registrationNumber: varchar("registration_number"),
   pacraNumber: varchar("pacra_number"), // PACRA registration
   zraTpinNumber: varchar("zra_tpin_number"), // ZRA TPIN
+  businessLicenseNumber: varchar("business_license_number"), // Business License (alternative to PACRA)
+  businessLicenseExpiry: date("business_license_expiry"),
+  directorName: varchar("director_name"),
+  directorNrc: varchar("director_nrc"),
+  directorPhone: varchar("director_phone"),
+  shareCapitalAmount: decimal("share_capital_amount", { precision: 15, scale: 2 }),
+  profileCompletionPercentage: integer("profile_completion_percentage").default(0),
   businessType: varchar("business_type").default("retail"), // retail, wholesale, manufacturing, etc
   address: text("address"),
   contactEmail: varchar("contact_email"),
