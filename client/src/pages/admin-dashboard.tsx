@@ -45,6 +45,55 @@ export default function AdminDashboard() {
     reason: '',
     reasonComment: ''
   });
+  
+  // Float reconciliation state
+  const [floatAdjustment, setFloatAdjustment] = useState({ amount: '', reason: '' });
+
+  // System Float API queries
+  const { data: systemFloatData } = useQuery({
+    queryKey: ['/api/reconciliation/system-float'],
+    queryFn: async () => {
+      const response = await apiRequest('/api/reconciliation/system-float');
+      if (!response.ok) throw new Error('Failed to fetch system float');
+      return response.json();
+    },
+    retry: false
+  });
+
+  // Float adjustment mutation
+  const adjustFloatMutation = useMutation({
+    mutationFn: async ({ amount, reason }: { amount: string; reason: string }) => {
+      return apiRequest('POST', '/api/reconciliation/adjust-float', { amount: parseFloat(amount), reason });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/reconciliation/system-float'] });
+      toast({
+        title: "System float adjusted successfully",
+        description: "The float balance has been updated.",
+      });
+      setFloatAdjustment({ amount: '', reason: '' });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error adjusting system float",
+        description: error.message || "Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Float adjustment handler
+  const handleFloatAdjustment = async () => {
+    if (!floatAdjustment.amount || !floatAdjustment.reason) return;
+    
+    const confirmed = confirm(
+      `Are you sure you want to adjust the system float by ZMW ${floatAdjustment.amount}?\n\nReason: ${floatAdjustment.reason}`
+    );
+    
+    if (confirmed) {
+      adjustFloatMutation.mutate(floatAdjustment);
+    }
+  };
 
   const queryClient = useQueryClient();
 
@@ -2005,6 +2054,86 @@ export default function AdminDashboard() {
                         No automated actions today
                       </div>
                     </div>
+                  </div>
+                </div>
+
+                {/* System Float Configuration */}
+                <div className="mt-8 border-t pt-6">
+                  <h3 className="text-lg font-semibold mb-4">System Float Configuration</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Current Float Status */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-sm">Current System Float</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Account Code:</span>
+                            <span className="font-medium">1100 - Cash Reserves</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Current Balance:</span>
+                            <span className="font-bold text-lg text-green-600">
+                              ZMW {systemFloatData?.currentFloat?.toLocaleString() || '0.00'}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Last Updated:</span>
+                            <span className="text-sm">
+                              {systemFloatData?.lastUpdated ? 
+                                new Date(systemFloatData.lastUpdated).toLocaleString() : 
+                                'Never'
+                              }
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/reconciliation/system-float'] })}
+                            className="w-full mt-3 px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+                          >
+                            Refresh Float
+                          </button>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Float Adjustment */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-sm">Adjust System Float</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          <div>
+                            <label className="block text-sm font-medium mb-1">Adjustment Amount (ZMW)</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              placeholder="Enter amount"
+                              className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500"
+                              value={floatAdjustment.amount}
+                              onChange={(e) => setFloatAdjustment(prev => ({ ...prev, amount: e.target.value }))}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-1">Reason for Adjustment</label>
+                            <textarea
+                              placeholder="Enter reason for float adjustment"
+                              className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 h-20"
+                              value={floatAdjustment.reason}
+                              onChange={(e) => setFloatAdjustment(prev => ({ ...prev, reason: e.target.value }))}
+                            />
+                          </div>
+                          <button
+                            onClick={handleFloatAdjustment}
+                            disabled={!floatAdjustment.amount || !floatAdjustment.reason || adjustFloatMutation.isPending}
+                            className="w-full px-3 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 disabled:bg-gray-300 text-sm"
+                          >
+                            {adjustFloatMutation.isPending ? 'Processing...' : 'Adjust Float'}
+                          </button>
+                        </div>
+                      </CardContent>
+                    </Card>
                   </div>
                 </div>
 

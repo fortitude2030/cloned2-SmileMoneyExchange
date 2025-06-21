@@ -3499,10 +3499,12 @@ Net Income: ZMW ${statements.netIncome.toLocaleString()}
       const variance = Math.abs(totalUserBalances - systemFloat);
       
       // Log reconciliation check in journal entries
+      const entryNumber = `REC-${Date.now()}`;
       await db.insert(journalEntries).values({
+        entryNumber,
+        entryDate: new Date(),
         description: `Reconciliation Check - User Balances: ${totalUserBalances}, System Float: ${systemFloat}, Variance: ${variance}`,
-        totalDebit: "0.00",
-        totalCredit: "0.00",
+        totalAmount: variance.toString(),
         createdBy: user.email
       });
 
@@ -3653,20 +3655,26 @@ Net Income: ZMW ${statements.netIncome.toLocaleString()}
         return res.status(403).json({ message: "Admin access required" });
       }
 
-      // Get reconciliation checks from journal entries using raw SQL
-      const checksResult = await db.execute(sql`
-        SELECT * FROM journal_entries 
-        WHERE description LIKE '%Reconciliation Check%' 
-        AND DATE(created_at) = CURRENT_DATE
-      `);
+      // Get today's reconciliation checks from journal entries
+      const today = new Date();
+      const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+      const endOfDay = new Date(today.setHours(23, 59, 59, 999));
 
-      const checksRun = checksResult.rows.length;
+      const reconciliationChecks = await db.select()
+        .from(journalEntries)
+        .where(and(
+          like(journalEntries.description, '%Reconciliation Check%'),
+          gte(journalEntries.entryDate, startOfDay),
+          lte(journalEntries.entryDate, endOfDay)
+        ));
+
+      const checksRun = reconciliationChecks.length;
       
       // Count variances by checking for "Variance:" in description
       let variancesFound = 0;
       let largestVariance = 0;
       
-      checksResult.rows.forEach((check: any) => {
+      reconciliationChecks.forEach((check: any) => {
         if (check.description?.includes('Variance:')) {
           const match = check.description.match(/Variance: ([\d.]+)/);
           if (match) {
@@ -3687,7 +3695,7 @@ Net Income: ZMW ${statements.netIncome.toLocaleString()}
         variancesFound,
         largestVariance,
         status: variancesFound === 0 ? 'ALL_BALANCED' : 'VARIANCES_DETECTED',
-        lastCheckTime: checksResult.rows[checksResult.rows.length - 1]?.created_at || null
+        lastCheckTime: reconciliationChecks[reconciliationChecks.length - 1]?.entryDate || null
       });
 
     } catch (error: any) {
