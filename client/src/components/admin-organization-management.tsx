@@ -170,11 +170,9 @@ export default function AdminOrganizationManagement() {
       return;
     }
 
-    // Prepare the data for submission
+    // Prepare the data for submission - keep all as strings for API
     const orgData = {
-      ...newOrg,
-      shareCapitalAmount: newOrg.shareCapitalAmount ? parseFloat(newOrg.shareCapitalAmount) : null,
-      businessLicenseExpiry: newOrg.businessLicenseExpiry || null
+      ...newOrg
     };
 
     createOrgMutation.mutate(orgData);

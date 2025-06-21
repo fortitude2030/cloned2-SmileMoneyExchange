@@ -1815,7 +1815,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         directorName: directorName?.trim() || null,
         directorNrc: directorNrc?.trim() || null,
         directorPhone: directorPhone?.trim() || null,
-        shareCapitalAmount: shareCapitalAmount ? parseFloat(shareCapitalAmount.toString()) : null,
+        shareCapitalAmount: shareCapitalAmount ? shareCapitalAmount.toString() : null,
         profileCompletionPercentage,
         status: 'pending',
         kycStatus: 'pending'
