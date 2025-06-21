@@ -307,7 +307,7 @@ export default function AdminDashboard() {
         </div>
         
         {/* Sub-navigation for menu items with sub-menus */}
-        {(activeTab === 'customers' || activeTab === 'operations' || activeTab === 'aml') && (
+        {(activeTab === 'customers' || activeTab === 'operations' || activeTab === 'aml' || activeTab === 'accounting') && (
           <div className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
             <div className="flex overflow-x-auto px-4">
               {activeTab === 'customers' && [
