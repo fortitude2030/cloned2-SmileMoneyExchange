@@ -2677,8 +2677,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
-      if (!user || !['admin', 'super_admin', 'finance'].includes(user.role)) {
-        return res.status(403).json({ message: "Finance access required" });
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
       }
 
       const { startDate, endDate } = req.query;
@@ -2698,8 +2698,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
-      if (!user || !['admin', 'super_admin', 'finance'].includes(user.role)) {
-        return res.status(403).json({ message: "Finance access required" });
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
       }
 
       const { startDate, endDate } = req.query;
@@ -2723,8 +2723,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
-      if (!user || !['admin', 'super_admin', 'finance'].includes(user.role)) {
-        return res.status(403).json({ message: "Finance access required" });
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
       }
 
       const accounts = await db.select().from(chartOfAccounts).where(eq(chartOfAccounts.isActive, true));
@@ -2740,8 +2740,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
-      if (!user || !['admin', 'super_admin', 'finance'].includes(user.role)) {
-        return res.status(403).json({ message: "Finance access required" });
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
       }
 
       const { limit = 50, offset = 0 } = req.query;
@@ -2773,8 +2773,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
-      if (!user || !['admin', 'super_admin', 'finance'].includes(user.role)) {
-        return res.status(403).json({ message: "Finance access required" });
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
       }
 
       const { accountCode } = req.params;

@@ -275,6 +275,7 @@ export default function AdminDashboard() {
             { id: 'organizations', label: 'Organizations', icon: 'fas fa-building' },
             { id: 'transactions', label: 'Transactions', icon: 'fas fa-exchange-alt' },
             { id: 'settlements', label: 'Settlements', icon: 'fas fa-university' },
+            { id: 'accounting', label: 'Smile Money Financials', icon: 'fas fa-chart-line' },
             { id: 'aml-config', label: 'AML Config', icon: 'fas fa-shield-alt' },
             { id: 'aml-alerts', label: 'AML Alerts', icon: 'fas fa-exclamation-triangle' },
             { id: 'compliance', label: 'Compliance', icon: 'fas fa-file-alt' }

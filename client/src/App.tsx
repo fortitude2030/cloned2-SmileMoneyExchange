@@ -57,7 +57,7 @@ function Router() {
               case 'cashier':
                 return <CashierDashboard />;
               case 'finance':
-                return <FinancePortal />;
+                return <MerchantDashboard />; // Finance users are client-side, redirect to merchant dashboard
               case 'admin':
                 return <AdminDashboard />;
               default:
