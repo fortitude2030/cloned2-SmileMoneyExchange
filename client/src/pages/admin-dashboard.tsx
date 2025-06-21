@@ -365,7 +365,7 @@ export default function AdminDashboard() {
               ))}
               
               {activeTab === 'accounting' && [
-                { id: 'overview', label: 'Overview', icon: 'fas fa-tachometer-alt' },
+                { id: 'overview', label: 'Dashboard', icon: 'fas fa-tachometer-alt' },
                 { id: 'revenue', label: 'Revenue', icon: 'fas fa-dollar-sign' },
                 { id: 'statements', label: 'Statements', icon: 'fas fa-file-invoice' },
                 { id: 'journal', label: 'Journal & Ledger', icon: 'fas fa-book' },
@@ -1282,64 +1282,9 @@ export default function AdminDashboard() {
           <AmlAlertManagement />
         )}
 
-        {/* Accounting - Overview Tab */}
+        {/* Accounting - Dashboard Tab */}
         {activeTab === 'accounting' && activeSubTab === 'overview' && (
-          <>
-            {/* Financial Overview Dashboard */}
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-2xl font-bold text-green-600">K12,450</p>
-                      <p className="text-gray-600 dark:text-gray-400 text-sm">Monthly Revenue</p>
-                    </div>
-                    <div className="w-10 h-10 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
-                      <i className="fas fa-chart-line text-green-600 dark:text-green-400"></i>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-2xl font-bold text-blue-600">K8,920</p>
-                      <p className="text-gray-600 dark:text-gray-400 text-sm">Transaction Fees</p>
-                    </div>
-                    <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
-                      <i className="fas fa-coins text-blue-600 dark:text-blue-400"></i>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Quick Financial Summary */}
-            <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
-              <CardContent className="p-4">
-                <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
-                  <i className="fas fa-tachometer-alt text-blue-600 mr-2"></i>
-                  Financial Overview
-                </h3>
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <p className="text-lg font-bold text-gray-800 dark:text-gray-200">K45,280</p>
-                    <p className="text-gray-600 dark:text-gray-400 text-sm">Total Assets</p>
-                  </div>
-                  <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <p className="text-lg font-bold text-gray-800 dark:text-gray-200">K32,150</p>
-                    <p className="text-gray-600 dark:text-gray-400 text-sm">Total Liabilities</p>
-                  </div>
-                  <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <p className="text-lg font-bold text-primary">K13,130</p>
-                    <p className="text-gray-600 dark:text-gray-400 text-sm">Net Worth</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </>
+          <AccountingDashboard />
         )}
 
         {/* Accounting - Revenue Tab */}
@@ -1601,8 +1546,6 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
 
-            {/* Full Accounting Dashboard */}
-            <AccountingDashboard />
           </>
         )}
 
