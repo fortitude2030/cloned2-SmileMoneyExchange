@@ -6,16 +6,16 @@ Add these environment variables to your Replit deployment or `.env` file:
 
 ```env
 # SMTP Configuration for Email Service
-SMTP_HOST=mail.smilemoney.co.zm
+SMTP_HOST=mail.cash.smilemoney.africa
 SMTP_PORT=587
 SMTP_SECURE=false
-SMTP_USER=noreply@smilemoney.co.zm
+SMTP_USER=noreply@cash.smilemoney.africa
 SMTP_PASS=your_email_password_here
-SMTP_FROM=Smile Money <noreply@smilemoney.co.zm>
+SMTP_FROM=Smile Money <noreply@cash.smilemoney.africa>
 
 # Production Domain
-PRODUCTION_DOMAIN=smilemoney.co.zm
-CORS_ORIGIN=https://smilemoney.co.zm
+PRODUCTION_DOMAIN=cash.smilemoney.africa
+CORS_ORIGIN=https://cash.smilemoney.africa
 ```
 
 ## Email System Features

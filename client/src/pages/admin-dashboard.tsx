@@ -1510,7 +1510,7 @@ export default function AdminDashboard() {
                               body: JSON.stringify({
                                 reportType: 'financial-statements',
                                 frequency: 'monthly',
-                                recipients: ['finance@smilemoney.co.zm'],
+                                recipients: ['finance@cash.smilemoney.africa'],
                                 format: 'pdf'
                               })
                             });
@@ -1565,7 +1565,7 @@ export default function AdminDashboard() {
                               body: JSON.stringify({
                                 reportType: 'revenue-analysis',
                                 frequency: 'weekly',
-                                recipients: ['finance@smilemoney.co.zm', 'admin@smilemoney.co.zm'],
+                                recipients: ['finance@cash.smilemoney.africa', 'admin@cash.smilemoney.africa'],
                                 format: 'excel'
                               })
                             });
@@ -1620,7 +1620,7 @@ export default function AdminDashboard() {
                               body: JSON.stringify({
                                 reportType: 'transaction-summary',
                                 frequency: 'daily',
-                                recipients: ['operations@smilemoney.co.zm'],
+                                recipients: ['operations@cash.smilemoney.africa'],
                                 format: 'csv'
                               })
                             });
@@ -1675,7 +1675,7 @@ export default function AdminDashboard() {
                               body: JSON.stringify({
                                 reportType: 'regulatory',
                                 frequency: 'monthly',
-                                recipients: ['compliance@smilemoney.co.zm', 'regulatory@bankofzambia.co.zm'],
+                                recipients: ['compliance@cash.smilemoney.africa'],
                                 format: 'pdf'
                               })
                             });

@@ -16,22 +16,22 @@ Replit automatically provisions SSL certificates for custom domains via Let's En
 
 ### 3. Environment Variables for Production
 Update these environment variables for your custom domain:
-- `PRODUCTION_DOMAIN=smilemoney.co.zm`
-- `CORS_ORIGIN=https://smilemoney.co.zm`
+- `PRODUCTION_DOMAIN=cash.smilemoney.africa`
+- `CORS_ORIGIN=https://cash.smilemoney.africa`
 
 ### 4. Firebase Configuration Updates Required
 After domain setup, update Firebase console:
 
 #### Authentication Settings
 1. Go to Firebase Console > Authentication > Settings > Authorized domains
-2. Add your production domain: `smilemoney.co.zm`
+2. Add your production domain: `cash.smilemoney.africa`
 3. Keep the existing Replit domain for development
 
 #### OAuth Provider Settings
 If using Google OAuth:
 1. Go to Google Cloud Console
 2. Update authorized JavaScript origins
-3. Add: `https://smilemoney.co.zm`
+3. Add: `https://cash.smilemoney.africa`
 
 ### 5. CORS Configuration
 The app will automatically detect production domain and update CORS settings.
