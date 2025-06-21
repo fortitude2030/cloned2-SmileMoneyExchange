@@ -20,6 +20,7 @@ import AmlAlertManagement from "@/components/aml-alert-management";
 import ComplianceReportsDashboard from "@/components/compliance-reports-dashboard";
 import AccountingDashboard from "@/components/accounting-dashboard";
 import { apiRequest } from "@/lib/queryClient";
+import { getCurrentToken } from "@/lib/firebase";
 import { DashboardStatsSkeleton, SettlementRequestSkeleton, TransactionListSkeleton } from "@/components/ui/loading-skeletons";
 
 interface ActionDialogState {
@@ -2389,7 +2390,11 @@ export default function AdminDashboard() {
                       className="flex items-center justify-center"
                       onClick={async () => {
                         try {
-                          const token = localStorage.getItem('firebaseToken');
+                          const token = await getCurrentToken();
+                          if (!token) {
+                            alert('Please log in again to export data');
+                            return;
+                          }
                           const response = await fetch('/api/accounting/export/pdf', {
                             headers: {
                               'Authorization': `Bearer ${token}`
@@ -2415,7 +2420,11 @@ export default function AdminDashboard() {
                       className="flex items-center justify-center"
                       onClick={async () => {
                         try {
-                          const token = localStorage.getItem('firebaseToken');
+                          const token = await getCurrentToken();
+                          if (!token) {
+                            alert('Please log in again to export data');
+                            return;
+                          }
                           const response = await fetch('/api/accounting/export/excel', {
                             headers: {
                               'Authorization': `Bearer ${token}`
@@ -2456,7 +2465,11 @@ export default function AdminDashboard() {
                       className="flex items-center justify-center"
                       onClick={async () => {
                         try {
-                          const token = localStorage.getItem('firebaseToken');
+                          const token = await getCurrentToken();
+                          if (!token) {
+                            alert('Please log in again to export data');
+                            return;
+                          }
                           const response = await fetch('/api/accounting/export/csv', {
                             headers: {
                               'Authorization': `Bearer ${token}`
@@ -2806,7 +2819,11 @@ export default function AdminDashboard() {
                     
                     <Button variant="outline" className="h-20 flex-col gap-2" onClick={async () => {
                       try {
-                        const token = localStorage.getItem('firebaseToken');
+                        const token = await getCurrentToken();
+                        if (!token) {
+                          alert('Please log in again to export data');
+                          return;
+                        }
                         const response = await fetch('/api/accounting/export/csv', {
                           headers: {
                             'Authorization': `Bearer ${token}`
