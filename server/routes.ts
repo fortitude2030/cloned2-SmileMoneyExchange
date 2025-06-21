@@ -7,7 +7,7 @@ import fs from "fs";
 import { storage } from "./storage";
 import { setupFirebaseAuth, isFirebaseAuthenticated } from "./firebaseAuth";
 import { db } from "./db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, gte, lte, sql, like, count, sum, or, asc, ne, inArray } from "drizzle-orm";
 import {
   insertOrganizationSchema,
   insertBranchSchema,
@@ -3475,17 +3475,25 @@ Net Income: ZMW ${statements.netIncome.toLocaleString()}
         return res.status(403).json({ message: "Admin access required" });
       }
 
-      // Calculate total user balances from all wallets using raw SQL
-      const userBalancesResult = await db.execute(sql`
-        SELECT SUM(CAST(balance AS DECIMAL)) as total_balance FROM wallets
-      `);
-      const totalUserBalances = parseFloat(userBalancesResult.rows[0]?.total_balance || '0');
+      // Calculate total user balances from all wallets
+      const allWallets = await db.select().from(wallets);
+      const totalUserBalances = allWallets.reduce((sum, wallet) => {
+        return sum + parseFloat(wallet.balance || '0');
+      }, 0);
 
-      // For system float, use total cash from revenue account (simplified approach)
-      const revenueResult = await db.execute(sql`
-        SELECT SUM(CAST(balance AS DECIMAL)) as system_float FROM chart_of_accounts WHERE account_type = 'Asset'
-      `);
-      const systemFloat = parseFloat(revenueResult.rows[0]?.system_float || '0');
+      // Calculate system float from journal entries for Cash Reserves account (1100)
+      const cashReserveEntries = await db.select({
+        debitAmount: journalEntryLines.debitAmount,
+        creditAmount: journalEntryLines.creditAmount
+      })
+      .from(journalEntryLines)
+      .where(eq(journalEntryLines.accountCode, '1100'));
+      
+      const systemFloat = cashReserveEntries.reduce((balance, entry) => {
+        const debit = parseFloat(entry.debitAmount || '0');
+        const credit = parseFloat(entry.creditAmount || '0');
+        return balance + (debit - credit); // Assets: Debits increase, Credits decrease
+      }, 0);
 
       // Calculate variance
       const variance = Math.abs(totalUserBalances - systemFloat);
@@ -3527,19 +3535,17 @@ Net Income: ZMW ${statements.netIncome.toLocaleString()}
         return res.status(403).json({ message: "Admin access required" });
       }
 
-      // Find wallets with negative balances using raw SQL
-      const lockedAccountsResult = await db.execute(sql`
-        SELECT id, user_id, balance, updated_at 
-        FROM wallets 
-        WHERE CAST(balance AS DECIMAL) < 0 OR is_active = false
-      `);
-
-      const lockedAccounts = lockedAccountsResult.rows.map((row: any) => ({
-        id: row.id,
-        userId: row.user_id,
-        balance: row.balance,
-        status: parseFloat(row.balance) < 0 ? 'negative_balance' : 'inactive',
-        lockedAt: row.updated_at
+      // Find wallets with negative balances or inactive status
+      const allWallets = await db.select().from(wallets);
+      const lockedAccounts = allWallets.filter(wallet => {
+        const balance = parseFloat(wallet.balance || '0');
+        return balance < 0 || !wallet.isActive;
+      }).map(wallet => ({
+        id: wallet.id,
+        userId: wallet.userId,
+        balance: wallet.balance,
+        status: parseFloat(wallet.balance || '0') < 0 ? 'negative_balance' : 'inactive',
+        lockedAt: wallet.updatedAt
       }));
 
       res.json(lockedAccounts);
@@ -3547,6 +3553,94 @@ Net Income: ZMW ${statements.netIncome.toLocaleString()}
     } catch (error: any) {
       console.error("Error fetching locked accounts:", error);
       res.status(500).json({ message: `Failed to fetch locked accounts: ${error.message}` });
+    }
+  });
+
+  // System Float Configuration
+  app.get('/api/reconciliation/system-float', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      // Calculate current system float from journal entries for Cash Reserves (1100)
+      const cashReserveEntries = await db.select({
+        debitAmount: journalEntryLines.debitAmount,
+        creditAmount: journalEntryLines.creditAmount
+      })
+      .from(journalEntryLines)
+      .where(eq(journalEntryLines.accountCode, '1100'));
+      
+      const currentFloat = cashReserveEntries.reduce((balance, entry) => {
+        const debit = parseFloat(entry.debitAmount || '0');
+        const credit = parseFloat(entry.creditAmount || '0');
+        return balance + (debit - credit);
+      }, 0);
+
+      res.json({
+        currentFloat: parseFloat(currentFloat.toFixed(2)),
+        accountCode: '1100',
+        accountName: 'Cash Reserves',
+        lastUpdated: new Date().toISOString()
+      });
+
+    } catch (error: any) {
+      console.error("Error fetching system float:", error);
+      res.status(500).json({ message: `Failed to fetch system float: ${error.message}` });
+    }
+  });
+
+  app.post('/api/reconciliation/adjust-float', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { amount, reason } = req.body;
+      
+      if (!amount || !reason) {
+        return res.status(400).json({ message: "Amount and reason are required" });
+      }
+
+      const adjustmentAmount = parseFloat(amount);
+      const entryNumber = `SF-${Date.now()}`;
+
+      // Create journal entry for float adjustment
+      const journalEntry = await db.insert(journalEntries).values({
+        entryNumber,
+        entryDate: new Date(),
+        description: `System Float Adjustment - ${reason}`,
+        totalAmount: Math.abs(adjustmentAmount).toString(),
+        createdBy: user.email
+      }).returning();
+
+      // Create journal entry lines
+      await db.insert(journalEntryLines).values([
+        {
+          journalEntryId: journalEntry[0].id,
+          accountCode: '1100',
+          accountName: 'Cash Reserves',
+          debitAmount: adjustmentAmount > 0 ? adjustmentAmount.toString() : "0.00",
+          creditAmount: adjustmentAmount < 0 ? Math.abs(adjustmentAmount).toString() : "0.00",
+          description: reason
+        }
+      ]);
+
+      res.json({ 
+        success: true, 
+        adjustmentAmount: adjustmentAmount,
+        message: "System float adjusted successfully"
+      });
+
+    } catch (error: any) {
+      console.error("Error adjusting system float:", error);
+      res.status(500).json({ message: `Failed to adjust system float: ${error.message}` });
     }
   });
 
