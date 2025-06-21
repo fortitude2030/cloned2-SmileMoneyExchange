@@ -1521,34 +1521,102 @@ export default function AdminDashboard() {
                 </div>
                 
                 <div className="border-t pt-4">
-                  <Label className="text-sm font-medium mb-2 block">Email Configuration Test</Label>
+                  <Label className="text-sm font-medium mb-2 block">SMTP Configuration</Label>
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <Label className="text-xs">SMTP Host</Label>
+                      <input 
+                        type="text" 
+                        id="smtp-host"
+                        className="w-full px-3 py-2 text-xs border rounded dark:bg-gray-800 dark:border-gray-600"
+                        defaultValue="cash.smilemoney.africa"
+                        placeholder="SMTP Host"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">SMTP Port</Label>
+                      <input 
+                        type="number" 
+                        id="smtp-port"
+                        className="w-full px-3 py-2 text-xs border rounded dark:bg-gray-800 dark:border-gray-600"
+                        defaultValue="465"
+                        placeholder="465"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Email Username</Label>
+                      <input 
+                        type="email" 
+                        id="smtp-user"
+                        className="w-full px-3 py-2 text-xs border rounded dark:bg-gray-800 dark:border-gray-600"
+                        defaultValue="test@cash.smilemoney.africa"
+                        placeholder="username@domain.com"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Email Password</Label>
+                      <input 
+                        type="password" 
+                        id="smtp-pass"
+                        className="w-full px-3 py-2 text-xs border rounded dark:bg-gray-800 dark:border-gray-600"
+                        placeholder="Enter email password"
+                      />
+                    </div>
+                  </div>
+                  
                   <div className="flex gap-2">
                     <Button 
                       size="sm" 
                       variant="outline"
                       onClick={async () => {
+                        const host = document.getElementById('smtp-host').value;
+                        const port = document.getElementById('smtp-port').value;
+                        const user = document.getElementById('smtp-user').value;
+                        const pass = document.getElementById('smtp-pass').value;
+                        
+                        if (!pass) {
+                          alert('Please enter the email password');
+                          return;
+                        }
+                        
                         try {
                           const response = await fetch('/api/notifications/test-email', {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' }
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              smtpConfig: { host, port: parseInt(port), user, pass }
+                            })
                           });
                           
                           if (response.ok) {
-                            alert('Test email sent successfully! Check your inbox.');
+                            alert('✅ Test email sent successfully! Check your inbox at ' + user);
                           } else {
-                            alert('Email test failed. Check SMTP configuration.');
+                            const error = await response.text();
+                            alert('❌ Email test failed: ' + error);
                           }
                         } catch (error) {
-                          alert('Error testing email system');
+                          alert('❌ Error testing email system: ' + error.message);
                         }
                       }}
                     >
                       <i className="fas fa-paper-plane mr-2"></i>
                       Test Email System
                     </Button>
+                    
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => {
+                        document.getElementById('smtp-pass').value = 'password1234abcd';
+                        alert('Test password filled in');
+                      }}
+                    >
+                      <i className="fas fa-key mr-2"></i>
+                      Use Test Password
+                    </Button>
                   </div>
                   <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                    Send a test email to verify SMTP configuration is working correctly.
+                    Configure SMTP settings and test email delivery. Password is securely transmitted and not stored.
                   </div>
                 </div>
               </div>

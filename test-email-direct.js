@@ -8,7 +8,7 @@ const emailConfig = {
   secure: true, // SSL for port 465
   auth: {
     user: 'test@cash.smilemoney.africa',
-    pass: process.env.SMTP_PASS || 'email-password-needed'
+    pass: 'password1234abcd'
   },
   from: 'Smile Money <test@cash.smilemoney.africa>'
 };

@@ -3475,37 +3475,75 @@ Net Income: ZMW ${statements.netIncome.toLocaleString()}
         return res.status(403).json({ message: "Admin access required" });
       }
 
-      const isConnected = await emailService.testConnection();
+      // Check if custom SMTP config is provided
+      const { smtpConfig } = req.body;
+      let testEmailService = emailService;
+      
+      if (smtpConfig) {
+        // Create temporary email service with custom config
+        const { EmailService } = await import('./emailService.js');
+        const customConfig = {
+          host: smtpConfig.host || 'cash.smilemoney.africa',
+          port: parseInt(smtpConfig.port) || 465,
+          secure: true, // Use SSL for port 465
+          auth: {
+            user: smtpConfig.user || 'test@cash.smilemoney.africa',
+            pass: smtpConfig.pass
+          },
+          from: `Smile Money <${smtpConfig.user || 'test@cash.smilemoney.africa'}>`
+        };
+        testEmailService = new EmailService(customConfig);
+      }
+
+      const isConnected = await testEmailService.testConnection();
       
       if (isConnected) {
         // Send test email
         const testTemplate = {
           subject: "Smile Money Email System Test",
           html: `
-            <h2>Email System Test</h2>
-            <p>This is a test email from Smile Money's email system.</p>
-            <p>Sent at: ${new Date().toISOString()}</p>
-            <p>System is working correctly.</p>
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #2563eb;">✅ Email System Test Successful</h2>
+              <p>This is a test email from Smile Money's email system.</p>
+              <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                <strong>Test Details:</strong><br>
+                • Sent at: ${new Date().toISOString()}<br>
+                • SMTP Host: ${smtpConfig?.host || 'cash.smilemoney.africa'}<br>
+                • From: ${smtpConfig?.user || 'test@cash.smilemoney.africa'}<br>
+                • To: ${smtpConfig?.user || user.email}
+              </div>
+              <p><strong>✅ Email system is working correctly!</strong></p>
+              <hr style="margin: 20px 0;">
+              <p style="color: #6b7280; font-size: 12px;">
+                © 2025 Smile Money. Licensed Financial Services Provider - Bank of Zambia
+              </p>
+            </div>
           `,
-          text: `Email System Test - Sent at ${new Date().toISOString()}`
+          text: `Email System Test - Sent at ${new Date().toISOString()} - System working correctly!`
         };
         
-        const success = await emailService.sendEmail(user.email, testTemplate);
+        const targetEmail = smtpConfig?.user || user.email;
+        const success = await testEmailService.sendEmail(targetEmail, testTemplate);
         
         res.json({ 
-          message: "Email system test completed successfully",
+          message: `Email system test completed successfully - email sent to ${targetEmail}`,
           connectionTest: true,
-          emailSent: success
+          emailSent: success,
+          smtpHost: smtpConfig?.host || 'default',
+          timestamp: new Date().toISOString()
         });
       } else {
         res.status(500).json({ 
-          message: "Email system connection failed",
+          message: "Email system connection failed - check SMTP credentials",
           connectionTest: false
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error testing email system:", error);
-      res.status(500).json({ message: "Email system test failed" });
+      res.status(500).json({ 
+        message: `Email system test failed: ${error.message || 'Unknown error'}`,
+        error: error.code || 'UNKNOWN_ERROR'
+      });
     }
   });
 
