@@ -1510,7 +1510,7 @@ export default function AdminDashboard() {
                               body: JSON.stringify({
                                 reportType: 'financial-statements',
                                 frequency: 'monthly',
-                                recipients: ['finance@cash.smilemoney.africa'],
+                                recipients: ['test@cash.smilemoney.africa'],
                                 format: 'pdf'
                               })
                             });
@@ -1565,7 +1565,7 @@ export default function AdminDashboard() {
                               body: JSON.stringify({
                                 reportType: 'revenue-analysis',
                                 frequency: 'weekly',
-                                recipients: ['finance@cash.smilemoney.africa', 'admin@cash.smilemoney.africa'],
+                                recipients: ['test@cash.smilemoney.africa'],
                                 format: 'excel'
                               })
                             });
@@ -1620,7 +1620,7 @@ export default function AdminDashboard() {
                               body: JSON.stringify({
                                 reportType: 'transaction-summary',
                                 frequency: 'daily',
-                                recipients: ['operations@cash.smilemoney.africa'],
+                                recipients: ['test@cash.smilemoney.africa'],
                                 format: 'csv'
                               })
                             });
@@ -1675,7 +1675,7 @@ export default function AdminDashboard() {
                               body: JSON.stringify({
                                 reportType: 'regulatory',
                                 frequency: 'monthly',
-                                recipients: ['compliance@cash.smilemoney.africa'],
+                                recipients: ['test@cash.smilemoney.africa'],
                                 format: 'pdf'
                               })
                             });

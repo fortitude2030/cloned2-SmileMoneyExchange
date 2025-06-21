@@ -3374,7 +3374,7 @@ Net Income: ZMW ${statements.netIncome.toLocaleString()}
       const { alertType, details, recipients } = req.body;
       
       const amlTemplate = EmailTemplates.amlAlert(alertType, details);
-      const defaultRecipients = recipients || ['compliance@cash.smilemoney.africa', 'admin@cash.smilemoney.africa'];
+      const defaultRecipients = recipients || ['test@cash.smilemoney.africa'];
       
       const result = await emailService.sendBulkEmails(defaultRecipients, amlTemplate);
       
