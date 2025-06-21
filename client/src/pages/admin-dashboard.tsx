@@ -333,7 +333,7 @@ export default function AdminDashboard() {
               {activeTab === 'operations' && [
                 { id: 'transactions', label: 'Transactions', icon: 'fas fa-exchange-alt' },
                 { id: 'settlements', label: 'Settlements', icon: 'fas fa-university' },
-                { id: 'email-management', label: 'Email Management', icon: 'fas fa-envelope' }
+                { id: 'email-management', label: 'Comms Management', icon: 'fas fa-cogs' }
               ].map((subTab) => (
                 <button
                   key={subTab.id}
