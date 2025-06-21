@@ -545,6 +545,31 @@ export const insertComplianceReportSchema = createInsertSchema(complianceReports
   createdAt: true,
 });
 
+export const insertChartOfAccountsSchema = createInsertSchema(chartOfAccounts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertJournalEntrySchema = createInsertSchema(journalEntries).omit({
+  id: true,
+  approvedBy: true,
+  approvedAt: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertJournalEntryLineSchema = createInsertSchema(journalEntryLines).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertSmileMoneyRevenueSchema = createInsertSchema(smileMoneyRevenue).omit({
+  id: true,
+  collectedAt: true,
+  createdAt: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -571,3 +596,11 @@ export type AmlAlert = typeof amlAlerts.$inferSelect;
 export type InsertAmlAlert = z.infer<typeof insertAmlAlertSchema>;
 export type ComplianceReport = typeof complianceReports.$inferSelect;
 export type InsertComplianceReport = z.infer<typeof insertComplianceReportSchema>;
+export type ChartOfAccounts = typeof chartOfAccounts.$inferSelect;
+export type InsertChartOfAccounts = z.infer<typeof insertChartOfAccountsSchema>;
+export type JournalEntry = typeof journalEntries.$inferSelect;
+export type InsertJournalEntry = z.infer<typeof insertJournalEntrySchema>;
+export type JournalEntryLine = typeof journalEntryLines.$inferSelect;
+export type InsertJournalEntryLine = z.infer<typeof insertJournalEntryLineSchema>;
+export type SmileMoneyRevenue = typeof smileMoneyRevenue.$inferSelect;
+export type InsertSmileMoneyRevenue = z.infer<typeof insertSmileMoneyRevenueSchema>;
