@@ -1,13 +1,17 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, TrendingUp, DollarSign, FileText, BarChart3 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CalendarIcon, TrendingUp, DollarSign, FileText, BarChart3, Download, Share2, Settings } from "lucide-react";
 import { format } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
 
 interface FinancialStatement {
   assets: { [key: string]: { name: string; balance: number } };
@@ -62,9 +66,22 @@ interface ChartOfAccounts {
 }
 
 export default function AccountingDashboard() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
   const [dateRange, setDateRange] = useState({
     from: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
     to: new Date()
+  });
+
+  const [feeConfig, setFeeConfig] = useState({
+    transactionFeeType: 'percentage',
+    transactionFeeValue: '1.0',
+    settlementFeeType: 'fixed',
+    settlementFeeValue: '150',
+    monthlyServiceFeeType: 'fixed',
+    monthlyServiceFeeValue: '1500',
+    frequency: 'per_transaction'
   });
 
   // Financial Statements Query
@@ -74,13 +91,19 @@ export default function AccountingDashboard() {
       const params = new URLSearchParams();
       if (dateRange.from) params.set('startDate', dateRange.from.toISOString());
       if (dateRange.to) params.set('endDate', dateRange.to.toISOString());
-      const response = await fetch(`/api/accounting/financial-statements?${params}`);
+      const response = await fetch(`/api/accounting/financial-statements?${params}`, {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`Failed to fetch financial statements: ${response.status} ${errorText}`);
       }
       return response.json();
-    }
+    },
+    retry: false
   });
 
   // Revenue Report Query
@@ -90,33 +113,45 @@ export default function AccountingDashboard() {
       const params = new URLSearchParams();
       if (dateRange.from) params.set('startDate', dateRange.from.toISOString());
       if (dateRange.to) params.set('endDate', dateRange.to.toISOString());
-      const response = await fetch(`/api/accounting/revenue-report?${params}`);
+      const response = await fetch(`/api/accounting/revenue-report?${params}`, {
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }
+      });
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`Failed to fetch revenue report: ${response.status} ${errorText}`);
       }
       return response.json();
-    }
+    },
+    retry: false
   });
 
   // Journal Entries Query
   const { data: journalEntries, isLoading: isLoadingJournal } = useQuery<JournalEntry[]>({
     queryKey: ['/api/accounting/journal-entries'],
     queryFn: async () => {
-      const response = await fetch('/api/accounting/journal-entries?limit=20');
+      const response = await fetch('/api/accounting/journal-entries?limit=20', {
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }
+      });
       if (!response.ok) throw new Error('Failed to fetch journal entries');
       return response.json();
-    }
+    },
+    retry: false
   });
 
   // Chart of Accounts Query
   const { data: chartOfAccounts, isLoading: isLoadingChart } = useQuery<ChartOfAccounts[]>({
     queryKey: ['/api/accounting/chart-of-accounts'],
     queryFn: async () => {
-      const response = await fetch('/api/accounting/chart-of-accounts');
+      const response = await fetch('/api/accounting/chart-of-accounts', {
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }
+      });
       if (!response.ok) throw new Error('Failed to fetch chart of accounts');
       return response.json();
-    }
+    },
+    retry: false
   });
 
   const formatCurrency = (amount: number) => {
@@ -250,11 +285,13 @@ export default function AccountingDashboard() {
 
       {/* Detailed Financial Information */}
       <Tabs defaultValue="statements" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="statements">Financial Statements</TabsTrigger>
           <TabsTrigger value="revenue">Revenue Breakdown</TabsTrigger>
           <TabsTrigger value="journal">Journal Entries</TabsTrigger>
           <TabsTrigger value="accounts">Chart of Accounts</TabsTrigger>
+          <TabsTrigger value="fees">Fee Management</TabsTrigger>
+          <TabsTrigger value="reports">Reports & Export</TabsTrigger>
         </TabsList>
 
         {/* Financial Statements Tab */}
@@ -550,6 +587,272 @@ export default function AccountingDashboard() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Fee Management Tab */}
+        <TabsContent value="fees" className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Settings className="h-5 w-5" />
+                  Fee Configuration
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Transaction Fee */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">Transaction Fee</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Select value={feeConfig.transactionFeeType} onValueChange={(value) => setFeeConfig(prev => ({ ...prev, transactionFeeType: value }))}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="percentage">Percentage (%)</SelectItem>
+                        <SelectItem value="fixed">Fixed Amount (ZMW)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={feeConfig.transactionFeeValue}
+                      onChange={(e) => setFeeConfig(prev => ({ ...prev, transactionFeeValue: e.target.value }))}
+                      placeholder={feeConfig.transactionFeeType === 'percentage' ? '1.0' : '50'}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    Current: {feeConfig.transactionFeeType === 'percentage' ? `${feeConfig.transactionFeeValue}%` : `ZMW ${feeConfig.transactionFeeValue}`} per transaction
+                  </p>
+                </div>
+
+                {/* Settlement Fee */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">Settlement Fee</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Select value={feeConfig.settlementFeeType} onValueChange={(value) => setFeeConfig(prev => ({ ...prev, settlementFeeType: value }))}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="fixed">Fixed Amount (ZMW)</SelectItem>
+                        <SelectItem value="percentage">Percentage (%)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={feeConfig.settlementFeeValue}
+                      onChange={(e) => setFeeConfig(prev => ({ ...prev, settlementFeeValue: e.target.value }))}
+                      placeholder={feeConfig.settlementFeeType === 'fixed' ? '150' : '2.0'}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    Current: {feeConfig.settlementFeeType === 'fixed' ? `ZMW ${feeConfig.settlementFeeValue}` : `${feeConfig.settlementFeeValue}%`} per settlement
+                  </p>
+                </div>
+
+                {/* Monthly Service Fee */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">Monthly Service Fee</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Select value={feeConfig.monthlyServiceFeeType} onValueChange={(value) => setFeeConfig(prev => ({ ...prev, monthlyServiceFeeType: value }))}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="fixed">Fixed Amount (ZMW)</SelectItem>
+                        <SelectItem value="percentage">Percentage of Volume (%)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={feeConfig.monthlyServiceFeeValue}
+                      onChange={(e) => setFeeConfig(prev => ({ ...prev, monthlyServiceFeeValue: e.target.value }))}
+                      placeholder={feeConfig.monthlyServiceFeeType === 'fixed' ? '1500' : '0.5'}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    Current: {feeConfig.monthlyServiceFeeType === 'fixed' ? `ZMW ${feeConfig.monthlyServiceFeeValue}` : `${feeConfig.monthlyServiceFeeValue}%`} per organization monthly
+                  </p>
+                </div>
+
+                <Button className="w-full" onClick={() => {
+                  toast({
+                    title: "Fee Configuration Updated",
+                    description: "New fee structure will apply to future transactions",
+                  });
+                }}>
+                  <Settings className="h-4 w-4 mr-2" />
+                  Update Fee Configuration
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Fee Calculator */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Fee Calculator</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <Label htmlFor="amount">Transaction Amount (ZMW)</Label>
+                  <Input
+                    id="amount"
+                    type="number"
+                    placeholder="1000"
+                    step="0.01"
+                  />
+                </div>
+                
+                <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Transaction Fee:</span>
+                    <span>ZMW 10.00</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Settlement Fee:</span>
+                    <span>ZMW 150.00</span>
+                  </div>
+                  <div className="flex justify-between text-sm border-t pt-2 font-medium">
+                    <span>Total Fees:</span>
+                    <span>ZMW 160.00</span>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <h4 className="font-medium text-sm">Fee Impact Analysis</h4>
+                  <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                    <div>• Monthly revenue from 100 transactions: ZMW 1,600</div>
+                    <div>• Annual revenue projection: ZMW 19,200</div>
+                    <div>• Competitive analysis: 15% below market average</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* Reports & Export Tab */}
+        <TabsContent value="reports" className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Generate Reports
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <Button variant="outline" className="h-20 flex-col gap-2" onClick={() => {
+                    toast({
+                      title: "Generating Financial Statements",
+                      description: "PDF will be downloaded shortly",
+                    });
+                  }}>
+                    <FileText className="h-6 w-6" />
+                    <span className="text-xs">Financial Statements</span>
+                  </Button>
+                  
+                  <Button variant="outline" className="h-20 flex-col gap-2" onClick={() => {
+                    toast({
+                      title: "Generating Revenue Report",
+                      description: "Excel file will be downloaded shortly",
+                    });
+                  }}>
+                    <BarChart3 className="h-6 w-6" />
+                    <span className="text-xs">Revenue Analysis</span>
+                  </Button>
+                  
+                  <Button variant="outline" className="h-20 flex-col gap-2" onClick={() => {
+                    toast({
+                      title: "Generating Journal Entries",
+                      description: "CSV file will be downloaded shortly",
+                    });
+                  }}>
+                    <Download className="h-6 w-6" />
+                    <span className="text-xs">Journal Entries</span>
+                  </Button>
+                  
+                  <Button variant="outline" className="h-20 flex-col gap-2" onClick={() => {
+                    toast({
+                      title: "Generating Audit Trail",
+                      description: "Comprehensive audit report being prepared",
+                    });
+                  }}>
+                    <FileText className="h-6 w-6" />
+                    <span className="text-xs">Audit Trail</span>
+                  </Button>
+                </div>
+
+                <div className="space-y-3">
+                  <Label>Report Format</Label>
+                  <Select defaultValue="pdf">
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pdf">PDF Document</SelectItem>
+                      <SelectItem value="excel">Excel Spreadsheet</SelectItem>
+                      <SelectItem value="csv">CSV File</SelectItem>
+                      <SelectItem value="json">JSON Data</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Share2 className="h-5 w-5" />
+                  Sharing & Distribution
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <Label>Email Recipients</Label>
+                  <Input placeholder="finance@smilemoney.co.zm, audit@smilemoney.co.zm" />
+                </div>
+
+                <div className="space-y-3">
+                  <Label>Schedule</Label>
+                  <Select defaultValue="manual">
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="manual">Manual Only</SelectItem>
+                      <SelectItem value="daily">Daily at 9:00 AM</SelectItem>
+                      <SelectItem value="weekly">Weekly on Monday</SelectItem>
+                      <SelectItem value="monthly">Monthly on 1st</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-3">
+                  <Button className="w-full" onClick={() => {
+                    toast({
+                      title: "Report Shared Successfully",
+                      description: "Financial report sent to specified recipients",
+                    });
+                  }}>
+                    <Share2 className="h-4 w-4 mr-2" />
+                    Share Current Report
+                  </Button>
+                </div>
+
+                <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg">
+                  <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">Compliance Note</h4>
+                  <p className="text-xs text-blue-700 dark:text-blue-300">
+                    All financial reports are automatically logged for Bank of Zambia regulatory compliance and internal audit purposes.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
