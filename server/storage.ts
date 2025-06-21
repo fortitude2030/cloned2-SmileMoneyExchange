@@ -682,7 +682,7 @@ export class DatabaseStorage implements IStorage {
     if (status === 'completed' && transaction.status !== 'completed') {
       try {
         // Get user organization for accounting
-        const user = await this.getUser(transaction.fromUserId);
+        const user = transaction.fromUserId ? await this.getUser(transaction.fromUserId) : null;
         const organizationId = user?.organizationId || 1; // Default to organization 1
 
         // Determine transaction type for accounting
