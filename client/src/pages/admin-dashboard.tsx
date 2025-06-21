@@ -332,7 +332,8 @@ export default function AdminDashboard() {
               
               {activeTab === 'operations' && [
                 { id: 'transactions', label: 'Transactions', icon: 'fas fa-exchange-alt' },
-                { id: 'settlements', label: 'Settlements', icon: 'fas fa-university' }
+                { id: 'settlements', label: 'Settlements', icon: 'fas fa-university' },
+                { id: 'email-management', label: 'Email Management', icon: 'fas fa-envelope' }
               ].map((subTab) => (
                 <button
                   key={subTab.id}
@@ -1284,6 +1285,277 @@ export default function AdminDashboard() {
           <AmlAlertManagement />
         )}
 
+        {/* Operations - Email Management Tab */}
+        {activeTab === 'operations' && activeSubTab === 'email-management' && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <i className="fas fa-envelope"></i>
+                Email Recipients Management
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-4">
+                <Label>Configure Email Recipients for Automated Reports</Label>
+                
+                {/* Financial Reports Recipients */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Financial Reports</Label>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => {
+                        const email = prompt('Enter email address:');
+                        if (email && email.includes('@')) {
+                          const container = document.querySelector('#finance-recipients');
+                          if (container) {
+                            const emailTag = document.createElement('div');
+                            emailTag.className = 'flex items-center gap-2 bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded text-xs';
+                            emailTag.innerHTML = `
+                              <span>${email}</span>
+                              <button onclick="this.parentElement.remove()" class="text-red-500 hover:text-red-700">×</button>
+                            `;
+                            container.appendChild(emailTag);
+                          }
+                        }
+                      }}
+                    >
+                      + Add Email
+                    </Button>
+                  </div>
+                  <div id="finance-recipients" className="flex flex-wrap gap-2 min-h-[40px] p-2 border rounded">
+                    <div className="flex items-center gap-2 bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded text-xs">
+                      <span>test@cash.smilemoney.africa</span>
+                      <button onClick={(e) => e.target.closest('div').remove()} className="text-red-500 hover:text-red-700">×</button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Operations Reports Recipients */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Operations Reports</Label>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => {
+                        const email = prompt('Enter email address:');
+                        if (email && email.includes('@')) {
+                          const container = document.querySelector('#operations-recipients');
+                          if (container) {
+                            const emailTag = document.createElement('div');
+                            emailTag.className = 'flex items-center gap-2 bg-green-100 dark:bg-green-900 px-2 py-1 rounded text-xs';
+                            emailTag.innerHTML = `
+                              <span>${email}</span>
+                              <button onclick="this.parentElement.remove()" class="text-red-500 hover:text-red-700">×</button>
+                            `;
+                            container.appendChild(emailTag);
+                          }
+                        }
+                      }}
+                    >
+                      + Add Email
+                    </Button>
+                  </div>
+                  <div id="operations-recipients" className="flex flex-wrap gap-2 min-h-[40px] p-2 border rounded">
+                    <div className="flex items-center gap-2 bg-green-100 dark:bg-green-900 px-2 py-1 rounded text-xs">
+                      <span>test@cash.smilemoney.africa</span>
+                      <button onClick={(e) => e.target.closest('div').remove()} className="text-red-500 hover:text-red-700">×</button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Compliance Reports Recipients */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Compliance Reports</Label>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => {
+                        const email = prompt('Enter email address:');
+                        if (email && email.includes('@')) {
+                          const container = document.querySelector('#compliance-recipients');
+                          if (container) {
+                            const emailTag = document.createElement('div');
+                            emailTag.className = 'flex items-center gap-2 bg-orange-100 dark:bg-orange-900 px-2 py-1 rounded text-xs';
+                            emailTag.innerHTML = `
+                              <span>${email}</span>
+                              <button onclick="this.parentElement.remove()" class="text-red-500 hover:text-red-700">×</button>
+                            `;
+                            container.appendChild(emailTag);
+                          }
+                        }
+                      }}
+                    >
+                      + Add Email
+                    </Button>
+                  </div>
+                  <div id="compliance-recipients" className="flex flex-wrap gap-2 min-h-[40px] p-2 border rounded">
+                    <div className="flex items-center gap-2 bg-orange-100 dark:bg-orange-900 px-2 py-1 rounded text-xs">
+                      <span>test@cash.smilemoney.africa</span>
+                      <button onClick={(e) => e.target.closest('div').remove()} className="text-red-500 hover:text-red-700">×</button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Admin Notifications Recipients */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Admin Notifications</Label>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => {
+                        const email = prompt('Enter email address:');
+                        if (email && email.includes('@')) {
+                          const container = document.querySelector('#admin-recipients');
+                          if (container) {
+                            const emailTag = document.createElement('div');
+                            emailTag.className = 'flex items-center gap-2 bg-purple-100 dark:bg-purple-900 px-2 py-1 rounded text-xs';
+                            emailTag.innerHTML = `
+                              <span>${email}</span>
+                              <button onclick="this.parentElement.remove()" class="text-red-500 hover:text-red-700">×</button>
+                            `;
+                            container.appendChild(emailTag);
+                          }
+                        }
+                      }}
+                    >
+                      + Add Email
+                    </Button>
+                  </div>
+                  <div id="admin-recipients" className="flex flex-wrap gap-2 min-h-[40px] p-2 border rounded">
+                    <div className="flex items-center gap-2 bg-purple-100 dark:bg-purple-900 px-2 py-1 rounded text-xs">
+                      <span>test@cash.smilemoney.africa</span>
+                      <button onClick={(e) => e.target.closest('div').remove()} className="text-red-500 hover:text-red-700">×</button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  Click × to remove email recipients. Changes are applied when scheduling reports.
+                </div>
+                
+                <div className="flex gap-2 pt-2">
+                  <Button 
+                    size="sm" 
+                    onClick={async () => {
+                      try {
+                        const getEmailsFromContainer = (containerId: string) => {
+                          const container = document.querySelector(containerId);
+                          const emailElements = container?.querySelectorAll('span');
+                          return Array.from(emailElements || []).map(span => span.textContent).filter(email => email);
+                        };
+
+                        const financeEmails = getEmailsFromContainer('#finance-recipients').join(',');
+                        const operationsEmails = getEmailsFromContainer('#operations-recipients').join(',');
+                        const complianceEmails = getEmailsFromContainer('#compliance-recipients').join(',');
+                        const adminEmails = getEmailsFromContainer('#admin-recipients').join(',');
+                        
+                        const response = await fetch('/api/admin/email-settings', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            financeEmails,
+                            operationsEmails,
+                            complianceEmails,
+                            adminEmails
+                          })
+                        });
+                        
+                        if (response.ok) {
+                          alert('Email settings saved successfully');
+                        } else {
+                          alert('Failed to save email settings');
+                        }
+                      } catch (error) {
+                        alert('Error saving email settings');
+                      }
+                    }}
+                  >
+                    Save Settings
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={async () => {
+                      try {
+                        const response = await fetch('/api/admin/email-settings');
+                        if (response.ok) {
+                          const settings = await response.json();
+                          
+                          const loadEmailsToContainer = (containerId: string, emails: string, colorClass: string) => {
+                            const container = document.querySelector(containerId);
+                            if (container) {
+                              container.innerHTML = '';
+                              emails.split(',').filter(email => email.trim()).forEach(email => {
+                                const emailTag = document.createElement('div');
+                                emailTag.className = `flex items-center gap-2 ${colorClass} px-2 py-1 rounded text-xs`;
+                                emailTag.innerHTML = `
+                                  <span>${email.trim()}</span>
+                                  <button onclick="this.parentElement.remove()" class="text-red-500 hover:text-red-700">×</button>
+                                `;
+                                container.appendChild(emailTag);
+                              });
+                            }
+                          };
+
+                          loadEmailsToContainer('#finance-recipients', settings.financeEmails || '', 'bg-blue-100 dark:bg-blue-900');
+                          loadEmailsToContainer('#operations-recipients', settings.operationsEmails || '', 'bg-green-100 dark:bg-green-900');
+                          loadEmailsToContainer('#compliance-recipients', settings.complianceEmails || '', 'bg-orange-100 dark:bg-orange-900');
+                          loadEmailsToContainer('#admin-recipients', settings.adminEmails || '', 'bg-purple-100 dark:bg-purple-900');
+                          
+                          alert('Email settings loaded');
+                        } else {
+                          alert('No saved email settings found');
+                        }
+                      } catch (error) {
+                        alert('Error loading email settings');
+                      }
+                    }}
+                  >
+                    Load Settings
+                  </Button>
+                </div>
+                
+                <div className="border-t pt-4">
+                  <Label className="text-sm font-medium mb-2 block">Email Configuration Test</Label>
+                  <div className="flex gap-2">
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={async () => {
+                        try {
+                          const response = await fetch('/api/notifications/test-email', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' }
+                          });
+                          
+                          if (response.ok) {
+                            alert('Test email sent successfully! Check your inbox.');
+                          } else {
+                            alert('Email test failed. Check SMTP configuration.');
+                          }
+                        } catch (error) {
+                          alert('Error testing email system');
+                        }
+                      }}
+                    >
+                      <i className="fas fa-paper-plane mr-2"></i>
+                      Test Email System
+                    </Button>
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                    Send a test email to verify SMTP configuration is working correctly.
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Accounting - Dashboard Tab */}
         {activeTab === 'accounting' && activeSubTab === 'overview' && (
           <AccountingDashboard />
@@ -1844,241 +2116,22 @@ export default function AdminDashboard() {
                   </div>
                 </CardContent>
               </Card>
+            </div>
+          </>
+        )}
 
+        {/* Accounting - Journal & Ledger Tab */}
+        {activeTab === 'accounting' && activeSubTab === 'journal' && (
+          <>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <i className="fas fa-share-alt"></i>
-                    Sharing & Distribution
+                    <i className="fas fa-cog"></i>
+                    Report Scheduling
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="space-y-4">
-                    <Label>Email Recipients Management</Label>
-                    
-                    {/* Financial Reports Recipients */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-sm font-medium">Financial Reports</Label>
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => {
-                            const email = prompt('Enter email address:');
-                            if (email && email.includes('@')) {
-                              const container = document.querySelector('#finance-recipients');
-                              if (container) {
-                                const emailTag = document.createElement('div');
-                                emailTag.className = 'flex items-center gap-2 bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded text-xs';
-                                emailTag.innerHTML = `
-                                  <span>${email}</span>
-                                  <button onclick="this.parentElement.remove()" class="text-red-500 hover:text-red-700">×</button>
-                                `;
-                                container.appendChild(emailTag);
-                              }
-                            }
-                          }}
-                        >
-                          + Add Email
-                        </Button>
-                      </div>
-                      <div id="finance-recipients" className="flex flex-wrap gap-2 min-h-[40px] p-2 border rounded">
-                        <div className="flex items-center gap-2 bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded text-xs">
-                          <span>test@cash.smilemoney.africa</span>
-                          <button onclick="this.parentElement.remove()" className="text-red-500 hover:text-red-700">×</button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Operations Reports Recipients */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-sm font-medium">Operations Reports</Label>
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => {
-                            const email = prompt('Enter email address:');
-                            if (email && email.includes('@')) {
-                              const container = document.querySelector('#operations-recipients');
-                              if (container) {
-                                const emailTag = document.createElement('div');
-                                emailTag.className = 'flex items-center gap-2 bg-green-100 dark:bg-green-900 px-2 py-1 rounded text-xs';
-                                emailTag.innerHTML = `
-                                  <span>${email}</span>
-                                  <button onclick="this.parentElement.remove()" class="text-red-500 hover:text-red-700">×</button>
-                                `;
-                                container.appendChild(emailTag);
-                              }
-                            }
-                          }}
-                        >
-                          + Add Email
-                        </Button>
-                      </div>
-                      <div id="operations-recipients" className="flex flex-wrap gap-2 min-h-[40px] p-2 border rounded">
-                        <div className="flex items-center gap-2 bg-green-100 dark:bg-green-900 px-2 py-1 rounded text-xs">
-                          <span>test@cash.smilemoney.africa</span>
-                          <button onclick="this.parentElement.remove()" className="text-red-500 hover:text-red-700">×</button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Compliance Reports Recipients */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-sm font-medium">Compliance Reports</Label>
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => {
-                            const email = prompt('Enter email address:');
-                            if (email && email.includes('@')) {
-                              const container = document.querySelector('#compliance-recipients');
-                              if (container) {
-                                const emailTag = document.createElement('div');
-                                emailTag.className = 'flex items-center gap-2 bg-orange-100 dark:bg-orange-900 px-2 py-1 rounded text-xs';
-                                emailTag.innerHTML = `
-                                  <span>${email}</span>
-                                  <button onclick="this.parentElement.remove()" class="text-red-500 hover:text-red-700">×</button>
-                                `;
-                                container.appendChild(emailTag);
-                              }
-                            }
-                          }}
-                        >
-                          + Add Email
-                        </Button>
-                      </div>
-                      <div id="compliance-recipients" className="flex flex-wrap gap-2 min-h-[40px] p-2 border rounded">
-                        <div className="flex items-center gap-2 bg-orange-100 dark:bg-orange-900 px-2 py-1 rounded text-xs">
-                          <span>test@cash.smilemoney.africa</span>
-                          <button onclick="this.parentElement.remove()" className="text-red-500 hover:text-red-700">×</button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Admin Notifications Recipients */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-sm font-medium">Admin Notifications</Label>
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => {
-                            const email = prompt('Enter email address:');
-                            if (email && email.includes('@')) {
-                              const container = document.querySelector('#admin-recipients');
-                              if (container) {
-                                const emailTag = document.createElement('div');
-                                emailTag.className = 'flex items-center gap-2 bg-purple-100 dark:bg-purple-900 px-2 py-1 rounded text-xs';
-                                emailTag.innerHTML = `
-                                  <span>${email}</span>
-                                  <button onclick="this.parentElement.remove()" class="text-red-500 hover:text-red-700">×</button>
-                                `;
-                                container.appendChild(emailTag);
-                              }
-                            }
-                          }}
-                        >
-                          + Add Email
-                        </Button>
-                      </div>
-                      <div id="admin-recipients" className="flex flex-wrap gap-2 min-h-[40px] p-2 border rounded">
-                        <div className="flex items-center gap-2 bg-purple-100 dark:bg-purple-900 px-2 py-1 rounded text-xs">
-                          <span>test@cash.smilemoney.africa</span>
-                          <button onclick="this.parentElement.remove()" className="text-red-500 hover:text-red-700">×</button>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      Click × to remove email recipients. Changes are applied when scheduling reports.
-                    </div>
-                    
-                    <div className="flex gap-2 pt-2">
-                      <Button 
-                        size="sm" 
-                        onClick={async () => {
-                          try {
-                            const getEmailsFromContainer = (containerId: string) => {
-                              const container = document.querySelector(containerId);
-                              const emailElements = container?.querySelectorAll('span');
-                              return Array.from(emailElements || []).map(span => span.textContent).filter(email => email);
-                            };
-
-                            const financeEmails = getEmailsFromContainer('#finance-recipients').join(',');
-                            const operationsEmails = getEmailsFromContainer('#operations-recipients').join(',');
-                            const complianceEmails = getEmailsFromContainer('#compliance-recipients').join(',');
-                            const adminEmails = getEmailsFromContainer('#admin-recipients').join(',');
-                            
-                            const response = await fetch('/api/admin/email-settings', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({
-                                financeEmails,
-                                operationsEmails,
-                                complianceEmails,
-                                adminEmails
-                              })
-                            });
-                            
-                            if (response.ok) {
-                              alert('Email settings saved successfully');
-                            } else {
-                              alert('Failed to save email settings');
-                            }
-                          } catch (error) {
-                            alert('Error saving email settings');
-                          }
-                        }}
-                      >
-                        Save Settings
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={async () => {
-                          try {
-                            const response = await fetch('/api/admin/email-settings');
-                            if (response.ok) {
-                              const settings = await response.json();
-                              
-                              const loadEmailsToContainer = (containerId: string, emails: string, colorClass: string) => {
-                                const container = document.querySelector(containerId);
-                                if (container) {
-                                  container.innerHTML = '';
-                                  emails.split(',').filter(email => email.trim()).forEach(email => {
-                                    const emailTag = document.createElement('div');
-                                    emailTag.className = `flex items-center gap-2 ${colorClass} px-2 py-1 rounded text-xs`;
-                                    emailTag.innerHTML = `
-                                      <span>${email.trim()}</span>
-                                      <button onclick="this.parentElement.remove()" class="text-red-500 hover:text-red-700">×</button>
-                                    `;
-                                    container.appendChild(emailTag);
-                                  });
-                                }
-                              };
-
-                              loadEmailsToContainer('#finance-recipients', settings.financeEmails || '', 'bg-blue-100 dark:bg-blue-900');
-                              loadEmailsToContainer('#operations-recipients', settings.operationsEmails || '', 'bg-green-100 dark:bg-green-900');
-                              loadEmailsToContainer('#compliance-recipients', settings.complianceEmails || '', 'bg-orange-100 dark:bg-orange-900');
-                              loadEmailsToContainer('#admin-recipients', settings.adminEmails || '', 'bg-purple-100 dark:bg-purple-900');
-                              
-                              alert('Email settings loaded');
-                            } else {
-                              alert('No saved email settings found');
-                            }
-                          } catch (error) {
-                            alert('Error loading email settings');
-                          }
-                        }}
-                      >
-                        Load Settings
-                      </Button>
-                    </div>
-                  </div>
-
                   <div className="space-y-3">
                     <Label>Schedule</Label>
                     <Select defaultValue="manual">
