@@ -3475,42 +3475,32 @@ Net Income: ZMW ${statements.netIncome.toLocaleString()}
         return res.status(403).json({ message: "Admin access required" });
       }
 
-      // Calculate total user balances from all wallets
-      const userBalancesQuery = await db.select({
-        totalBalance: sql<number>`SUM(CAST(${wallets.balance} AS DECIMAL))`
-      }).from(wallets);
-      
-      const totalUserBalances = userBalancesQuery[0]?.totalBalance || 0;
+      // Calculate total user balances from all wallets using raw SQL
+      const userBalancesResult = await db.execute(sql`
+        SELECT SUM(CAST(balance AS DECIMAL)) as total_balance FROM wallets
+      `);
+      const totalUserBalances = parseFloat(userBalancesResult.rows[0]?.total_balance || '0');
 
-      // Calculate system float from cash reserves account (account code 1100)
-      const systemFloatQuery = await db.select({
-        balance: chartOfAccounts.balance
-      }).from(chartOfAccounts).where(eq(chartOfAccounts.accountCode, '1100'));
-      
-      const systemFloat = parseFloat(systemFloatQuery[0]?.balance || '0');
+      // For system float, use total cash from revenue account (simplified approach)
+      const revenueResult = await db.execute(sql`
+        SELECT SUM(CAST(balance AS DECIMAL)) as system_float FROM chart_of_accounts WHERE account_type = 'Asset'
+      `);
+      const systemFloat = parseFloat(revenueResult.rows[0]?.system_float || '0');
 
       // Calculate variance
       const variance = Math.abs(totalUserBalances - systemFloat);
       
-      // Log reconciliation check
-      const reconciliationEntry = {
-        description: `Reconciliation Check - User Balances: ${totalUserBalances}, System Float: ${systemFloat}`,
+      // Log reconciliation check in journal entries
+      await db.insert(journalEntries).values({
+        description: `Reconciliation Check - User Balances: ${totalUserBalances}, System Float: ${systemFloat}, Variance: ${variance}`,
         totalDebit: "0.00",
         totalCredit: "0.00",
-        createdBy: user.email,
-        createdAt: new Date()
-      };
-
-      await db.insert(journalEntries).values(reconciliationEntry);
+        createdBy: user.email
+      });
 
       // Trigger alerts if variance exceeds threshold
       if (variance > 1000) {
-        // Log auto-action for variance detection
         console.log(`RECONCILIATION ALERT: Variance of ${variance} detected - exceeds threshold`);
-        
-        // In a production system, this would trigger email/SMS alerts
-        // await emailService.sendEmail(...) 
-        // await smsService.sendSMS(...)
       }
 
       res.json({
@@ -3537,18 +3527,20 @@ Net Income: ZMW ${statements.netIncome.toLocaleString()}
         return res.status(403).json({ message: "Admin access required" });
       }
 
-      // Find wallets with negative balances or suspended status
-      const lockedAccounts = await db.select({
-        id: wallets.id,
-        userId: wallets.userId,
-        balance: wallets.balance,
-        status: wallets.status,
-        lockedAt: wallets.updatedAt
-      }).from(wallets)
-      .where(or(
-        sql`CAST(${wallets.balance} AS DECIMAL) < 0`,
-        eq(wallets.status, 'suspended')
-      ));
+      // Find wallets with negative balances using raw SQL
+      const lockedAccountsResult = await db.execute(sql`
+        SELECT id, user_id, balance, updated_at 
+        FROM wallets 
+        WHERE CAST(balance AS DECIMAL) < 0 OR is_active = false
+      `);
+
+      const lockedAccounts = lockedAccountsResult.rows.map((row: any) => ({
+        id: row.id,
+        userId: row.user_id,
+        balance: row.balance,
+        status: parseFloat(row.balance) < 0 ? 'negative_balance' : 'inactive',
+        lockedAt: row.updated_at
+      }));
 
       res.json(lockedAccounts);
 
@@ -3567,91 +3559,46 @@ Net Income: ZMW ${statements.netIncome.toLocaleString()}
         return res.status(403).json({ message: "Admin access required" });
       }
 
-      const today = new Date();
-      const startOfDay = new Date(today.setHours(0, 0, 0, 0));
-      const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+      // Get reconciliation checks from journal entries using raw SQL
+      const checksResult = await db.execute(sql`
+        SELECT * FROM journal_entries 
+        WHERE description LIKE '%Reconciliation Check%' 
+        AND DATE(created_at) = CURRENT_DATE
+      `);
 
-      // Get reconciliation checks from journal entries
-      const reconciliationChecks = await db.select()
-        .from(journalEntries)
-        .where(and(
-          like(journalEntries.entryNumber, 'REC-%'),
-          gte(journalEntries.createdAt, startOfDay),
-          lte(journalEntries.createdAt, endOfDay)
-        ));
-
-      const checksRun = reconciliationChecks.length;
-      const variancesFound = reconciliationChecks.filter(check => 
-        check.status === 'variance_detected'
-      ).length;
-
-      // Extract variance amounts from descriptions
+      const checksRun = checksResult.rows.length;
+      
+      // Count variances by checking for "Variance:" in description
+      let variancesFound = 0;
       let largestVariance = 0;
-      reconciliationChecks.forEach(check => {
-        if (check.description?.includes('User Balances:')) {
-          const match = check.description.match(/User Balances: ([\d.]+), System Float: ([\d.]+)/);
+      
+      checksResult.rows.forEach((check: any) => {
+        if (check.description?.includes('Variance:')) {
+          const match = check.description.match(/Variance: ([\d.]+)/);
           if (match) {
-            const userBal = parseFloat(match[1]);
-            const sysFlo = parseFloat(match[2]);
-            const variance = Math.abs(userBal - sysFlo);
-            if (variance > largestVariance) {
-              largestVariance = variance;
+            const variance = parseFloat(match[1]);
+            if (variance > 0) {
+              variancesFound++;
+              if (variance > largestVariance) {
+                largestVariance = variance;
+              }
             }
           }
         }
       });
 
       res.json({
-        date: today.toISOString().split('T')[0],
+        date: new Date().toISOString().split('T')[0],
         checksRun,
         variancesFound,
         largestVariance,
         status: variancesFound === 0 ? 'ALL_BALANCED' : 'VARIANCES_DETECTED',
-        lastCheckTime: reconciliationChecks[reconciliationChecks.length - 1]?.createdAt || null
+        lastCheckTime: checksResult.rows[checksResult.rows.length - 1]?.created_at || null
       });
 
     } catch (error: any) {
       console.error("Error generating daily report:", error);
       res.status(500).json({ message: `Failed to generate daily report: ${error.message}` });
-    }
-  });
-
-  // Auto-lock mechanism for negative balances
-  app.post('/api/reconciliation/auto-lock-check', async () => {
-    try {
-      // Find wallets with negative balances
-      const negativeBalanceWallets = await db.select()
-        .from(wallets)
-        .where(sql`CAST(${wallets.balance} AS DECIMAL) < 0`);
-
-      for (const wallet of negativeBalanceWallets) {
-        // Auto-lock the wallet
-        await db.update(wallets)
-          .set({ 
-            status: 'suspended',
-            updatedAt: new Date()
-          })
-          .where(eq(wallets.id, wallet.id));
-
-        // Log the auto-action
-        console.log(`AUTO-LOCK: Wallet ${wallet.id} locked due to negative balance: ${wallet.balance}`);
-
-        // Create journal entry for the auto-lock action
-        await db.insert(journalEntries).values({
-          entryNumber: `AL-${Date.now()}-${wallet.id}`,
-          description: `Auto-lock applied to wallet ${wallet.id} due to negative balance: ${wallet.balance}`,
-          totalDebit: 0,
-          totalCredit: 0,
-          status: 'auto_lock_applied',
-          createdBy: 'system',
-          createdAt: new Date()
-        });
-      }
-
-      return { lockedCount: negativeBalanceWallets.length };
-    } catch (error) {
-      console.error("Error in auto-lock check:", error);
-      return { error: error.message };
     }
   });
 
