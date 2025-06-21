@@ -377,7 +377,7 @@ export class AccountingService {
         revenueType: smileMoneyRevenue.revenueType,
         feeAmount: smileMoneyRevenue.feeAmount,
         organizationId: smileMoneyRevenue.organizationId,
-        organizationName: organizations.businessName,
+        organizationName: organizations.name,
         transactionId: smileMoneyRevenue.transactionId
       })
       .from(smileMoneyRevenue)

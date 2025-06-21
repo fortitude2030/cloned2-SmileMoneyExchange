@@ -20,6 +20,7 @@ import {
   wallets,
 } from "@shared/schema";
 import crypto from "crypto";
+import { accountingService } from "./accountingService";
 
 // Optimized image processing - minimal conversion for faster uploads
 async function processImage(imagePath: string, outputPath: string): Promise<void> {
@@ -55,6 +56,14 @@ const upload = multer({
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup Firebase authentication
   await setupFirebaseAuth(app);
+  
+  // Initialize accounting system
+  try {
+    await accountingService.initializeChartOfAccounts();
+    console.log("✓ Accounting system initialized successfully");
+  } catch (error) {
+    console.error("Failed to initialize accounting system:", error);
+  }
 
   // Organization routes
   app.post('/api/organizations', isFirebaseAuthenticated, async (req: any, res) => {
@@ -2657,6 +2666,125 @@ export async function registerRoutes(app: Express): Promise<Server> {
     ws.on('close', () => {
       console.log('WebSocket client disconnected');
     });
+  });
+
+  // Accounting System API Routes
+  app.get('/api/accounting/financial-statements', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin', 'finance'].includes(user.role)) {
+        return res.status(403).json({ message: "Finance access required" });
+      }
+
+      const { startDate, endDate } = req.query;
+      const start = startDate ? new Date(startDate as string) : undefined;
+      const end = endDate ? new Date(endDate as string) : undefined;
+
+      const financialStatements = await accountingService.generateFinancialStatements(start, end);
+      res.json(financialStatements);
+    } catch (error) {
+      console.error("Error generating financial statements:", error);
+      res.status(500).json({ message: "Failed to generate financial statements" });
+    }
+  });
+
+  app.get('/api/accounting/revenue-report', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin', 'finance'].includes(user.role)) {
+        return res.status(403).json({ message: "Finance access required" });
+      }
+
+      const { startDate, endDate } = req.query;
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "Start date and end date are required" });
+      }
+
+      const start = new Date(startDate as string);
+      const end = new Date(endDate as string);
+
+      const revenueReport = await accountingService.getRevenueReport(start, end);
+      res.json(revenueReport);
+    } catch (error) {
+      console.error("Error generating revenue report:", error);
+      res.status(500).json({ message: "Failed to generate revenue report" });
+    }
+  });
+
+  app.get('/api/accounting/chart-of-accounts', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin', 'finance'].includes(user.role)) {
+        return res.status(403).json({ message: "Finance access required" });
+      }
+
+      const accounts = await db.select().from(chartOfAccounts).where(eq(chartOfAccounts.isActive, true));
+      res.json(accounts);
+    } catch (error) {
+      console.error("Error fetching chart of accounts:", error);
+      res.status(500).json({ message: "Failed to fetch chart of accounts" });
+    }
+  });
+
+  app.get('/api/accounting/journal-entries', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin', 'finance'].includes(user.role)) {
+        return res.status(403).json({ message: "Finance access required" });
+      }
+
+      const { limit = 50, offset = 0 } = req.query;
+      
+      const entries = await db.select()
+        .from(journalEntries)
+        .orderBy(desc(journalEntries.entryDate))
+        .limit(parseInt(limit as string))
+        .offset(parseInt(offset as string));
+
+      const entriesWithLines = await Promise.all(
+        entries.map(async (entry) => {
+          const lines = await db.select()
+            .from(journalEntryLines)
+            .where(eq(journalEntryLines.journalEntryId, entry.id));
+          return { ...entry, lines };
+        })
+      );
+
+      res.json(entriesWithLines);
+    } catch (error) {
+      console.error("Error fetching journal entries:", error);
+      res.status(500).json({ message: "Failed to fetch journal entries" });
+    }
+  });
+
+  app.get('/api/accounting/account-balance/:accountCode', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin', 'finance'].includes(user.role)) {
+        return res.status(403).json({ message: "Finance access required" });
+      }
+
+      const { accountCode } = req.params;
+      const { asOfDate } = req.query;
+      
+      const asOf = asOfDate ? new Date(asOfDate as string) : undefined;
+      const balance = await accountingService.getAccountBalance(accountCode, asOf);
+      
+      res.json({ accountCode, balance, asOfDate: asOf || new Date() });
+    } catch (error) {
+      console.error("Error fetching account balance:", error);
+      res.status(500).json({ message: "Failed to fetch account balance" });
+    }
   });
 
   return httpServer;
