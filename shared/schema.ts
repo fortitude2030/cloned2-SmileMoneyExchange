@@ -604,3 +604,21 @@ export type JournalEntryLine = typeof journalEntryLines.$inferSelect;
 export type InsertJournalEntryLine = z.infer<typeof insertJournalEntryLineSchema>;
 export type SmileMoneyRevenue = typeof smileMoneyRevenue.$inferSelect;
 export type InsertSmileMoneyRevenue = z.infer<typeof insertSmileMoneyRevenueSchema>;
+
+// Email Settings table for managing email recipients
+export const emailSettings = pgTable("email_settings", {
+  id: serial("id").primaryKey(),
+  settingKey: varchar("setting_key").notNull().unique(), // finance_emails, operations_emails, etc.
+  settingValue: text("setting_value"), // comma-separated email addresses
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertEmailSettingsSchema = createInsertSchema(emailSettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type EmailSetting = typeof emailSettings.$inferSelect;
+export type InsertEmailSetting = z.infer<typeof insertEmailSettingsSchema>;

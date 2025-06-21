@@ -1504,13 +1504,16 @@ export default function AdminDashboard() {
                         className="text-xs"
                         onClick={async () => {
                           try {
+                            const financeEmailInput = document.querySelector('#finance-emails') as HTMLInputElement;
+                            const recipients = financeEmailInput?.value?.split(',').map(email => email.trim()).filter(email => email) || ['test@cash.smilemoney.africa'];
+                            
                             const response = await fetch('/api/accounting/schedule-report', {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({
                                 reportType: 'financial-statements',
                                 frequency: 'monthly',
-                                recipients: ['test@cash.smilemoney.africa'],
+                                recipients: recipients,
                                 format: 'pdf'
                               })
                             });
@@ -1559,13 +1562,16 @@ export default function AdminDashboard() {
                         className="text-xs"
                         onClick={async () => {
                           try {
+                            const financeEmailInput = document.querySelector('#finance-emails') as HTMLInputElement;
+                            const recipients = financeEmailInput?.value?.split(',').map(email => email.trim()).filter(email => email) || ['test@cash.smilemoney.africa'];
+                            
                             const response = await fetch('/api/accounting/schedule-report', {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({
                                 reportType: 'revenue-analysis',
                                 frequency: 'weekly',
-                                recipients: ['test@cash.smilemoney.africa'],
+                                recipients: recipients,
                                 format: 'excel'
                               })
                             });
@@ -1614,13 +1620,16 @@ export default function AdminDashboard() {
                         className="text-xs"
                         onClick={async () => {
                           try {
+                            const operationsEmailInput = document.querySelector('#operations-emails') as HTMLInputElement;
+                            const recipients = operationsEmailInput?.value?.split(',').map(email => email.trim()).filter(email => email) || ['test@cash.smilemoney.africa'];
+                            
                             const response = await fetch('/api/accounting/schedule-report', {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({
                                 reportType: 'transaction-summary',
                                 frequency: 'daily',
-                                recipients: ['test@cash.smilemoney.africa'],
+                                recipients: recipients,
                                 format: 'csv'
                               })
                             });
@@ -1669,13 +1678,16 @@ export default function AdminDashboard() {
                         className="text-xs"
                         onClick={async () => {
                           try {
+                            const complianceEmailInput = document.querySelector('#compliance-emails') as HTMLInputElement;
+                            const recipients = complianceEmailInput?.value?.split(',').map(email => email.trim()).filter(email => email) || ['test@cash.smilemoney.africa'];
+                            
                             const response = await fetch('/api/accounting/schedule-report', {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({
                                 reportType: 'regulatory',
                                 frequency: 'monthly',
-                                recipients: ['test@cash.smilemoney.africa'],
+                                recipients: recipients,
                                 format: 'pdf'
                               })
                             });
@@ -1818,8 +1830,105 @@ export default function AdminDashboard() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-3">
-                    <Label>Email Recipients</Label>
-                    <Input placeholder="finance@smilemoney.co.zm, audit@smilemoney.co.zm" />
+                    <Label>Email Configuration</Label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <Label className="text-xs">Financial Reports</Label>
+                        <Input 
+                          id="finance-emails"
+                          placeholder="finance@cash.smilemoney.africa"
+                          defaultValue="test@cash.smilemoney.africa"
+                          className="text-xs"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs">Operations Reports</Label>
+                        <Input 
+                          id="operations-emails"
+                          placeholder="operations@cash.smilemoney.africa"
+                          defaultValue="test@cash.smilemoney.africa"
+                          className="text-xs"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs">Compliance Reports</Label>
+                        <Input 
+                          id="compliance-emails"
+                          placeholder="compliance@cash.smilemoney.africa"
+                          defaultValue="test@cash.smilemoney.africa"
+                          className="text-xs"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs">Admin Notifications</Label>
+                        <Input 
+                          id="admin-emails"
+                          placeholder="admin@cash.smilemoney.africa"
+                          defaultValue="test@cash.smilemoney.africa"
+                          className="text-xs"
+                        />
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      Separate multiple emails with commas. Changes apply immediately to new reports.
+                    </div>
+                    <div className="flex gap-2 pt-2">
+                      <Button 
+                        size="sm" 
+                        onClick={async () => {
+                          try {
+                            const financeEmails = (document.querySelector('#finance-emails') as HTMLInputElement)?.value || '';
+                            const operationsEmails = (document.querySelector('#operations-emails') as HTMLInputElement)?.value || '';
+                            const complianceEmails = (document.querySelector('#compliance-emails') as HTMLInputElement)?.value || '';
+                            const adminEmails = (document.querySelector('#admin-emails') as HTMLInputElement)?.value || '';
+                            
+                            const response = await fetch('/api/admin/email-settings', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                financeEmails,
+                                operationsEmails,
+                                complianceEmails,
+                                adminEmails
+                              })
+                            });
+                            
+                            if (response.ok) {
+                              alert('Email settings saved successfully');
+                            } else {
+                              alert('Failed to save email settings');
+                            }
+                          } catch (error) {
+                            alert('Error saving email settings');
+                          }
+                        }}
+                      >
+                        Save Settings
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={async () => {
+                          try {
+                            const response = await fetch('/api/admin/email-settings');
+                            if (response.ok) {
+                              const settings = await response.json();
+                              (document.querySelector('#finance-emails') as HTMLInputElement).value = settings.financeEmails || '';
+                              (document.querySelector('#operations-emails') as HTMLInputElement).value = settings.operationsEmails || '';
+                              (document.querySelector('#compliance-emails') as HTMLInputElement).value = settings.complianceEmails || '';
+                              (document.querySelector('#admin-emails') as HTMLInputElement).value = settings.adminEmails || '';
+                              alert('Email settings loaded');
+                            } else {
+                              alert('No saved email settings found');
+                            }
+                          } catch (error) {
+                            alert('Error loading email settings');
+                          }
+                        }}
+                      >
+                        Load Settings
+                      </Button>
+                    </div>
                   </div>
 
                   <div className="space-y-3">
