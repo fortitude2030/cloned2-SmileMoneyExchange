@@ -116,6 +116,31 @@ export default function CashierDashboard() {
   const [qrVmfNumber, setQrVmfNumber] = useState("");
   const [activeQrTransaction, setActiveQrTransaction] = useState<any>(null);
 
+  // OTP management
+  const { data: otpData, isLoading: otpLoading, refetch: refetchOtp } = useQuery({
+    queryKey: ['/api/cashiers/current-otp'],
+    refetchInterval: 30000, // Refresh every 30 seconds
+    retry: false,
+  });
+
+  const generateOtpMutation = useMutation({
+    mutationFn: () => apiRequest('/api/cashiers/generate-otp', 'POST'),
+    onSuccess: () => {
+      refetchOtp();
+      toast({
+        title: "OTP Generated",
+        description: "New OTP code has been generated successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to generate OTP",
+        variant: "destructive",
+      });
+    },
+  });
+
 
 
 
@@ -720,6 +745,54 @@ export default function CashierDashboard() {
             <span>{activeSession.location}</span>
           </div>
         </div>
+
+        {/* OTP Display Card */}
+        <Card className="mb-6 border-2 border-primary/20 bg-gradient-to-r from-primary/5 to-accent/5">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
+                  <i className="fas fa-key text-white text-sm"></i>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-800 dark:text-gray-200">
+                    Cashier OTP Code
+                  </h3>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                    Share this code with customers for payments
+                  </p>
+                </div>
+              </div>
+              
+              {otpLoading ? (
+                <div className="animate-pulse bg-gray-200 dark:bg-gray-700 h-8 w-24 rounded"></div>
+              ) : otpData?.otp ? (
+                <div className="text-right">
+                  <div className="text-2xl font-mono font-bold text-primary">
+                    {otpData.otp}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {otpData.isActive ? 'Active' : 'Expired'}
+                  </div>
+                </div>
+              ) : (
+                <Button 
+                  onClick={() => generateOtpMutation.mutate()}
+                  disabled={generateOtpMutation.isPending}
+                  size="sm"
+                  className="bg-primary text-white"
+                >
+                  {generateOtpMutation.isPending ? (
+                    <i className="fas fa-spinner fa-spin mr-2"></i>
+                  ) : (
+                    <i className="fas fa-plus mr-2"></i>
+                  )}
+                  Generate OTP
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Transaction Timer - Only shows when there's an active transaction */}
         {(activeTransaction || activeQrTransaction) && isActive && timeLeft > 0 && (
