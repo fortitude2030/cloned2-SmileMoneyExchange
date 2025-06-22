@@ -250,6 +250,12 @@ export const complianceReports = pgTable("compliance_reports", {
   filePath: varchar("file_path"), // Path to generated PDF/Excel file
   status: varchar("status").default("generated"), // generated, submitted, acknowledged
   submittedAt: timestamp("submitted_at"),
+  emailDelivered: boolean("email_delivered").default(false),
+  emailDeliveredAt: timestamp("email_delivered_at"),
+  emailRecipients: text("email_recipients"), // JSON array of email addresses
+  priority: varchar("priority").default("normal"), // low, normal, high, urgent
+  requiresAction: boolean("requires_action").default(false),
+  actionDeadline: timestamp("action_deadline"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

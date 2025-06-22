@@ -102,6 +102,75 @@ function ComplianceReportsDashboard() {
     }
   };
 
+  const getPriorityBadge = (priority: string) => {
+    switch (priority) {
+      case "urgent":
+        return { 
+          variant: "destructive" as const, 
+          label: "🚨 URGENT", 
+          className: "animate-pulse bg-red-600 text-white" 
+        };
+      case "high":
+        return { 
+          variant: "destructive" as const, 
+          label: "⚠️ HIGH", 
+          className: "bg-orange-500 text-white" 
+        };
+      case "normal":
+        return { 
+          variant: "secondary" as const, 
+          label: "📋 NORMAL", 
+          className: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" 
+        };
+      case "low":
+        return { 
+          variant: "outline" as const, 
+          label: "📄 LOW", 
+          className: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400" 
+        };
+      default:
+        return { 
+          variant: "secondary" as const, 
+          label: priority, 
+          className: "" 
+        };
+    }
+  };
+
+  const getEmailDeliveryBadge = (emailDelivered: boolean, emailDeliveredAt: string | null) => {
+    if (emailDelivered && emailDeliveredAt) {
+      return {
+        variant: "secondary" as const,
+        label: "✅ Email Sent",
+        className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+        tooltip: `Delivered at ${new Date(emailDeliveredAt).toLocaleString()}`
+      };
+    } else {
+      return {
+        variant: "outline" as const,
+        label: "📧 Pending Email",
+        className: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 animate-pulse",
+        tooltip: "Email notification pending"
+      };
+    }
+  };
+
+  const getActionRequiredBadge = (requiresAction: boolean, actionDeadline: string | null) => {
+    if (!requiresAction) return null;
+    
+    const isOverdue = actionDeadline && new Date(actionDeadline) < new Date();
+    return {
+      variant: isOverdue ? "destructive" as const : "default" as const,
+      label: isOverdue ? "⏰ OVERDUE" : "📋 ACTION REQUIRED",
+      className: isOverdue 
+        ? "bg-red-600 text-white animate-bounce" 
+        : "bg-amber-500 text-white",
+      tooltip: actionDeadline 
+        ? `Deadline: ${new Date(actionDeadline).toLocaleString()}` 
+        : "Action required"
+    };
+  };
+
   const formatReportData = (reportData: any, reportType: string) => {
     if (reportType === "daily_summary") {
       return (
@@ -278,10 +347,44 @@ function ComplianceReportsDashboard() {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant={getStatusBadge(report.status).variant}>
-                    {getStatusBadge(report.status).label}
-                  </Badge>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {(() => {
+                    const statusBadge = getStatusBadge(report.status);
+                    const priorityBadge = getPriorityBadge(report.priority || 'normal');
+                    const emailBadge = getEmailDeliveryBadge(report.emailDelivered || false, report.emailDeliveredAt);
+                    const actionBadge = getActionRequiredBadge(report.requiresAction || false, report.actionDeadline);
+                    
+                    return (
+                      <>
+                        <Badge 
+                          variant={priorityBadge.variant}
+                          className={`text-xs ${priorityBadge.className}`}
+                          title={priorityBadge.label}
+                        >
+                          {priorityBadge.label}
+                        </Badge>
+                        <Badge 
+                          variant={emailBadge.variant}
+                          className={`text-xs ${emailBadge.className}`}
+                          title={emailBadge.tooltip}
+                        >
+                          {emailBadge.label}
+                        </Badge>
+                        {actionBadge && (
+                          <Badge 
+                            variant={actionBadge.variant}
+                            className={`text-xs ${actionBadge.className}`}
+                            title={actionBadge.tooltip}
+                          >
+                            {actionBadge.label}
+                          </Badge>
+                        )}
+                        <Badge variant={statusBadge.variant} className="text-xs">
+                          {statusBadge.label}
+                        </Badge>
+                      </>
+                    );
+                  })()}
                   <Button variant="outline" size="sm">
                     <Download className="w-4 h-4 mr-2" />
                     Export
