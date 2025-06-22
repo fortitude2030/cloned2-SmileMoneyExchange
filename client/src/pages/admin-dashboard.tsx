@@ -1485,10 +1485,17 @@ export default function AdminDashboard() {
                           if (container) {
                             const emailTag = document.createElement('div');
                             emailTag.className = 'flex items-center gap-2 bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded text-xs';
-                            emailTag.innerHTML = `
-                              <span>${email}</span>
-                              <button onclick="this.parentElement.remove()" class="text-red-500 hover:text-red-700">×</button>
-                            `;
+                            
+                            const emailSpan = document.createElement('span');
+                            emailSpan.textContent = email; // Safe - uses textContent instead of innerHTML
+                            
+                            const removeButton = document.createElement('button');
+                            removeButton.textContent = '×';
+                            removeButton.className = 'text-red-500 hover:text-red-700';
+                            removeButton.onclick = () => emailTag.remove();
+                            
+                            emailTag.appendChild(emailSpan);
+                            emailTag.appendChild(removeButton);
                             container.appendChild(emailTag);
                           }
                         }
@@ -1519,10 +1526,17 @@ export default function AdminDashboard() {
                           if (container) {
                             const emailTag = document.createElement('div');
                             emailTag.className = 'flex items-center gap-2 bg-green-100 dark:bg-green-900 px-2 py-1 rounded text-xs';
-                            emailTag.innerHTML = `
-                              <span>${email}</span>
-                              <button onclick="this.parentElement.remove()" class="text-red-500 hover:text-red-700">×</button>
-                            `;
+                            
+                            const emailSpan = document.createElement('span');
+                            emailSpan.textContent = email; // Safe - uses textContent instead of innerHTML
+                            
+                            const removeButton = document.createElement('button');
+                            removeButton.textContent = '×';
+                            removeButton.className = 'text-red-500 hover:text-red-700';
+                            removeButton.onclick = () => emailTag.remove();
+                            
+                            emailTag.appendChild(emailSpan);
+                            emailTag.appendChild(removeButton);
                             container.appendChild(emailTag);
                           }
                         }
@@ -1553,10 +1567,17 @@ export default function AdminDashboard() {
                           if (container) {
                             const emailTag = document.createElement('div');
                             emailTag.className = 'flex items-center gap-2 bg-orange-100 dark:bg-orange-900 px-2 py-1 rounded text-xs';
-                            emailTag.innerHTML = `
-                              <span>${email}</span>
-                              <button onclick="this.parentElement.remove()" class="text-red-500 hover:text-red-700">×</button>
-                            `;
+                            
+                            const emailSpan = document.createElement('span');
+                            emailSpan.textContent = email; // Safe - uses textContent instead of innerHTML
+                            
+                            const removeButton = document.createElement('button');
+                            removeButton.textContent = '×';
+                            removeButton.className = 'text-red-500 hover:text-red-700';
+                            removeButton.onclick = () => emailTag.remove();
+                            
+                            emailTag.appendChild(emailSpan);
+                            emailTag.appendChild(removeButton);
                             container.appendChild(emailTag);
                           }
                         }
@@ -1587,10 +1608,17 @@ export default function AdminDashboard() {
                           if (container) {
                             const emailTag = document.createElement('div');
                             emailTag.className = 'flex items-center gap-2 bg-purple-100 dark:bg-purple-900 px-2 py-1 rounded text-xs';
-                            emailTag.innerHTML = `
-                              <span>${email}</span>
-                              <button onclick="this.parentElement.remove()" class="text-red-500 hover:text-red-700">×</button>
-                            `;
+                            
+                            const emailSpan = document.createElement('span');
+                            emailSpan.textContent = email; // Safe - uses textContent instead of innerHTML
+                            
+                            const removeButton = document.createElement('button');
+                            removeButton.textContent = '×';
+                            removeButton.className = 'text-red-500 hover:text-red-700';
+                            removeButton.onclick = () => emailTag.remove();
+                            
+                            emailTag.appendChild(emailSpan);
+                            emailTag.appendChild(removeButton);
                             container.appendChild(emailTag);
                           }
                         }
