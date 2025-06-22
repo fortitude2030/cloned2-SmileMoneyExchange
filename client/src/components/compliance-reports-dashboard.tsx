@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { FileText, Download, Calendar, TrendingUp, AlertCircle, Plus } from "lucide-react";
+import { FileText, Download, Calendar, TrendingUp, AlertCircle, Plus, AlertTriangle, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -21,6 +21,12 @@ interface ComplianceReport {
   status: string;
   submittedAt: string | null;
   createdAt: string;
+  emailDelivered?: boolean;
+  emailDeliveredAt?: string | null;
+  emailRecipients?: string | null;
+  priority?: string;
+  requiresAction?: boolean;
+  actionDeadline?: string | null;
 }
 
 function ComplianceReportsDashboard() {
@@ -288,7 +294,55 @@ function ComplianceReportsDashboard() {
         </Dialog>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {/* Urgent Alerts Badge */}
+        <Card className="border border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-950">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="relative">
+                <AlertTriangle className="w-5 h-5 text-red-600" />
+                {(() => {
+                  const urgentCount = (reports as any[]).filter(r => r.priority === 'urgent' || r.requiresAction).length;
+                  return urgentCount > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-red-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center animate-pulse">
+                      {urgentCount}
+                    </span>
+                  );
+                })()}
+              </div>
+              <span className="font-semibold text-red-600">Action Required</span>
+            </div>
+            <div className="text-2xl font-bold text-red-700 dark:text-red-400">
+              {(reports as any[]).filter(r => r.priority === 'urgent' || r.requiresAction).length}
+            </div>
+            <div className="text-sm text-red-600 dark:text-red-400">Reports need attention</div>
+          </CardContent>
+        </Card>
+
+        {/* Email Pending Badge */}
+        <Card className="border border-yellow-200 dark:border-yellow-700 bg-yellow-50 dark:bg-yellow-950">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="relative">
+                <Mail className="w-5 h-5 text-yellow-600" />
+                {(() => {
+                  const pendingEmailCount = (reports as any[]).filter(r => !r.emailDelivered).length;
+                  return pendingEmailCount > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-yellow-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center animate-bounce">
+                      {pendingEmailCount}
+                    </span>
+                  );
+                })()}
+              </div>
+              <span className="font-semibold text-yellow-600">Email Pending</span>
+            </div>
+            <div className="text-2xl font-bold text-yellow-700 dark:text-yellow-400">
+              {(reports as any[]).filter(r => !r.emailDelivered).length}
+            </div>
+            <div className="text-sm text-yellow-600 dark:text-yellow-400">Awaiting delivery</div>
+          </CardContent>
+        </Card>
+
         <Card className="border border-blue-200 dark:border-blue-700">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
@@ -296,7 +350,7 @@ function ComplianceReportsDashboard() {
               <span className="font-semibold text-blue-600">Daily Reports</span>
             </div>
             <div className="text-2xl font-bold text-gray-900 dark:text-white">
-              {(reports as ComplianceReport[]).filter(r => r.reportType === "daily_summary").length}
+              {(reports as any[]).filter(r => r.reportType === "daily_summary").length}
             </div>
             <div className="text-sm text-gray-600 dark:text-gray-400">Total generated</div>
           </CardContent>
@@ -309,7 +363,7 @@ function ComplianceReportsDashboard() {
               <span className="font-semibold text-green-600">Weekly Reports</span>
             </div>
             <div className="text-2xl font-bold text-gray-900 dark:text-white">
-              {(reports as ComplianceReport[]).filter(r => r.reportType === "weekly_compliance").length}
+              {(reports as any[]).filter(r => r.reportType === "weekly_compliance").length}
             </div>
             <div className="text-sm text-gray-600 dark:text-gray-400">Total generated</div>
           </CardContent>
