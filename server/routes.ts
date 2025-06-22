@@ -421,6 +421,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const { validateOrganizationLimits } = await import('./organizationLimitsValidator');
   const { validateUserOrganizationStatus, getEffectiveTransactionLimits } = await import('./userStatusInheritance');
 
+  // OTP endpoints for cashier assignment
+  app.get('/api/cashiers/verify-otp/:otp', async (req, res) => {
+    try {
+      const { otp } = req.params;
+      
+      // Validate OTP format (xxxx-xxxx)
+      if (!/^\d{4}-\d{4}$/.test(otp)) {
+        return res.status(400).json({ 
+          valid: false, 
+          message: "Invalid OTP format. Should be xxxx-xxxx" 
+        });
+      }
+
+      const validation = await storage.validateOTP(otp);
+      
+      if (validation.valid) {
+        res.json({
+          valid: true,
+          cashierName: validation.cashierName,
+          timeRemaining: 900 // 15 minutes in seconds
+        });
+      } else {
+        res.status(400).json({
+          valid: false,
+          message: "Invalid or expired OTP"
+        });
+      }
+    } catch (error) {
+      console.error("Error validating OTP:", error);
+      res.status(500).json({ 
+        valid: false, 
+        message: "Failed to validate OTP" 
+      });
+    }
+  });
+
+  app.post('/api/cashiers/generate-otp', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.role !== 'cashier') {
+        return res.status(403).json({ message: "Only cashiers can generate OTP" });
+      }
+
+      const otp = await storage.generateCashierOTP(userId);
+      res.json({ 
+        otp,
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString()
+      });
+    } catch (error) {
+      console.error("Error generating OTP:", error);
+      res.status(500).json({ message: "Failed to generate OTP" });
+    }
+  });
+
+  app.get('/api/cashiers/current-otp', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.role !== 'cashier') {
+        return res.status(403).json({ message: "Only cashiers can access OTP" });
+      }
+
+      const otp = await storage.refreshOTPIfNeeded(userId);
+      
+      if (otp) {
+        res.json({ 
+          otp,
+          firstName: user.firstName,
+          expiresAt: user.otpExpiresAt,
+          isActive: !user.otpUsed && user.otpExpiresAt && new Date() < user.otpExpiresAt
+        });
+      } else {
+        res.json({ 
+          otp: null,
+          firstName: user.firstName,
+          message: "Please login to generate new OTP"
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching current OTP:", error);
+      res.status(500).json({ message: "Failed to fetch current OTP" });
+    }
+  });
+
   // Transaction routes
   app.post('/api/transactions', isFirebaseAuthenticated, async (req: any, res) => {
     console.log("POST /api/transactions - Request received");
@@ -444,9 +531,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Set proper status for QR transactions
+      // Handle OTP-based cashier assignment for RTP and QR payments
+      let assignedCashierId = req.body.toUserId;
+      let otpUsed = null;
+      
+      if ((req.body.type === 'rtp' || req.body.type === 'qr_code_payment') && req.body.cashierOtp) {
+        // Validate the OTP and get cashier assignment
+        const otpValidation = await storage.validateOTP(req.body.cashierOtp);
+        
+        if (!otpValidation.valid || !otpValidation.cashierUserId) {
+          return res.status(400).json({ 
+            message: "Invalid or expired cashier OTP",
+            code: 'INVALID_OTP'
+          });
+        }
+        
+        assignedCashierId = otpValidation.cashierUserId;
+        otpUsed = req.body.cashierOtp;
+      } else if (req.body.type === 'rtp' || req.body.type === 'qr_code_payment') {
+        return res.status(400).json({ 
+          message: "Cashier OTP is required for RTP and QR payments",
+          code: 'OTP_REQUIRED'
+        });
+      }
+
+      // Set proper status for QR and RTP transactions
       let finalStatus = req.body.status || 'pending';
-      if (req.body.type === 'qr_code_payment') {
+      if (req.body.type === 'qr_code_payment' || req.body.type === 'rtp') {
         finalStatus = 'pending';
       }
       
@@ -473,7 +584,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: finalStatus,
         amount: parsedAmount.toFixed(2),
         fromUserId: req.body.fromUserId || userId,
-        toUserId: req.body.toUserId || "system", // Default to system for QR transactions
+        toUserId: assignedCashierId || "system", // Use assigned cashier or default to system
         expiresAt,
       });
       
@@ -511,6 +622,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.markExpiredTransactions();
       
       const transaction = await storage.createTransaction(transactionData);
+      
+      // Mark OTP as used if it was provided for cashier assignment
+      if (otpUsed && transaction.id) {
+        await storage.markOTPAsUsed(otpUsed, transaction.id, req.body.type);
+        console.log(`OTP ${otpUsed} marked as used for transaction ${transaction.id}`);
+      }
       
       // Update balances only for completed transactions
       if (transactionData.status === 'completed') {
