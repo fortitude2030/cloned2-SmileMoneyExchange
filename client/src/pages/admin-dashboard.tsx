@@ -1713,10 +1713,19 @@ export default function AdminDashboard() {
                               emails.split(',').filter(email => email.trim()).forEach(email => {
                                 const emailTag = document.createElement('div');
                                 emailTag.className = `flex items-center gap-2 ${colorClass} px-2 py-1 rounded text-xs`;
-                                emailTag.innerHTML = `
-                                  <span>${email.trim()}</span>
-                                  <button onclick="this.parentElement.remove()" class="text-red-500 hover:text-red-700">×</button>
-                                `;
+                                
+                                // Create span element safely
+                                const span = document.createElement('span');
+                                span.textContent = email.trim(); // Use textContent instead of innerHTML
+                                
+                                // Create button element safely
+                                const button = document.createElement('button');
+                                button.textContent = '×';
+                                button.className = 'text-red-500 hover:text-red-700';
+                                button.onclick = () => emailTag.remove();
+                                
+                                emailTag.appendChild(span);
+                                emailTag.appendChild(button);
                                 container.appendChild(emailTag);
                               });
                             }
