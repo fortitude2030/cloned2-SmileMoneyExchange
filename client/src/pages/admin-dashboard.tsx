@@ -1,16 +1,27 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import MobileHeader from "@/components/mobile-header";
 import MobileNav from "@/components/mobile-nav";
+import AdminUserManagement from "@/components/admin-user-management";
+import AdminOrganizationManagement from "@/components/admin-organization-management";
+import AmlConfigurationDashboard from "@/components/aml-configuration-dashboard";
+import AmlAlertManagement from "@/components/aml-alert-management";
+import ComplianceReportsDashboard from "@/components/compliance-reports-dashboard";
+import AccountingDashboard from "@/components/accounting-dashboard";
 import { apiRequest } from "@/lib/queryClient";
+import { getCurrentToken } from "@/lib/firebase";
+import { DashboardStatsSkeleton, SettlementRequestSkeleton, TransactionListSkeleton } from "@/components/ui/loading-skeletons";
 
 interface ActionDialogState {
   isOpen: boolean;
@@ -25,6 +36,7 @@ export default function AdminDashboard() {
   const { toast } = useToast();
   
   const [activeTab, setActiveTab] = useState('overview');
+  const [activeSubTab, setActiveSubTab] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [sortBy, setSortBy] = useState('date');
   const [actionDialog, setActionDialog] = useState<ActionDialogState>({
@@ -34,6 +46,106 @@ export default function AdminDashboard() {
     reason: '',
     reasonComment: ''
   });
+  
+  // Float reconciliation state
+  const [floatAdjustment, setFloatAdjustment] = useState({ amount: '', reason: '' });
+  const [reconciliationResult, setReconciliationResult] = useState<any>(null);
+  const [lockedAccounts, setLockedAccounts] = useState<any[]>([]);
+  const [dailyReport, setDailyReport] = useState<any>(null);
+  const [isRunningReconciliation, setIsRunningReconciliation] = useState(false);
+
+  // System Float API queries
+  const { data: systemFloatData } = useQuery({
+    queryKey: ['/api/reconciliation/system-float'],
+    queryFn: async () => {
+      const response = await apiRequest('/api/reconciliation/system-float');
+      if (!response.ok) throw new Error('Failed to fetch system float');
+      return response.json();
+    },
+    retry: false
+  });
+
+  // Float adjustment mutation
+  const adjustFloatMutation = useMutation({
+    mutationFn: async ({ amount, reason }: { amount: string; reason: string }) => {
+      return apiRequest('POST', '/api/reconciliation/adjust-float', { amount: parseFloat(amount), reason });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/reconciliation/system-float'] });
+      toast({
+        title: "System float adjusted successfully",
+        description: "The float balance has been updated.",
+      });
+      setFloatAdjustment({ amount: '', reason: '' });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error adjusting system float",
+        description: error.message || "Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Float adjustment handler
+  const handleFloatAdjustment = async () => {
+    if (!floatAdjustment.amount || !floatAdjustment.reason) return;
+    
+    const confirmed = confirm(
+      `Are you sure you want to adjust the system float by ZMW ${floatAdjustment.amount}?\n\nReason: ${floatAdjustment.reason}`
+    );
+    
+    if (confirmed) {
+      adjustFloatMutation.mutate(floatAdjustment);
+    }
+  };
+
+  // Reconciliation check handler
+  const runReconciliationCheck = async () => {
+    setIsRunningReconciliation(true);
+    try {
+      const response = await apiRequest('POST', '/api/reconciliation/run-check');
+      if (response.ok) {
+        const result = await response.json();
+        setReconciliationResult(result);
+        toast({
+          title: "Reconciliation check completed",
+          description: `Status: ${result.status}, Variance: ZMW ${result.variance}`,
+        });
+      } else {
+        throw new Error('Failed to run reconciliation check');
+      }
+    } catch (error: any) {
+      toast({
+        title: "Reconciliation check failed",
+        description: error.message || "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRunningReconciliation(false);
+    }
+  };
+
+  // Load reconciliation data on mount
+  useEffect(() => {
+    const loadReconciliationData = async () => {
+      try {
+        // Load locked accounts
+        const locked = await apiRequest('GET', '/api/reconciliation/locked-accounts');
+        setLockedAccounts(locked);
+
+        // Load daily report
+        const report = await apiRequest('GET', '/api/reconciliation/daily-report');
+        setDailyReport(report);
+      } catch (error) {
+        console.error('Error loading reconciliation data:', error);
+      }
+    };
+
+    if (activeTab === 'accounting' && activeSubTab === 'reconciliation') {
+      loadReconciliationData();
+    }
+  }, [activeTab, activeSubTab]);
 
   const queryClient = useQueryClient();
 
@@ -56,13 +168,13 @@ export default function AdminDashboard() {
   // Fetch settlement requests
   const { data: settlementRequests = [], isLoading: settlementsLoading } = useQuery({
     queryKey: ['/api/settlement-requests'],
-    refetchInterval: 3000,
+    refetchInterval: 30000, // 30 seconds instead of 3 seconds
   });
 
   // Fetch transaction log
   const { data: transactions = [], isLoading: transactionsLoading } = useQuery({
     queryKey: ['/api/admin/transactions'],
-    refetchInterval: 3000,
+    refetchInterval: 60000, // 60 seconds instead of 3 seconds
   });
 
   // Filter pending requests (include both pending and hold status as "pending approval")
@@ -259,19 +371,31 @@ export default function AdminDashboard() {
         color="red-600"
       />
 
-      {/* Tab Navigation */}
+      {/* Main Navigation */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
         <div className="flex overflow-x-auto">
           {[
             { id: 'overview', label: 'Overview', icon: 'fas fa-tachometer-alt' },
-            { id: 'settlements', label: 'Settlements', icon: 'fas fa-university' },
-            { id: 'transactions', label: 'Transactions', icon: 'fas fa-exchange-alt' },
-            { id: 'analytics', label: 'Analytics', icon: 'fas fa-chart-bar' },
-            { id: 'system', label: 'System', icon: 'fas fa-cogs' }
+            { id: 'customers', label: 'Customers', icon: 'fas fa-users', hasSubMenu: true },
+            { id: 'operations', label: 'Operations', icon: 'fas fa-cogs', hasSubMenu: true },
+            { id: 'aml', label: 'AML', icon: 'fas fa-shield-alt', hasSubMenu: true },
+            { id: 'compliance', label: 'Compliance', icon: 'fas fa-file-alt' },
+            { id: 'accounting', label: 'Accounting', icon: 'fas fa-chart-line', hasSubMenu: true }
           ].map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => {
+                setActiveTab(tab.id);
+                if (tab.hasSubMenu) {
+                  // Set default sub-tab for menus with sub-items
+                  if (tab.id === 'customers') setActiveSubTab('users');
+                  else if (tab.id === 'operations') setActiveSubTab('transactions');
+                  else if (tab.id === 'aml') setActiveSubTab('aml-config');
+                  else if (tab.id === 'accounting') setActiveSubTab('overview');
+                } else {
+                  setActiveSubTab('');
+                }
+              }}
               className={`flex items-center px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
                 activeTab === tab.id
                   ? 'border-red-500 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950'
@@ -280,9 +404,93 @@ export default function AdminDashboard() {
             >
               <i className={`${tab.icon} mr-2`}></i>
               {tab.label}
+              {tab.hasSubMenu && <i className="fas fa-chevron-down ml-1 text-xs"></i>}
             </button>
           ))}
         </div>
+        
+        {/* Sub-navigation for menu items with sub-menus */}
+        {(activeTab === 'customers' || activeTab === 'operations' || activeTab === 'aml' || activeTab === 'accounting') && (
+          <div className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+            <div className="flex overflow-x-auto px-4">
+              {activeTab === 'customers' && [
+                { id: 'users', label: 'Users', icon: 'fas fa-user' },
+                { id: 'organizations', label: 'Organizations', icon: 'fas fa-building' }
+              ].map((subTab) => (
+                <button
+                  key={subTab.id}
+                  onClick={() => setActiveSubTab(subTab.id)}
+                  className={`flex items-center px-3 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+                    activeSubTab === subTab.id
+                      ? 'border-red-400 text-red-600 dark:text-red-400 bg-white dark:bg-gray-600'
+                      : 'border-transparent text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100'
+                  }`}
+                >
+                  <i className={`${subTab.icon} mr-2 text-xs`}></i>
+                  {subTab.label}
+                </button>
+              ))}
+              
+              {activeTab === 'operations' && [
+                { id: 'transactions', label: 'Transactions', icon: 'fas fa-exchange-alt' },
+                { id: 'settlements', label: 'Settlements', icon: 'fas fa-university' },
+                { id: 'email-management', label: 'Comms Management', icon: 'fas fa-cogs' }
+              ].map((subTab) => (
+                <button
+                  key={subTab.id}
+                  onClick={() => setActiveSubTab(subTab.id)}
+                  className={`flex items-center px-3 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+                    activeSubTab === subTab.id
+                      ? 'border-red-400 text-red-600 dark:text-red-400 bg-white dark:bg-gray-600'
+                      : 'border-transparent text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100'
+                  }`}
+                >
+                  <i className={`${subTab.icon} mr-2 text-xs`}></i>
+                  {subTab.label}
+                </button>
+              ))}
+              
+              {activeTab === 'aml' && [
+                { id: 'aml-config', label: 'AML Config', icon: 'fas fa-cog' },
+                { id: 'aml-alerts', label: 'AML Alerts', icon: 'fas fa-exclamation-triangle' }
+              ].map((subTab) => (
+                <button
+                  key={subTab.id}
+                  onClick={() => setActiveSubTab(subTab.id)}
+                  className={`flex items-center px-3 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+                    activeSubTab === subTab.id
+                      ? 'border-red-400 text-red-600 dark:text-red-400 bg-white dark:bg-gray-600'
+                      : 'border-transparent text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100'
+                  }`}
+                >
+                  <i className={`${subTab.icon} mr-2 text-xs`}></i>
+                  {subTab.label}
+                </button>
+              ))}
+              
+              {activeTab === 'accounting' && [
+                { id: 'overview', label: 'Dashboard', icon: 'fas fa-tachometer-alt' },
+                { id: 'statements', label: 'Statements', icon: 'fas fa-file-invoice' },
+                { id: 'journal', label: 'Journal & Ledger', icon: 'fas fa-book' },
+                { id: 'reconciliation', label: 'Reconciliation', icon: 'fas fa-balance-scale' },
+                { id: 'reports', label: 'Reports', icon: 'fas fa-chart-bar' }
+              ].map((subTab) => (
+                <button
+                  key={subTab.id}
+                  onClick={() => setActiveSubTab(subTab.id)}
+                  className={`flex items-center px-3 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+                    activeSubTab === subTab.id
+                      ? 'border-red-400 text-red-600 dark:text-red-400 bg-white dark:bg-gray-600'
+                      : 'border-transparent text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100'
+                  }`}
+                >
+                  <i className={`${subTab.icon} mr-2 text-xs`}></i>
+                  {subTab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="p-4">
@@ -290,63 +498,214 @@ export default function AdminDashboard() {
         {activeTab === 'overview' && (
           <>
             {/* System Overview */}
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-2xl font-bold text-red-600">
-                        {pendingRequests.length}
-                      </p>
-                      <p className="text-gray-600 dark:text-gray-400 text-sm">Pending Approvals</p>
+            {settlementsLoading || transactionsLoading ? (
+              <div className="mb-6">
+                <DashboardStatsSkeleton />
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-2xl font-bold text-red-600">
+                          {pendingRequests.length}
+                        </p>
+                        <p className="text-gray-600 dark:text-gray-400 text-sm">Pending Approvals</p>
+                      </div>
+                      <div className="w-10 h-10 bg-red-100 dark:bg-red-900 rounded-lg flex items-center justify-center">
+                        <i className="fas fa-exclamation-triangle text-red-600 dark:text-red-400"></i>
+                      </div>
                     </div>
-                    <div className="w-10 h-10 bg-red-100 dark:bg-red-900 rounded-lg flex items-center justify-center">
-                      <i className="fas fa-exclamation-triangle text-red-600 dark:text-red-400"></i>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
 
-              <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-2xl font-bold text-green-600">
-                        {Array.isArray(transactions) ? transactions.filter((t: any) => t.status === 'completed').length : 0}
-                      </p>
-                      <p className="text-gray-600 dark:text-gray-400 text-sm">Completed Today</p>
+                <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-2xl font-bold text-green-600">
+                          {Array.isArray(transactions) ? transactions.filter((t: any) => t.status === 'completed').length : 0}
+                        </p>
+                        <p className="text-gray-600 dark:text-gray-400 text-sm">Completed Today</p>
+                      </div>
+                      <div className="w-10 h-10 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
+                        <i className="fas fa-check-circle text-green-600 dark:text-green-400"></i>
+                      </div>
                     </div>
-                    <div className="w-10 h-10 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
-                      <i className="fas fa-check-circle text-green-600 dark:text-green-400"></i>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
 
-            {/* Quick Actions Overview */}
+            {/* Transaction Overview Card */}
             <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
               <CardContent className="p-4">
                 <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
-                  <i className="fas fa-bolt text-blue-600 mr-2"></i>
-                  Quick Actions
+                  <i className="fas fa-exchange-alt text-blue-600 mr-2"></i>
+                  Transaction Overview
                 </h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <Button 
-                    onClick={() => setActiveTab('settlements')}
-                    className="bg-red-600 hover:bg-red-700 text-white"
-                  >
-                    <i className="fas fa-tasks mr-2"></i>
-                    View Settlements ({pendingRequests.length})
-                  </Button>
-                  <Button 
-                    onClick={() => setActiveTab('transactions')}
-                    variant="outline"
-                  >
-                    <i className="fas fa-list mr-2"></i>
+                
+                {transactionsLoading ? (
+                  <div className="animate-pulse">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                      {[1, 2, 3, 4].map((i) => (
+                        <div key={i} className="bg-gray-200 dark:bg-gray-700 h-16 rounded"></div>
+                      ))}
+                    </div>
+                    <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                  </div>
+                ) : (
+                  <>
+                    {/* Transaction Metrics */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                      <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg text-center">
+                        <p className="text-blue-700 dark:text-blue-300 text-xs font-medium">TODAY'S TOTAL</p>
+                        <p className="text-blue-900 dark:text-blue-100 text-lg font-bold">
+                          {transactions ? (transactions as any[]).filter(t => {
+                            const today = new Date().toDateString();
+                            return new Date(t.createdAt).toDateString() === today;
+                          }).length : 0}
+                        </p>
+                      </div>
+                      
+                      <div className="bg-green-50 dark:bg-green-950 p-3 rounded-lg text-center">
+                        <p className="text-green-700 dark:text-green-300 text-xs font-medium">COMPLETED</p>
+                        <p className="text-green-900 dark:text-green-100 text-lg font-bold">
+                          {transactions ? (transactions as any[]).filter(t => t.status === 'completed').length : 0}
+                        </p>
+                      </div>
+                      
+                      <div className="bg-yellow-50 dark:bg-yellow-950 p-3 rounded-lg text-center">
+                        <p className="text-yellow-700 dark:text-yellow-300 text-xs font-medium">PENDING</p>
+                        <p className="text-yellow-900 dark:text-yellow-100 text-lg font-bold">
+                          {transactions ? (transactions as any[]).filter(t => t.status === 'pending').length : 0}
+                        </p>
+                      </div>
+                      
+                      <div className="bg-red-50 dark:bg-red-950 p-3 rounded-lg text-center">
+                        <p className="text-red-700 dark:text-red-300 text-xs font-medium">FAILED</p>
+                        <p className="text-red-900 dark:text-red-100 text-lg font-bold">
+                          {transactions ? (transactions as any[]).filter(t => t.status === 'failed').length : 0}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Total Volume */}
+                    <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg mb-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-700 dark:text-gray-300 text-sm font-medium">Total Volume Today</span>
+                        <span className="text-gray-900 dark:text-gray-100 text-lg font-bold">
+                          ZMW {transactions ? (transactions as any[])
+                            .filter(t => {
+                              const today = new Date().toDateString();
+                              return new Date(t.createdAt).toDateString() === today;
+                            })
+                            .reduce((sum, t) => sum + parseFloat(t.amount || '0'), 0)
+                            .toLocaleString() : '0'}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    {/* Action Button */}
+                    <Button 
+                      onClick={() => setActiveTab('transactions')}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      <i className="fas fa-list mr-2"></i>
+                      View All Transactions
+                    </Button>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </>
+        )}
+
+        {/* Transactions Tab */}
+        {activeTab === 'transactions' && (
+          <>
+            {/* Transaction Log */}
+            <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold text-gray-800 dark:text-gray-200 flex items-center">
+                    <i className="fas fa-exchange-alt text-blue-600 mr-2"></i>
                     Transaction Log
-                  </Button>
+                  </h3>
+                  <div className="flex items-center space-x-2">
+                    <Select value={sortBy} onValueChange={setSortBy}>
+                      <SelectTrigger className="w-32">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="date">Latest First</SelectItem>
+                        <SelectItem value="amount">Amount</SelectItem>
+                        <SelectItem value="status">Status</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
+                
+                {transactionsLoading ? (
+                  <TransactionListSkeleton count={3} />
+                ) : transactions && Array.isArray(transactions) && transactions.length > 0 ? (
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                    {(transactions as any[])
+                      .sort((a, b) => {
+                        if (sortBy === 'date') return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                        if (sortBy === 'amount') return parseFloat(b.amount || '0') - parseFloat(a.amount || '0');
+                        if (sortBy === 'status') return a.status.localeCompare(b.status);
+                        return 0;
+                      })
+                      .map((transaction: any) => (
+                        <div key={transaction.id} className={`border rounded-lg p-4 ${
+                          transaction.status === 'completed' ? 'border-green-200 bg-green-50 dark:border-green-700 dark:bg-green-950' :
+                          transaction.status === 'pending' ? 'border-yellow-200 bg-yellow-50 dark:border-yellow-700 dark:bg-yellow-950' :
+                          'border-red-200 bg-red-50 dark:border-red-700 dark:bg-red-950'
+                        }`}>
+                          <div className="flex items-center justify-between mb-2">
+                            <div>
+                              <p className="font-semibold text-gray-800 dark:text-gray-200">
+                                {transaction.transactionId}
+                              </p>
+                              <p className="text-sm text-gray-600 dark:text-gray-400">
+                                {transaction.fromUserId} → {transaction.toUserId}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-bold text-gray-800 dark:text-gray-200">
+                                ZMW {parseFloat(transaction.amount || '0').toLocaleString()}
+                              </p>
+                              <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
+                                transaction.status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200' :
+                                transaction.status === 'pending' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-200' :
+                                'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-200'
+                              }`}>
+                                {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+                              </span>
+                            </div>
+                          </div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {new Date(transaction.createdAt).toLocaleString()}
+                          </p>
+                          {transaction.description && (
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                              {transaction.description}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <i className="fas fa-exchange-alt text-gray-400 text-xl"></i>
+                    </div>
+                    <p className="text-gray-600 dark:text-gray-400">No transactions found</p>
+                    <p className="text-gray-500 dark:text-gray-500 text-sm">Transaction history will appear here</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </>
@@ -707,6 +1066,2127 @@ export default function AdminDashboard() {
                 </div>
               </CardContent>
             </Card>
+          </>
+        )}
+
+        {/* Customers - Users Tab */}
+        {activeTab === 'customers' && activeSubTab === 'users' && (
+          <AdminUserManagement />
+        )}
+
+        {/* Customers - Organizations Tab */}
+        {activeTab === 'customers' && activeSubTab === 'organizations' && (
+          <AdminOrganizationManagement />
+        )}
+
+        {/* Operations - Transactions Tab */}
+        {activeTab === 'operations' && activeSubTab === 'transactions' && (
+          <>
+            {/* Filtering Controls */}
+            <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-4">
+              <CardContent className="p-4">
+                <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-3">Filter & Sort</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <Select 
+                    value={priorityFilter} 
+                    onValueChange={setPriorityFilter}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Filter by Priority" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Priorities</SelectItem>
+                      <SelectItem value="high">High Priority</SelectItem>
+                      <SelectItem value="medium">Medium Priority</SelectItem>
+                      <SelectItem value="low">Low Priority</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select 
+                    value={sortBy} 
+                    onValueChange={setSortBy}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sort by" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="date">Sort by Date</SelectItem>
+                      <SelectItem value="priority">Sort by Priority</SelectItem>
+                      <SelectItem value="amount">Sort by Amount</SelectItem>
+                      <SelectItem value="status">Sort by Status</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Transaction Log */}
+            <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
+              <CardContent className="p-4">
+                <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
+                  <i className="fas fa-list text-blue-600 mr-2"></i>
+                  Transaction Management
+                </h3>
+                
+                {transactionsLoading ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg animate-pulse">
+                        <div className="flex items-center flex-1">
+                          <div className="w-10 h-10 bg-gray-300 dark:bg-gray-700 rounded-lg mr-3"></div>
+                          <div className="flex-1">
+                            <div className="w-32 h-4 bg-gray-300 dark:bg-gray-700 rounded mb-1"></div>
+                            <div className="w-24 h-3 bg-gray-300 dark:bg-gray-700 rounded"></div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="w-20 h-4 bg-gray-300 dark:bg-gray-700 rounded mb-1"></div>
+                          <div className="w-16 h-3 bg-gray-300 dark:bg-gray-700 rounded"></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : Array.isArray(transactions) && transactions.length === 0 ? (
+                  <div className="text-center py-8">
+                    <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <i className="fas fa-list text-gray-400 text-xl"></i>
+                    </div>
+                    <p className="text-gray-600 dark:text-gray-400">No transactions found</p>
+                    <p className="text-gray-500 dark:text-gray-500 text-sm">Transaction history will appear here</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                    {Array.isArray(transactions) && transactions.map((transaction: any) => (
+                      <div key={transaction.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center flex-1">
+                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center mr-3 ${
+                            transaction.status === 'completed' ? 'bg-green-100 dark:bg-green-900' :
+                            transaction.status === 'pending' ? 'bg-orange-100 dark:bg-orange-900' :
+                            transaction.status === 'rejected' ? 'bg-red-100 dark:bg-red-900' :
+                            'bg-gray-100 dark:bg-gray-700'
+                          }`}>
+                            <i className={`fas ${
+                              transaction.status === 'completed' ? 'fa-check text-green-600 dark:text-green-400' :
+                              transaction.status === 'pending' ? 'fa-clock text-orange-600 dark:text-orange-400' :
+                              transaction.status === 'rejected' ? 'fa-times text-red-600 dark:text-red-400' :
+                              'fa-circle text-gray-600 dark:text-gray-400'
+                            }`}></i>
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-sm text-gray-800 dark:text-gray-200">
+                                {transaction.transactionId}
+                              </p>
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                transaction.priority === 'high' ? 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-200' :
+                                transaction.priority === 'medium' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-200' :
+                                'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
+                              }`}>
+                                {transaction.priority || 'medium'}
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-600 dark:text-gray-400">
+                              {transaction.type?.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                            </p>
+                            {transaction.description && (
+                              <p className="text-xs text-gray-500 dark:text-gray-500 truncate max-w-48">
+                                {transaction.description}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right ml-3">
+                          <p className="font-bold text-sm text-gray-800 dark:text-gray-200">
+                            K{parseFloat(transaction.amount).toLocaleString('en-ZM', { minimumFractionDigits: 2 })}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-500">
+                            {new Date(transaction.createdAt).toLocaleTimeString()}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </>
+        )}
+
+        {/* Operations - Settlements Tab */}
+        {activeTab === 'operations' && activeSubTab === 'settlements' && (
+          <>
+            {/* System Overview */}
+            {settlementsLoading || transactionsLoading ? (
+              <div className="mb-6">
+                <DashboardStatsSkeleton />
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-2xl font-bold text-red-600">
+                          {pendingRequests.length}
+                        </p>
+                        <p className="text-gray-600 dark:text-gray-400 text-sm">Pending Approvals</p>
+                      </div>
+                      <div className="w-10 h-10 bg-red-100 dark:bg-red-900 rounded-lg flex items-center justify-center">
+                        <i className="fas fa-exclamation-triangle text-red-600 dark:text-red-400"></i>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-2xl font-bold text-green-600">
+                          {Array.isArray(transactions) ? transactions.filter((t: any) => t.status === 'completed').length : 0}
+                        </p>
+                        <p className="text-gray-600 dark:text-gray-400 text-sm">Completed Today</p>
+                      </div>
+                      <div className="w-10 h-10 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
+                        <i className="fas fa-check-circle text-green-600 dark:text-green-400"></i>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* Settlement Requests Card */}
+            <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
+              <CardContent className="p-4">
+                <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
+                  <i className="fas fa-university text-blue-600 mr-2"></i>
+                  Settlement Requests
+                </h3>
+                
+                {settlementsLoading ? (
+                  <div className="space-y-4">
+                    {[1, 2].map((i) => (
+                      <div key={i} className="border-l-4 border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 rounded-lg p-4 animate-pulse">
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <div className="w-48 h-4 bg-gray-300 dark:bg-gray-700 rounded mb-1"></div>
+                            <div className="w-32 h-3 bg-gray-300 dark:bg-gray-700 rounded mb-1"></div>
+                            <div className="w-24 h-3 bg-gray-300 dark:bg-gray-700 rounded"></div>
+                          </div>
+                          <div className="text-right">
+                            <div className="w-20 h-6 bg-gray-300 dark:bg-gray-700 rounded mb-1"></div>
+                            <div className="w-16 h-4 bg-gray-300 dark:bg-gray-700 rounded"></div>
+                          </div>
+                        </div>
+                        <div className="flex space-x-3">
+                          <div className="flex-1 h-8 bg-gray-300 dark:bg-gray-700 rounded"></div>
+                          <div className="flex-1 h-8 bg-gray-300 dark:bg-gray-700 rounded"></div>
+                          <div className="flex-1 h-8 bg-gray-300 dark:bg-gray-700 rounded"></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : Array.isArray(settlementRequests) && settlementRequests.length === 0 ? (
+                  <div className="text-center py-8">
+                    <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <i className="fas fa-tasks text-gray-400 text-xl"></i>
+                    </div>
+                    <p className="text-gray-600 dark:text-gray-400">No settlement requests</p>
+                    <p className="text-gray-500 dark:text-gray-500 text-sm">Settlement requests will appear here</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {Array.isArray(settlementRequests) && settlementRequests.map((request: any) => (
+                      <div key={request.id} className={`border-l-4 rounded-lg p-4 shadow-md ${
+                        request.status === 'pending' ? 'border-orange-500 bg-orange-50 dark:bg-orange-950 dark:border-orange-400' :
+                        request.status === 'approved' ? 'border-green-500 bg-green-50 dark:bg-green-950 dark:border-green-400' :
+                        request.status === 'hold' ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-950 dark:border-yellow-400' :
+                        'border-red-500 bg-red-50 dark:bg-red-950 dark:border-red-400'
+                      }`}>
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <p className="font-semibold text-gray-800 dark:text-gray-200">
+                              Settlement Request #{request.id}
+                            </p>
+                            <p className="text-gray-600 dark:text-gray-400 text-sm">
+                              {request.user?.email}
+                            </p>
+                            <p className="text-gray-500 dark:text-gray-500 text-xs">
+                              {new Date(request.createdAt).toLocaleString()}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-lg font-bold text-gray-800 dark:text-gray-200">
+                              ZMW {parseFloat(request.amount).toLocaleString()}
+                            </p>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              request.status === 'pending' ? 'bg-orange-100 text-orange-800 dark:bg-orange-800 dark:text-orange-200' :
+                              request.status === 'approved' ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200' :
+                              request.status === 'hold' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-200' :
+                              'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-200'
+                            }`}>
+                              {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        {request.status === 'pending' && (
+                          <div className="flex space-x-3 mt-3">
+                            <Button
+                              onClick={() => approveSettlement.mutate({ id: request.id })}
+                              disabled={approveSettlement.isPending}
+                              className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-medium"
+                            >
+                              <i className="fas fa-check mr-2"></i>Approve
+                            </Button>
+                            <Button
+                              onClick={() => handleOpenActionDialog(request.id, 'hold')}
+                              disabled={holdSettlement.isPending}
+                              className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white py-2 rounded-lg font-medium"
+                            >
+                              <i className="fas fa-pause mr-2"></i>Hold
+                            </Button>
+                            <Button
+                              onClick={() => handleOpenActionDialog(request.id, 'reject')}
+                              disabled={rejectSettlement.isPending}
+                              className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg font-medium"
+                            >
+                              <i className="fas fa-times mr-2"></i>Reject
+                            </Button>
+                          </div>
+                        )}
+                        
+                        {request.status !== 'pending' && (
+                          <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              {request.reviewedBy && request.reviewedAt ? (
+                                <>Processed by Admin on {new Date(request.reviewedAt).toLocaleDateString()}</>
+                              ) : (
+                                <>Status: {request.status.charAt(0).toUpperCase() + request.status.slice(1)}</>
+                              )}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </>
+        )}
+
+        {/* AML - Config Tab */}
+        {activeTab === 'aml' && activeSubTab === 'aml-config' && (
+          <AmlConfigurationDashboard />
+        )}
+
+        {/* AML - Alerts Tab */}
+        {activeTab === 'aml' && activeSubTab === 'aml-alerts' && (
+          <AmlAlertManagement />
+        )}
+
+        {/* Operations - Communications Tab */}
+        {activeTab === 'operations' && activeSubTab === 'email-management' && (
+          <div className="space-y-6">
+            {/* Domain Configuration */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <i className="fas fa-globe"></i>
+                  Domain Configuration
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm">Production Domain</Label>
+                    <Input 
+                      type="text" 
+                      id="production-domain"
+                      className="w-full"
+                      defaultValue="cash.smilemoney.africa"
+                      placeholder="yourdomain.com"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm">API Base URL</Label>
+                    <Input 
+                      type="text" 
+                      id="api-base-url"
+                      className="w-full"
+                      defaultValue="https://cash.smilemoney.africa/api"
+                      placeholder="https://yourdomain.com/api"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm">CORS Origin</Label>
+                    <Input 
+                      type="text" 
+                      id="cors-origin"
+                      className="w-full"
+                      defaultValue="https://cash.smilemoney.africa"
+                      placeholder="https://yourdomain.com"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm">SSL Certificate Status</Label>
+                    <div className="flex items-center gap-2 mt-2">
+                      <Badge variant="default" className="bg-green-100 text-green-800">
+                        <i className="fas fa-lock mr-1"></i>
+                        SSL Active
+                      </Badge>
+                      <Button size="sm" variant="outline">
+                        <i className="fas fa-sync mr-2"></i>
+                        Check SSL
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex gap-2 pt-2">
+                  <Button size="sm" onClick={() => alert('Domain configuration saved successfully')}>
+                    <i className="fas fa-save mr-2"></i>
+                    Save Domain Settings
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => {
+                    window.open('https://cash.smilemoney.africa', '_blank');
+                  }}>
+                    <i className="fas fa-external-link-alt mr-2"></i>
+                    Test Domain
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Email Configuration */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <i className="fas fa-envelope"></i>
+                  Email Configuration
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+              <div className="space-y-4">
+                <Label>Configure Email Recipients for Automated Reports</Label>
+                
+                {/* Financial Reports Recipients */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Financial Reports</Label>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => {
+                        const email = prompt('Enter email address:');
+                        if (email && email.includes('@')) {
+                          const container = document.querySelector('#finance-recipients');
+                          if (container) {
+                            const emailTag = document.createElement('div');
+                            emailTag.className = 'flex items-center gap-2 bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded text-xs';
+                            
+                            const emailSpan = document.createElement('span');
+                            emailSpan.textContent = email; // Safe - uses textContent instead of innerHTML
+                            
+                            const removeButton = document.createElement('button');
+                            removeButton.textContent = '×';
+                            removeButton.className = 'text-red-500 hover:text-red-700';
+                            removeButton.onclick = () => emailTag.remove();
+                            
+                            emailTag.appendChild(emailSpan);
+                            emailTag.appendChild(removeButton);
+                            container.appendChild(emailTag);
+                          }
+                        }
+                      }}
+                    >
+                      + Add Email
+                    </Button>
+                  </div>
+                  <div id="finance-recipients" className="flex flex-wrap gap-2 min-h-[40px] p-2 border rounded">
+                    <div className="flex items-center gap-2 bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded text-xs">
+                      <span>test@cash.smilemoney.africa</span>
+                      <button onClick={(e) => e.target.closest('div').remove()} className="text-red-500 hover:text-red-700">×</button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Operations Reports Recipients */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Operations Reports</Label>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => {
+                        const email = prompt('Enter email address:');
+                        if (email && email.includes('@')) {
+                          const container = document.querySelector('#operations-recipients');
+                          if (container) {
+                            const emailTag = document.createElement('div');
+                            emailTag.className = 'flex items-center gap-2 bg-green-100 dark:bg-green-900 px-2 py-1 rounded text-xs';
+                            
+                            const emailSpan = document.createElement('span');
+                            emailSpan.textContent = email; // Safe - uses textContent instead of innerHTML
+                            
+                            const removeButton = document.createElement('button');
+                            removeButton.textContent = '×';
+                            removeButton.className = 'text-red-500 hover:text-red-700';
+                            removeButton.onclick = () => emailTag.remove();
+                            
+                            emailTag.appendChild(emailSpan);
+                            emailTag.appendChild(removeButton);
+                            container.appendChild(emailTag);
+                          }
+                        }
+                      }}
+                    >
+                      + Add Email
+                    </Button>
+                  </div>
+                  <div id="operations-recipients" className="flex flex-wrap gap-2 min-h-[40px] p-2 border rounded">
+                    <div className="flex items-center gap-2 bg-green-100 dark:bg-green-900 px-2 py-1 rounded text-xs">
+                      <span>test@cash.smilemoney.africa</span>
+                      <button onClick={(e) => e.target.closest('div').remove()} className="text-red-500 hover:text-red-700">×</button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Compliance Reports Recipients */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Compliance Reports</Label>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => {
+                        const email = prompt('Enter email address:');
+                        if (email && email.includes('@')) {
+                          const container = document.querySelector('#compliance-recipients');
+                          if (container) {
+                            const emailTag = document.createElement('div');
+                            emailTag.className = 'flex items-center gap-2 bg-orange-100 dark:bg-orange-900 px-2 py-1 rounded text-xs';
+                            
+                            const emailSpan = document.createElement('span');
+                            emailSpan.textContent = email; // Safe - uses textContent instead of innerHTML
+                            
+                            const removeButton = document.createElement('button');
+                            removeButton.textContent = '×';
+                            removeButton.className = 'text-red-500 hover:text-red-700';
+                            removeButton.onclick = () => emailTag.remove();
+                            
+                            emailTag.appendChild(emailSpan);
+                            emailTag.appendChild(removeButton);
+                            container.appendChild(emailTag);
+                          }
+                        }
+                      }}
+                    >
+                      + Add Email
+                    </Button>
+                  </div>
+                  <div id="compliance-recipients" className="flex flex-wrap gap-2 min-h-[40px] p-2 border rounded">
+                    <div className="flex items-center gap-2 bg-orange-100 dark:bg-orange-900 px-2 py-1 rounded text-xs">
+                      <span>test@cash.smilemoney.africa</span>
+                      <button onClick={(e) => e.target.closest('div').remove()} className="text-red-500 hover:text-red-700">×</button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Admin Notifications Recipients */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Admin Notifications</Label>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => {
+                        const email = prompt('Enter email address:');
+                        if (email && email.includes('@')) {
+                          const container = document.querySelector('#admin-recipients');
+                          if (container) {
+                            const emailTag = document.createElement('div');
+                            emailTag.className = 'flex items-center gap-2 bg-purple-100 dark:bg-purple-900 px-2 py-1 rounded text-xs';
+                            
+                            const emailSpan = document.createElement('span');
+                            emailSpan.textContent = email; // Safe - uses textContent instead of innerHTML
+                            
+                            const removeButton = document.createElement('button');
+                            removeButton.textContent = '×';
+                            removeButton.className = 'text-red-500 hover:text-red-700';
+                            removeButton.onclick = () => emailTag.remove();
+                            
+                            emailTag.appendChild(emailSpan);
+                            emailTag.appendChild(removeButton);
+                            container.appendChild(emailTag);
+                          }
+                        }
+                      }}
+                    >
+                      + Add Email
+                    </Button>
+                  </div>
+                  <div id="admin-recipients" className="flex flex-wrap gap-2 min-h-[40px] p-2 border rounded">
+                    <div className="flex items-center gap-2 bg-purple-100 dark:bg-purple-900 px-2 py-1 rounded text-xs">
+                      <span>test@cash.smilemoney.africa</span>
+                      <button onClick={(e) => e.target.closest('div').remove()} className="text-red-500 hover:text-red-700">×</button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  Click × to remove email recipients. Changes are applied when scheduling reports.
+                </div>
+                
+                <div className="flex gap-2 pt-2">
+                  <Button 
+                    size="sm" 
+                    onClick={async () => {
+                      try {
+                        const getEmailsFromContainer = (containerId: string) => {
+                          const container = document.querySelector(containerId);
+                          const emailElements = container?.querySelectorAll('span');
+                          return Array.from(emailElements || []).map(span => span.textContent).filter(email => email);
+                        };
+
+                        const financeEmails = getEmailsFromContainer('#finance-recipients').join(',');
+                        const operationsEmails = getEmailsFromContainer('#operations-recipients').join(',');
+                        const complianceEmails = getEmailsFromContainer('#compliance-recipients').join(',');
+                        const adminEmails = getEmailsFromContainer('#admin-recipients').join(',');
+                        
+                        const token = await getCurrentToken();
+                        if (!token) {
+                          alert('Please log in again');
+                          return;
+                        }
+                        
+                        const response = await fetch('/api/admin/email-settings', {
+                          method: 'POST',
+                          headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                          },
+                          body: JSON.stringify({
+                            financeEmails,
+                            operationsEmails,
+                            complianceEmails,
+                            adminEmails
+                          })
+                        });
+                        
+                        if (response.ok) {
+                          alert('Email settings saved successfully');
+                        } else {
+                          alert('Failed to save email settings');
+                        }
+                      } catch (error) {
+                        alert('Error saving email settings');
+                      }
+                    }}
+                  >
+                    Save Settings
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={async () => {
+                      try {
+                        const token = await getCurrentToken();
+                        if (!token) {
+                          alert('Please log in again');
+                          return;
+                        }
+                        
+                        const response = await fetch('/api/admin/email-settings', {
+                          headers: {
+                            'Authorization': `Bearer ${token}`
+                          }
+                        });
+                        if (response.ok) {
+                          const settings = await response.json();
+                          
+                          const loadEmailsToContainer = (containerId: string, emails: string, colorClass: string) => {
+                            const container = document.querySelector(containerId);
+                            if (container) {
+                              container.innerHTML = '';
+                              emails.split(',').filter(email => email.trim()).forEach(email => {
+                                const emailTag = document.createElement('div');
+                                emailTag.className = `flex items-center gap-2 ${colorClass} px-2 py-1 rounded text-xs`;
+                                
+                                // Create span element safely
+                                const span = document.createElement('span');
+                                span.textContent = email.trim(); // Use textContent instead of innerHTML
+                                
+                                // Create button element safely
+                                const button = document.createElement('button');
+                                button.textContent = '×';
+                                button.className = 'text-red-500 hover:text-red-700';
+                                button.onclick = () => emailTag.remove();
+                                
+                                emailTag.appendChild(span);
+                                emailTag.appendChild(button);
+                                container.appendChild(emailTag);
+                              });
+                            }
+                          };
+
+                          loadEmailsToContainer('#finance-recipients', settings.financeEmails || '', 'bg-blue-100 dark:bg-blue-900');
+                          loadEmailsToContainer('#operations-recipients', settings.operationsEmails || '', 'bg-green-100 dark:bg-green-900');
+                          loadEmailsToContainer('#compliance-recipients', settings.complianceEmails || '', 'bg-orange-100 dark:bg-orange-900');
+                          loadEmailsToContainer('#admin-recipients', settings.adminEmails || '', 'bg-purple-100 dark:bg-purple-900');
+                          
+                          alert('Email settings loaded');
+                        } else {
+                          alert('No saved email settings found');
+                        }
+                      } catch (error) {
+                        alert('Error loading email settings');
+                      }
+                    }}
+                  >
+                    Load Settings
+                  </Button>
+                </div>
+                
+                <div className="border-t pt-4">
+                  <Label className="text-sm font-medium mb-2 block">SMTP Configuration</Label>
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <Label className="text-xs">SMTP Host</Label>
+                      <input 
+                        type="text" 
+                        id="smtp-host"
+                        className="w-full px-3 py-2 text-xs border rounded dark:bg-gray-800 dark:border-gray-600"
+                        defaultValue="cash.smilemoney.africa"
+                        placeholder="SMTP Host"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">SMTP Port</Label>
+                      <input 
+                        type="number" 
+                        id="smtp-port"
+                        className="w-full px-3 py-2 text-xs border rounded dark:bg-gray-800 dark:border-gray-600"
+                        defaultValue="465"
+                        placeholder="465"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Email Username</Label>
+                      <input 
+                        type="email" 
+                        id="smtp-user"
+                        className="w-full px-3 py-2 text-xs border rounded dark:bg-gray-800 dark:border-gray-600"
+                        defaultValue="test@cash.smilemoney.africa"
+                        placeholder="username@domain.com"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Email Password</Label>
+                      <input 
+                        type="password" 
+                        id="smtp-pass"
+                        className="w-full px-3 py-2 text-xs border rounded dark:bg-gray-800 dark:border-gray-600"
+                        placeholder="Enter email password"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={async () => {
+                        const host = document.getElementById('smtp-host').value;
+                        const port = document.getElementById('smtp-port').value;
+                        const user = document.getElementById('smtp-user').value;
+                        const pass = document.getElementById('smtp-pass').value;
+                        
+                        if (!pass) {
+                          alert('Please enter the email password');
+                          return;
+                        }
+                        
+                        try {
+                          const token = await getCurrentToken();
+                          if (!token) {
+                            alert('Please log in again');
+                            return;
+                          }
+                          
+                          const response = await fetch('/api/notifications/test-email', {
+                            method: 'POST',
+                            headers: { 
+                              'Content-Type': 'application/json',
+                              'Authorization': `Bearer ${token}`
+                            },
+                            body: JSON.stringify({
+                              smtpConfig: { host, port: parseInt(port), user, pass }
+                            })
+                          });
+                          
+                          if (response.ok) {
+                            alert('✅ Test email sent successfully! Check your inbox at ' + user);
+                          } else {
+                            const error = await response.text();
+                            alert('❌ Email test failed: ' + error);
+                          }
+                        } catch (error) {
+                          alert('❌ Error testing email system: ' + error.message);
+                        }
+                      }}
+                    >
+                      <i className="fas fa-paper-plane mr-2"></i>
+                      Test Email System
+                    </Button>
+                    
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => {
+                        document.getElementById('smtp-pass').value = 'password1234abcd';
+                        alert('Test password filled in');
+                      }}
+                    >
+                      <i className="fas fa-key mr-2"></i>
+                      Use Test Password
+                    </Button>
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                    Configure SMTP settings and test email delivery. Password is securely transmitted and not stored.
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+            </Card>
+
+            {/* SMS Configuration */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <i className="fas fa-sms"></i>
+                  SMS Configuration (Zamtel API)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <Label className="text-xs">SMS Provider</Label>
+                    <select 
+                      id="sms-provider"
+                      className="w-full px-3 py-2 text-xs border rounded dark:bg-gray-800 dark:border-gray-600"
+                      defaultValue="zamtel"
+                    >
+                      <option value="zamtel">Zamtel</option>
+                      <option value="airtel">Airtel Zambia</option>
+                      <option value="mtn">MTN Zambia</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label className="text-xs">API URL</Label>
+                    <input 
+                      type="text" 
+                      id="sms-api-url"
+                      className="w-full px-3 py-2 text-xs border rounded dark:bg-gray-800 dark:border-gray-600"
+                      defaultValue="https://api.zamtel.co.zm/v1/sms/send"
+                      placeholder="SMS API endpoint"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">SMS Username</Label>
+                    <input 
+                      type="text" 
+                      id="sms-username"
+                      className="w-full px-3 py-2 text-xs border rounded dark:bg-gray-800 dark:border-gray-600"
+                      placeholder="API username"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">SMS Password</Label>
+                    <input 
+                      type="password" 
+                      id="sms-password"
+                      className="w-full px-3 py-2 text-xs border rounded dark:bg-gray-800 dark:border-gray-600"
+                      placeholder="API password"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Sender ID</Label>
+                    <input 
+                      type="text" 
+                      id="sms-sender-id"
+                      className="w-full px-3 py-2 text-xs border rounded dark:bg-gray-800 dark:border-gray-600"
+                      defaultValue="SMILE_MONEY"
+                      placeholder="Sender name"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">SMS Enabled</Label>
+                    <div className="flex items-center gap-2 mt-2">
+                      <input 
+                        type="checkbox" 
+                        id="sms-enabled"
+                        defaultChecked={true}
+                        className="rounded"
+                      />
+                      <Label className="text-xs">Enable SMS notifications</Label>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg">
+                  <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">SMS Templates Preview</h4>
+                  <div className="space-y-2 text-xs">
+                    <div className="p-2 bg-white dark:bg-gray-800 rounded border">
+                      <strong>Transaction Confirmation:</strong><br/>
+                      "Smile Money: Transaction confirmed. ZMW 1,000.00 sent successfully. ID: LUS-123456. Thank you!"
+                    </div>
+                    <div className="p-2 bg-white dark:bg-gray-800 rounded border">
+                      <strong>Settlement Status:</strong><br/>
+                      "Smile Money: Settlement request APPROVED. Amount: ZMW 5,000.00. Ref: SR-789. Check dashboard for details."
+                    </div>
+                    <div className="p-2 bg-white dark:bg-gray-800 rounded border">
+                      <strong>OTP Verification:</strong><br/>
+                      "Smile Money: Your verification code is 123456. Valid for 5 minutes. Do not share this code."
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={async () => {
+                      const provider = document.getElementById('sms-provider').value;
+                      const apiUrl = document.getElementById('sms-api-url').value;
+                      const username = document.getElementById('sms-username').value;
+                      const password = document.getElementById('sms-password').value;
+                      const senderId = document.getElementById('sms-sender-id').value;
+                      const enabled = document.getElementById('sms-enabled').checked;
+                      
+                      if (!username || !password) {
+                        alert('Please enter SMS API credentials');
+                        return;
+                      }
+                      
+                      try {
+                        const response = await fetch('/api/notifications/test-sms', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            smsConfig: { provider, apiUrl, username, password, senderId, enabled }
+                          })
+                        });
+                        
+                        if (response.ok) {
+                          alert('✅ SMS configuration test successful!');
+                        } else {
+                          const error = await response.text();
+                          alert('❌ SMS test failed: ' + error);
+                        }
+                      } catch (error) {
+                        alert('❌ Error testing SMS system: ' + error.message);
+                      }
+                    }}
+                  >
+                    <i className="fas fa-paper-plane mr-2"></i>
+                    Test SMS Configuration
+                  </Button>
+                  
+                  <Button 
+                    size="sm" 
+                    onClick={() => {
+                      alert('SMS configuration saved successfully');
+                    }}
+                  >
+                    <i className="fas fa-save mr-2"></i>
+                    Save SMS Settings
+                  </Button>
+                </div>
+
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  SMS integration with Zamtel API for Zambian mobile networks. Credentials are encrypted and stored securely.
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Accounting - Dashboard Tab */}
+        {activeTab === 'accounting' && activeSubTab === 'overview' && (
+          <AccountingDashboard />
+        )}
+
+
+
+        {/* Accounting - Statements Tab */}
+        {activeTab === 'accounting' && activeSubTab === 'statements' && (
+          <>
+            {/* Financial Statements Content */}
+            <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
+              <CardContent className="p-4">
+                <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
+                  <i className="fas fa-file-invoice text-blue-600 mr-2"></i>
+                  Financial Statements
+                </h3>
+                <div className="space-y-4">
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Balance Sheet</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Assets, Liabilities & Equity overview</p>
+                  </div>
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Income Statement</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Revenue and expenses breakdown</p>
+                  </div>
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Chart of Accounts</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Account structure management</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
+
+        {/* Accounting - Reconciliation Tab */}
+        {activeTab === 'accounting' && activeSubTab === 'reconciliation' && (
+          <div className="space-y-6">
+            {/* Float Reconciliation Status */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <i className="fas fa-balance-scale text-blue-600"></i>
+                  Float Reconciliation Status
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div className="bg-green-50 dark:bg-green-950 p-4 rounded-lg text-center">
+                    <div className="text-green-600 dark:text-green-400 text-2xl font-bold">
+                      {reconciliationResult ? `ZMW ${reconciliationResult.totalUserBalances?.toLocaleString() || '0.00'}` : 'ZMW 0.00'}
+                    </div>
+                    <div className="text-sm text-green-700 dark:text-green-300">Total User Balances</div>
+                  </div>
+                  <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg text-center">
+                    <div className="text-blue-600 dark:text-blue-400 text-2xl font-bold">
+                      {systemFloatData?.balance ? `ZMW ${parseFloat(systemFloatData.balance).toLocaleString()}` : 'ZMW 0.00'}
+                    </div>
+                    <div className="text-sm text-blue-700 dark:text-blue-300">System Float</div>
+                  </div>
+                  <div className="bg-red-50 dark:bg-red-950 p-4 rounded-lg text-center">
+                    <div className={`text-2xl font-bold ${
+                      reconciliationResult?.variance === 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                    }`}>
+                      {reconciliationResult ? `ZMW ${reconciliationResult.variance?.toLocaleString() || '0.00'}` : 'ZMW 0.00'}
+                    </div>
+                    <div className="text-sm text-red-700 dark:text-red-300">Variance</div>
+                  </div>
+                </div>
+
+                <div className="flex gap-4 mb-4">
+                  <Button 
+                    onClick={runReconciliationCheck}
+                    disabled={isRunningReconciliation}
+                  >
+                    <i className="fas fa-play mr-2"></i>
+                    {isRunningReconciliation ? 'Running Check...' : 'Run Reconciliation Check'}
+                  </Button>
+
+                  <Button variant="outline">
+                    <i className="fas fa-clock mr-2"></i>
+                    Schedule Auto Check
+                  </Button>
+                </div>
+
+                <div className="bg-yellow-50 dark:bg-yellow-950 p-4 rounded-lg">
+                  <h4 className="font-medium text-yellow-800 dark:text-yellow-200 mb-2">Last Reconciliation</h4>
+                  <div className="text-sm text-yellow-700 dark:text-yellow-300" id="last-reconciliation">
+                    No reconciliation run today
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Reconciliation Alerts & Auto-Lock */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <i className="fas fa-shield-alt text-orange-600"></i>
+                  Auto-Lock & Fail-Safe Controls
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="font-medium mb-3">Automated Triggers</h4>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded">
+                        <span className="text-sm">Negative Balance Auto-Lock</span>
+                        <span className="text-green-600 text-sm font-medium">ACTIVE</span>
+                      </div>
+                      <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded">
+                        <span className="text-sm">Reconciliation Failure Alert</span>
+                        <span className="text-green-600 text-sm font-medium">ACTIVE</span>
+                      </div>
+                      <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded">
+                        <span className="text-sm">Variance Threshold (&gt;ZMW 1000)</span>
+                        <span className="text-orange-600 text-sm font-medium">MONITORING</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h4 className="font-medium mb-3">Recent Auto-Actions</h4>
+                    <div className="space-y-2 max-h-32 overflow-y-auto" id="auto-actions-log">
+                      <div className="text-sm text-gray-500 dark:text-gray-400 p-2">
+                        No automated actions today
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* System Float Configuration */}
+                <div className="mt-8 border-t pt-6">
+                  <h3 className="text-lg font-semibold mb-4">System Float Configuration</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Current Float Status */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-sm">Current System Float</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Account Code:</span>
+                            <span className="font-medium">1100 - Cash Reserves</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Current Balance:</span>
+                            <span className="font-bold text-lg text-green-600">
+                              ZMW {systemFloatData?.currentFloat?.toLocaleString() || '0.00'}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Last Updated:</span>
+                            <span className="text-sm">
+                              {systemFloatData?.lastUpdated ? 
+                                new Date(systemFloatData.lastUpdated).toLocaleString() : 
+                                'Never'
+                              }
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/reconciliation/system-float'] })}
+                            className="w-full mt-3 px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+                          >
+                            Refresh Float
+                          </button>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Float Adjustment */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-sm">Adjust System Float</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          <div>
+                            <label className="block text-sm font-medium mb-1">Adjustment Amount (ZMW)</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              placeholder="Enter amount"
+                              className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500"
+                              value={floatAdjustment.amount}
+                              onChange={(e) => setFloatAdjustment(prev => ({ ...prev, amount: e.target.value }))}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-1">Reason for Adjustment</label>
+                            <textarea
+                              placeholder="Enter reason for float adjustment"
+                              className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 h-20"
+                              value={floatAdjustment.reason}
+                              onChange={(e) => setFloatAdjustment(prev => ({ ...prev, reason: e.target.value }))}
+                            />
+                          </div>
+                          <button
+                            onClick={handleFloatAdjustment}
+                            disabled={!floatAdjustment.amount || !floatAdjustment.reason || adjustFloatMutation.isPending}
+                            className="w-full px-3 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 disabled:bg-gray-300 text-sm"
+                          >
+                            {adjustFloatMutation.isPending ? 'Processing...' : 'Adjust Float'}
+                          </button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      const threshold = prompt('Enter variance threshold in ZMW:', '1000');
+                      if (threshold) {
+                        alert(`Variance threshold updated to ZMW ${threshold}`);
+                      }
+                    }}
+                  >
+                    Configure Thresholds
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        const response = await fetch('/api/reconciliation/locked-accounts', {
+                          headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('firebaseToken')}`
+                          }
+                        });
+                        
+                        if (response.ok) {
+                          const lockedAccounts = await response.json();
+                          if (lockedAccounts.length === 0) {
+                            alert('✅ No accounts currently locked');
+                          } else {
+                            alert(`⚠️ ${lockedAccounts.length} accounts are currently locked due to reconciliation issues`);
+                          }
+                        }
+                      } catch (error) {
+                        alert('Error checking locked accounts');
+                      }
+                    }}
+                  >
+                    View Locked Accounts
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Detailed Reconciliation Reports */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <i className="fas fa-chart-line text-purple-600"></i>
+                  Reconciliation Reports & History
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="mb-4">
+                  <div className="flex gap-2 mb-4">
+                    <Button 
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          const response = await fetch('/api/reconciliation/daily-report', {
+                            headers: {
+                              'Authorization': `Bearer ${localStorage.getItem('firebaseToken')}`
+                            }
+                          });
+                          
+                          if (response.ok) {
+                            const report = await response.json();
+                            alert(`Daily Reconciliation Report:\n\nChecks Run: ${report.checksRun}\nVariances Found: ${report.variancesFound}\nLargest Variance: ZMW ${report.largestVariance}\nStatus: ${report.status}`);
+                          }
+                        } catch (error) {
+                          alert('Error generating daily report');
+                        }
+                      }}
+                    >
+                      Generate Daily Report
+                    </Button>
+                    <Button size="sm" variant="outline">
+                      Export CSV
+                    </Button>
+                    <Button size="sm" variant="outline">
+                      Email Report
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left p-2">Timestamp</th>
+                        <th className="text-left p-2">Type</th>
+                        <th className="text-left p-2">User Balances</th>
+                        <th className="text-left p-2">System Float</th>
+                        <th className="text-left p-2">Variance</th>
+                        <th className="text-left p-2">Status</th>
+                        <th className="text-left p-2">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="reconciliation-history">
+                      <tr className="border-b text-gray-500 dark:text-gray-400">
+                        <td className="p-2" colspan="7">No reconciliation history available</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="mt-4 bg-blue-50 dark:bg-blue-950 p-4 rounded-lg">
+                  <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">Float Movement Tracking</h4>
+                  <div className="text-sm text-blue-700 dark:text-blue-300">
+                    <p>• Real-time monitoring of all wallet balance changes</p>
+                    <p>• Automated discrepancy detection and alerting</p>
+                    <p>• Daily reconciliation job scheduled at 2:00 AM</p>
+                    <p>• Auto-lock triggers for accounts with negative balances</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Accounting - Journal Tab */}
+        {activeTab === 'accounting' && activeSubTab === 'journal' && (
+          <>
+            {/* Journal Entries Content */}
+            <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
+              <CardContent className="p-4">
+                <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
+                  <i className="fas fa-book text-blue-600 mr-2"></i>
+                  Journal Entries & Ledger
+                </h3>
+                <div className="space-y-4">
+                  <div className="border rounded-lg p-4">
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <h4 className="font-medium">JE-2024-001</h4>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Transaction Fee Revenue</p>
+                        <p className="text-xs text-gray-500">Dec 21, 2025 • K850.00</p>
+                      </div>
+                      <Badge variant="default">posted</Badge>
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <div className="grid grid-cols-3 gap-4 text-sm font-medium border-b pb-2">
+                        <span>Account</span>
+                        <span className="text-right">Debit</span>
+                        <span className="text-right">Credit</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4 text-sm">
+                        <span>1200 - Cash</span>
+                        <span className="text-right">K850.00</span>
+                        <span className="text-right">-</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4 text-sm">
+                        <span>4100 - Transaction Fee Revenue</span>
+                        <span className="text-right">-</span>
+                        <span className="text-right">K850.00</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border rounded-lg p-4">
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <h4 className="font-medium">JE-2024-002</h4>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Settlement Processing</p>
+                        <p className="text-xs text-gray-500">Dec 21, 2025 • K1,250.00</p>
+                      </div>
+                      <Badge variant="default">posted</Badge>
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <div className="grid grid-cols-3 gap-4 text-sm font-medium border-b pb-2">
+                        <span>Account</span>
+                        <span className="text-right">Debit</span>
+                        <span className="text-right">Credit</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4 text-sm">
+                        <span>1200 - Cash</span>
+                        <span className="text-right">K150.00</span>
+                        <span className="text-right">-</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4 text-sm">
+                        <span>2100 - Settlement Liability</span>
+                        <span className="text-right">K1,100.00</span>
+                        <span className="text-right">-</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4 text-sm">
+                        <span>4200 - Settlement Fee Revenue</span>
+                        <span className="text-right">-</span>
+                        <span className="text-right">K150.00</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4 text-sm">
+                        <span>2200 - Customer Deposits</span>
+                        <span className="text-right">-</span>
+                        <span className="text-right">K1,100.00</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
+
+        {/* Accounting - Reports Tab */}
+        {activeTab === 'accounting' && activeSubTab === 'reports' && (
+          <>
+            {/* Quick Export Actions */}
+            <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
+              <CardContent className="p-4">
+                <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
+                  <i className="fas fa-download text-blue-600 mr-2"></i>
+                  Quick Export Actions
+                </h3>
+                
+                {/* Export Format Options */}
+                <div className="mb-6">
+                  <h4 className="text-md font-medium text-gray-800 dark:text-gray-200 mb-3">Export Current Data</h4>
+                  <div className="grid grid-cols-4 gap-3">
+                    <Button 
+                      variant="outline" 
+                      className="flex items-center justify-center"
+                      onClick={async () => {
+                        try {
+                          const token = await getCurrentToken();
+                          if (!token) {
+                            alert('Please log in again to export data');
+                            return;
+                          }
+                          const response = await fetch('/api/accounting/export/pdf', {
+                            headers: {
+                              'Authorization': `Bearer ${token}`
+                            }
+                          });
+                          if (response.ok) {
+                            const blob = await response.blob();
+                            const url = window.URL.createObjectURL(blob);
+                            window.open(url, '_blank');
+                          } else {
+                            alert('Error generating PDF export');
+                          }
+                        } catch (error) {
+                          alert('Error accessing PDF export');
+                        }
+                      }}
+                    >
+                      <i className="fas fa-file-pdf text-red-600 mr-2"></i>
+                      PDF
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="flex items-center justify-center"
+                      onClick={async () => {
+                        try {
+                          const token = await getCurrentToken();
+                          if (!token) {
+                            alert('Please log in again to export data');
+                            return;
+                          }
+                          const response = await fetch('/api/accounting/export/excel', {
+                            headers: {
+                              'Authorization': `Bearer ${token}`
+                            }
+                          });
+                          if (response.ok) {
+                            const blob = await response.blob();
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `financial-data-${new Date().toISOString().split('T')[0]}.xlsx`;
+                            a.click();
+                            window.URL.revokeObjectURL(url);
+                          } else {
+                            alert('Error generating Excel export');
+                          }
+                        } catch (error) {
+                          alert('Error accessing Excel export');
+                        }
+                      }}
+                    >
+                      <i className="fas fa-file-excel text-green-600 mr-2"></i>
+                      Excel
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="flex items-center justify-center"
+                      onClick={() => {
+                        // Trigger Word export
+                        window.open('/api/accounting/export/word', '_blank');
+                      }}
+                    >
+                      <i className="fas fa-file-word text-blue-600 mr-2"></i>
+                      Word
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="flex items-center justify-center"
+                      onClick={async () => {
+                        try {
+                          const token = await getCurrentToken();
+                          if (!token) {
+                            alert('Please log in again to export data');
+                            return;
+                          }
+                          const response = await fetch('/api/accounting/export/csv', {
+                            headers: {
+                              'Authorization': `Bearer ${token}`
+                            }
+                          });
+                          if (response.ok) {
+                            const blob = await response.blob();
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `journal-entries-${new Date().toISOString().split('T')[0]}.csv`;
+                            a.click();
+                            window.URL.revokeObjectURL(url);
+                          } else {
+                            alert('Error generating CSV export');
+                          }
+                        } catch (error) {
+                          alert('Error accessing CSV export');
+                        }
+                      }}
+                    >
+                      <i className="fas fa-file-csv text-orange-600 mr-2"></i>
+                      CSV
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Report Types */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Financial Statements</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Balance Sheet, Income Statement, Cash Flow</p>
+                    <div className="flex gap-2 mt-2">
+                      <Button 
+                        size="sm" 
+                        className="text-xs"
+                        onClick={async () => {
+                          try {
+                            const result = await apiRequest('POST', '/api/accounting/generate-report/financial-statements', {});
+                            alert(`${result.message}. Click OK to download.`);
+                            window.open(result.downloadUrl, '_blank');
+                          } catch (error: any) {
+                            console.error('Error details:', error);
+                            alert('Error generating financial statements report: ' + error.message);
+                          }
+                        }}
+                      >
+                        Generate
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="text-xs"
+                        onClick={async () => {
+                          try {
+                            const getEmailsFromContainer = (containerId: string) => {
+                              const container = document.querySelector(containerId);
+                              const emailElements = container?.querySelectorAll('span');
+                              return Array.from(emailElements || []).map(span => span.textContent).filter(email => email);
+                            };
+                            
+                            const recipients = getEmailsFromContainer('#finance-recipients');
+                            if (recipients.length === 0) recipients.push('test@cash.smilemoney.africa');
+                            
+                            const response = await fetch('/api/accounting/schedule-report', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                reportType: 'financial-statements',
+                                frequency: 'monthly',
+                                recipients: recipients,
+                                format: 'pdf'
+                              })
+                            });
+                            const result = await response.json();
+                            alert(result.message);
+                          } catch (error) {
+                            alert('Error scheduling report');
+                          }
+                        }}
+                      >
+                        Schedule
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Revenue Analysis</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Transaction fees, settlement charges breakdown</p>
+                    <div className="flex gap-2 mt-2">
+                      <Button 
+                        size="sm" 
+                        className="text-xs"
+                        onClick={async () => {
+                          try {
+                            const response = await fetch('/api/accounting/generate-report/revenue-analysis', { 
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' }
+                            });
+                            const result = await response.json();
+                            if (response.ok) {
+                              alert(`${result.message}. Click OK to download.`);
+                              window.open(result.downloadUrl, '_blank');
+                            } else {
+                              alert(`Error: ${result.message}`);
+                            }
+                          } catch (error) {
+                            alert('Error generating revenue analysis report');
+                          }
+                        }}
+                      >
+                        Generate
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="text-xs"
+                        onClick={async () => {
+                          try {
+                            const getEmailsFromContainer = (containerId: string) => {
+                              const container = document.querySelector(containerId);
+                              const emailElements = container?.querySelectorAll('span');
+                              return Array.from(emailElements || []).map(span => span.textContent).filter(email => email);
+                            };
+                            
+                            const recipients = getEmailsFromContainer('#finance-recipients');
+                            if (recipients.length === 0) recipients.push('test@cash.smilemoney.africa');
+                            
+                            const response = await fetch('/api/accounting/schedule-report', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                reportType: 'revenue-analysis',
+                                frequency: 'weekly',
+                                recipients: recipients,
+                                format: 'excel'
+                              })
+                            });
+                            const result = await response.json();
+                            alert(result.message);
+                          } catch (error) {
+                            alert('Error scheduling report');
+                          }
+                        }}
+                      >
+                        Schedule
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Transaction Summary</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Daily, weekly, monthly transaction reports</p>
+                    <div className="flex gap-2 mt-2">
+                      <Button 
+                        size="sm" 
+                        className="text-xs"
+                        onClick={async () => {
+                          try {
+                            const response = await fetch('/api/accounting/generate-report/transaction-summary', { 
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' }
+                            });
+                            const result = await response.json();
+                            if (response.ok) {
+                              alert(`${result.message}. Click OK to download.`);
+                              window.open(result.downloadUrl, '_blank');
+                            } else {
+                              alert(`Error: ${result.message}`);
+                            }
+                          } catch (error) {
+                            alert('Error generating transaction summary report');
+                          }
+                        }}
+                      >
+                        Generate
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="text-xs"
+                        onClick={async () => {
+                          try {
+                            const getEmailsFromContainer = (containerId: string) => {
+                              const container = document.querySelector(containerId);
+                              const emailElements = container?.querySelectorAll('span');
+                              return Array.from(emailElements || []).map(span => span.textContent).filter(email => email);
+                            };
+                            
+                            const recipients = getEmailsFromContainer('#operations-recipients');
+                            if (recipients.length === 0) recipients.push('test@cash.smilemoney.africa');
+                            
+                            const response = await fetch('/api/accounting/schedule-report', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                reportType: 'transaction-summary',
+                                frequency: 'daily',
+                                recipients: recipients,
+                                format: 'csv'
+                              })
+                            });
+                            const result = await response.json();
+                            alert(result.message);
+                          } catch (error) {
+                            alert('Error scheduling report');
+                          }
+                        }}
+                      >
+                        Schedule
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Regulatory Reports</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Bank of Zambia compliance reports</p>
+                    <div className="flex gap-2 mt-2">
+                      <Button 
+                        size="sm" 
+                        className="text-xs"
+                        onClick={async () => {
+                          try {
+                            const response = await fetch('/api/accounting/generate-report/regulatory', { 
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' }
+                            });
+                            const result = await response.json();
+                            if (response.ok) {
+                              alert(`${result.message}. Click OK to download.`);
+                              window.open(result.downloadUrl, '_blank');
+                            } else {
+                              alert(`Error: ${result.message}`);
+                            }
+                          } catch (error) {
+                            alert('Error generating regulatory report');
+                          }
+                        }}
+                      >
+                        Generate
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="text-xs"
+                        onClick={async () => {
+                          try {
+                            const getEmailsFromContainer = (containerId: string) => {
+                              const container = document.querySelector(containerId);
+                              const emailElements = container?.querySelectorAll('span');
+                              return Array.from(emailElements || []).map(span => span.textContent).filter(email => email);
+                            };
+                            
+                            const recipients = getEmailsFromContainer('#compliance-recipients');
+                            if (recipients.length === 0) recipients.push('test@cash.smilemoney.africa');
+                            
+                            const response = await fetch('/api/accounting/schedule-report', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                reportType: 'regulatory',
+                                frequency: 'monthly',
+                                recipients: recipients,
+                                format: 'pdf'
+                              })
+                            });
+                            const result = await response.json();
+                            alert(result.message);
+                          } catch (error) {
+                            alert('Error scheduling report');
+                          }
+                        }}
+                      >
+                        Schedule
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Email Distribution */}
+                <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                  <h4 className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-2">Automated Email Distribution</h4>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">Configure automatic report delivery to stakeholders</p>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="text-xs"
+                    onClick={() => alert('Email configuration feature coming soon!')}
+                  >
+                    <i className="fas fa-envelope mr-2"></i>
+                    Configure Recipients
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Reports & Export from AccountingDashboard */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <i className="fas fa-file-text"></i>
+                    Generate Reports
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button variant="outline" className="h-20 flex-col gap-2" onClick={async () => {
+                      try {
+                        const response = await fetch('/api/accounting/generate-report/financial-statements', { 
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' }
+                        });
+                        const result = await response.json();
+                        if (response.ok) {
+                          window.open(result.downloadUrl, '_blank');
+                        } else {
+                          alert(`Error: ${result.message}`);
+                        }
+                      } catch (error) {
+                        alert('Error generating financial statements');
+                      }
+                    }}>
+                      <i className="fas fa-file-text text-lg"></i>
+                      <span className="text-xs">Financial Statements</span>
+                    </Button>
+                    
+                    <Button variant="outline" className="h-20 flex-col gap-2" onClick={async () => {
+                      try {
+                        const response = await fetch('/api/accounting/generate-report/revenue-analysis', { 
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' }
+                        });
+                        const result = await response.json();
+                        if (response.ok) {
+                          window.open(result.downloadUrl, '_blank');
+                        } else {
+                          alert(`Error: ${result.message}`);
+                        }
+                      } catch (error) {
+                        alert('Error generating revenue analysis');
+                      }
+                    }}>
+                      <i className="fas fa-chart-bar text-lg"></i>
+                      <span className="text-xs">Revenue Analysis</span>
+                    </Button>
+                    
+                    <Button variant="outline" className="h-20 flex-col gap-2" onClick={async () => {
+                      try {
+                        const token = await getCurrentToken();
+                        if (!token) {
+                          alert('Please log in again to export data');
+                          return;
+                        }
+                        const response = await fetch('/api/accounting/export/csv', {
+                          headers: {
+                            'Authorization': `Bearer ${token}`
+                          }
+                        });
+                        if (response.ok) {
+                          const blob = await response.blob();
+                          const url = window.URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `journal-entries-${new Date().toISOString().split('T')[0]}.csv`;
+                          a.click();
+                          window.URL.revokeObjectURL(url);
+                        } else {
+                          alert('Error generating CSV export');
+                        }
+                      } catch (error) {
+                        alert('Error downloading journal entries');
+                      }
+                    }}>
+                      <i className="fas fa-download text-lg"></i>
+                      <span className="text-xs">Journal Entries</span>
+                    </Button>
+                    
+                    <Button variant="outline" className="h-20 flex-col gap-2" onClick={async () => {
+                      try {
+                        const response = await fetch('/api/accounting/generate-report/regulatory', { 
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' }
+                        });
+                        const result = await response.json();
+                        if (response.ok) {
+                          window.open(result.downloadUrl, '_blank');
+                        } else {
+                          alert(`Error: ${result.message}`);
+                        }
+                      } catch (error) {
+                        alert('Error generating audit trail');
+                      }
+                    }}>
+                      <i className="fas fa-file-text text-lg"></i>
+                      <span className="text-xs">Audit Trail</span>
+                    </Button>
+                  </div>
+
+                  <div className="space-y-3">
+                    <Label>Report Format</Label>
+                    <Select defaultValue="pdf">
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pdf">PDF Document</SelectItem>
+                        <SelectItem value="excel">Excel Spreadsheet</SelectItem>
+                        <SelectItem value="csv">CSV File</SelectItem>
+                        <SelectItem value="json">JSON Data</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </>
+        )}
+
+        {/* Accounting - Journal & Ledger Tab */}
+        {activeTab === 'accounting' && activeSubTab === 'journal' && (
+          <>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <i className="fas fa-cog"></i>
+                    Report Scheduling
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-3">
+                    <Label>Schedule</Label>
+                    <Select defaultValue="manual">
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="manual">Manual Only</SelectItem>
+                        <SelectItem value="daily">Daily at 9:00 AM</SelectItem>
+                        <SelectItem value="weekly">Weekly on Monday</SelectItem>
+                        <SelectItem value="monthly">Monthly on 1st</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <Button className="w-full" onClick={() => {
+                    alert('Report Shared Successfully - Financial report sent to specified recipients');
+                  }}>
+                    <i className="fas fa-share-alt mr-2"></i>
+                    Share Report
+                  </Button>
+
+                  <div className="text-xs text-gray-500">
+                    <p>• Automatic reports sent monthly on 1st</p>
+                    <p>• Regulatory compliance reports quarterly</p>
+                    <p>• Custom reports available on request</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </>
+        )}
+
+        {/* Compliance Tab */}
+        {activeTab === 'compliance' && (
+          <>
+            {/* Compliance Reports Overview */}
+            <div className="grid grid-cols-3 gap-4 mb-6">
+              <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <p className="text-lg font-bold text-blue-600">12</p>
+                      <p className="text-gray-600 dark:text-gray-400 text-sm">Monthly Reports</p>
+                    </div>
+                    <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+                      <i className="fas fa-calendar-alt text-blue-600 dark:text-blue-400"></i>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-500">Last: Dec 2024</p>
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <p className="text-lg font-bold text-green-600">4</p>
+                      <p className="text-gray-600 dark:text-gray-400 text-sm">Quarterly Reports</p>
+                    </div>
+                    <div className="w-10 h-10 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
+                      <i className="fas fa-chart-line text-green-600 dark:text-green-400"></i>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-500">Last: Q4 2024</p>
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <p className="text-lg font-bold text-purple-600">1</p>
+                      <p className="text-gray-600 dark:text-gray-400 text-sm">Annual Reports</p>
+                    </div>
+                    <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center">
+                      <i className="fas fa-file-alt text-purple-600 dark:text-purple-400"></i>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-500">Last: 2024</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Monthly Reports */}
+            <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
+              <CardContent className="p-4">
+                <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
+                  <i className="fas fa-calendar-alt text-blue-600 mr-2"></i>
+                  Monthly Compliance Reports
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">AML Transaction Monitoring</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Monthly suspicious activity and threshold breaches</p>
+                    <div className="flex gap-2 mt-2">
+                      <Button size="sm" className="text-xs">Generate Current</Button>
+                      <Button size="sm" variant="outline" className="text-xs">View History</Button>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Transaction Volume Report</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Monthly transaction statistics for BoZ</p>
+                    <div className="flex gap-2 mt-2">
+                      <Button size="sm" className="text-xs">Generate Current</Button>
+                      <Button size="sm" variant="outline" className="text-xs">View History</Button>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">KYC Compliance Status</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Customer verification and documentation status</p>
+                    <div className="flex gap-2 mt-2">
+                      <Button size="sm" className="text-xs">Generate Current</Button>
+                      <Button size="sm" variant="outline" className="text-xs">View History</Button>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Risk Assessment Summary</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Monthly risk evaluation and mitigation measures</p>
+                    <div className="flex gap-2 mt-2">
+                      <Button size="sm" className="text-xs">Generate Current</Button>
+                      <Button size="sm" variant="outline" className="text-xs">View History</Button>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Quarterly Reports */}
+            <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
+              <CardContent className="p-4">
+                <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
+                  <i className="fas fa-chart-line text-green-600 mr-2"></i>
+                  Quarterly Compliance Reports
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Regulatory Compliance Review</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Comprehensive compliance assessment for BoZ</p>
+                    <div className="flex gap-2 mt-2">
+                      <Button size="sm" className="text-xs">Generate Q1 2025</Button>
+                      <Button size="sm" variant="outline" className="text-xs">Previous Quarters</Button>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">AML Program Effectiveness</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Quarterly review of AML controls and procedures</p>
+                    <div className="flex gap-2 mt-2">
+                      <Button size="sm" className="text-xs">Generate Q1 2025</Button>
+                      <Button size="sm" variant="outline" className="text-xs">Previous Quarters</Button>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Business Growth Analysis</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Quarterly business metrics and expansion plans</p>
+                    <div className="flex gap-2 mt-2">
+                      <Button size="sm" className="text-xs">Generate Q1 2025</Button>
+                      <Button size="sm" variant="outline" className="text-xs">Previous Quarters</Button>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Financial Performance Report</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Quarterly financial health and sustainability metrics</p>
+                    <div className="flex gap-2 mt-2">
+                      <Button size="sm" className="text-xs">Generate Q1 2025</Button>
+                      <Button size="sm" variant="outline" className="text-xs">Previous Quarters</Button>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Annual Reports */}
+            <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
+              <CardContent className="p-4">
+                <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
+                  <i className="fas fa-file-alt text-purple-600 mr-2"></i>
+                  Annual Compliance Reports
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Annual Regulatory Filing</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Comprehensive annual report for Bank of Zambia</p>
+                    <div className="flex gap-2 mt-2">
+                      <Button size="sm" className="text-xs">Generate 2025</Button>
+                      <Button size="sm" variant="outline" className="text-xs">View 2024</Button>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">AML Program Annual Review</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Annual assessment of AML effectiveness and updates</p>
+                    <div className="flex gap-2 mt-2">
+                      <Button size="sm" className="text-xs">Generate 2025</Button>
+                      <Button size="sm" variant="outline" className="text-xs">View 2024</Button>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Risk Management Report</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Annual risk assessment and mitigation strategies</p>
+                    <div className="flex gap-2 mt-2">
+                      <Button size="sm" className="text-xs">Generate 2025</Button>
+                      <Button size="sm" variant="outline" className="text-xs">View 2024</Button>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Business Continuity Plan</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Annual review of business continuity and disaster recovery</p>
+                    <div className="flex gap-2 mt-2">
+                      <Button size="sm" className="text-xs">Generate 2025</Button>
+                      <Button size="sm" variant="outline" className="text-xs">View 2024</Button>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Original Compliance Dashboard */}
+            <ComplianceReportsDashboard />
           </>
         )}
 

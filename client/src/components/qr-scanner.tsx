@@ -3,15 +3,20 @@ import QrScanner from "qr-scanner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { parsePaymentQR, validatePaymentQR, getQRParseError } from "@/lib/qr-utils";
+import { auth } from "@/lib/firebase";
 
 interface QRScannerProps {
   isOpen: boolean;
   onClose: () => void;
   onScanSuccess: (qrData: any) => void;
-  expectedAmount?: string;
+  transactionData: {
+    transactionId: string;
+    amount: string;
+    vmfNumber: string;
+  };
 }
 
-export default function QRScannerComponent({ isOpen, onClose, onScanSuccess, expectedAmount }: QRScannerProps) {
+export default function QRScannerComponent({ isOpen, onClose, onScanSuccess, transactionData }: QRScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [scanner, setScanner] = useState<QrScanner | null>(null);
   const [isScanning, setIsScanning] = useState(false);
@@ -46,11 +51,21 @@ export default function QRScannerComponent({ isOpen, onClose, onScanSuccess, exp
             try {
               console.log("QR Code detected:", result.data);
               
+              // Get Firebase auth token
+              const currentUser = auth.currentUser;
+              if (!currentUser) {
+                setError('User not authenticated');
+                return;
+              }
+              
+              const token = await currentUser.getIdToken(true);
+              
               // Verify QR code with secure server-side validation
-              const response = await fetch('/api/qr-codes/verify', {
+              const response = await fetch('/api/qr/verify', {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`,
                 },
                 credentials: 'include',
                 body: JSON.stringify({
@@ -150,7 +165,7 @@ export default function QRScannerComponent({ isOpen, onClose, onScanSuccess, exp
         }
       }
     };
-  }, [isOpen, expectedAmount, retryCount]);
+  }, [isOpen, transactionData, retryCount]);
 
   const handleClose = () => {
     if (scanner) {
@@ -228,7 +243,17 @@ export default function QRScannerComponent({ isOpen, onClose, onScanSuccess, exp
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="w-full max-w-md mx-4">
         <DialogHeader>
-          <DialogTitle className="text-center">Scan QR Code</DialogTitle>
+          <DialogTitle className="text-center">
+            QR Pay - Approve {transactionData.transactionId}
+          </DialogTitle>
+          <div className="text-center mt-2 space-y-1">
+            <p className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+              ZMW {Math.floor(parseFloat(transactionData.amount)).toLocaleString()}
+            </p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              VMF: {transactionData.vmfNumber}
+            </p>
+          </div>
         </DialogHeader>
         
         <div className="space-y-4">

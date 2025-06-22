@@ -29,6 +29,19 @@ export const onAuthChange = (callback: (user: any) => void) => {
   return onAuthStateChanged(auth, callback);
 };
 
+export const getCurrentToken = async (): Promise<string | null> => {
+  const user = auth.currentUser;
+  if (!user) return null;
+  
+  try {
+    const token = await user.getIdToken(true); // Force refresh
+    return token;
+  } catch (error) {
+    console.error('Error getting Firebase token:', error);
+    return null;
+  }
+};
+
 export const resetPassword = async (email: string) => {
   return await sendPasswordResetEmail(auth, email);
 };

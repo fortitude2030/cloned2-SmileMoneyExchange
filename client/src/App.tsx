@@ -1,3 +1,4 @@
+import React from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -5,14 +6,18 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { TransactionNotificationProvider } from "@/hooks/use-transaction-notifications";
 import { TimerProvider } from "@/contexts/timer-context";
-import { useAuth } from "@/hooks/useAuth";
+import { cleanupBatchingSystems } from "@/lib/queryBatching";
+import { cleanupCacheServices } from "@/lib/cacheWarming";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
+import { Login } from "@/pages/login";
 import MerchantDashboard from "@/pages/merchant-dashboard";
 import CashierDashboard from "@/pages/cashier-dashboard";
 import FinancePortal from "@/pages/finance-portal";
 import AdminDashboard from "@/pages/admin-dashboard";
 import OrganizationSetup from "@/pages/organization-setup";
+
+import { useAuth } from "@/hooks/useAuth";
 
 function Router() {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -33,7 +38,7 @@ function Router() {
   return (
     <Switch>
       {!isAuthenticated ? (
-        <Route path="/" component={Landing} />
+        <Route path="/" component={Login} />
       ) : (
         <>
           <Route path="/" component={() => {
@@ -52,7 +57,7 @@ function Router() {
               case 'cashier':
                 return <CashierDashboard />;
               case 'finance':
-                return <FinancePortal />;
+                return <MerchantDashboard />; // Finance users are client-side, redirect to merchant dashboard
               case 'admin':
                 return <AdminDashboard />;
               default:
@@ -76,6 +81,12 @@ function Router() {
 }
 
 function App() {
+  // Initialize cleanup systems
+  React.useEffect(() => {
+    cleanupBatchingSystems();
+    cleanupCacheServices();
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>

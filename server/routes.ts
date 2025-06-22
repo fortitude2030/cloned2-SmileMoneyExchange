@@ -7,7 +7,7 @@ import fs from "fs";
 import { storage } from "./storage";
 import { setupFirebaseAuth, isFirebaseAuthenticated } from "./firebaseAuth";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, desc, and, gte, lte, sql, like, count, sum, or, asc, ne, inArray } from "drizzle-orm";
 import {
   insertOrganizationSchema,
   insertBranchSchema,
@@ -18,8 +18,14 @@ import {
   insertKycDocumentSchema,
   users,
   wallets,
+  chartOfAccounts,
+  journalEntries,
+  journalEntryLines,
+  emailSettings,
 } from "@shared/schema";
 import crypto from "crypto";
+import { accountingService } from "./accountingService";
+import { emailService, EmailTemplates } from "./emailService";
 
 // Optimized image processing - minimal conversion for faster uploads
 async function processImage(imagePath: string, outputPath: string): Promise<void> {
@@ -55,11 +61,19 @@ const upload = multer({
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup Firebase authentication
   await setupFirebaseAuth(app);
+  
+  // Initialize accounting system
+  try {
+    await accountingService.initializeChartOfAccounts();
+    console.log("✓ Accounting system initialized successfully");
+  } catch (error) {
+    console.error("Failed to initialize accounting system:", error);
+  }
 
   // Organization routes
   app.post('/api/organizations', isFirebaseAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (user?.role !== 'finance') {
@@ -84,7 +98,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/organizations', isFirebaseAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const organizations = await storage.getOrganizationsByUserId(userId);
       res.json(organizations);
     } catch (error) {
@@ -95,7 +109,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put('/api/organizations/:id', isFirebaseAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       const organizationId = parseInt(req.params.id);
       
@@ -119,7 +133,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Branch routes
   app.post('/api/branches', isFirebaseAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (user?.role !== 'finance') {
@@ -159,7 +173,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/branches', isFirebaseAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (!user?.organizationId) {
@@ -176,7 +190,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put('/api/branches/:id', isFirebaseAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       const branchId = parseInt(req.params.id);
       
@@ -207,7 +221,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Fetch merchant wallets for finance portal
   app.get('/api/merchant-wallets', isFirebaseAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (user?.role !== 'finance' || !user.organizationId) {
@@ -225,7 +239,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get settlement breakdown for finance portal
   app.get('/api/settlement-breakdown', isFirebaseAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (user?.role !== 'finance' || !user.organizationId) {
@@ -250,7 +264,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Monthly settlement breakdown with filtering
   app.get('/api/monthly-settlement-breakdown', isFirebaseAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (user?.role !== 'finance' || !user.organizationId) {
@@ -274,7 +288,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Wallet routes
   app.get('/api/wallet', isFirebaseAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       const wallet = await storage.getOrCreateWallet(userId);
       
@@ -310,7 +324,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Daily reset endpoint for manual testing
   app.post('/api/wallet/reset-daily', isFirebaseAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const wallet = await storage.getOrCreateWallet(userId);
       await storage.checkAndResetDailySpending(wallet);
       const updatedWallet = await storage.getOrCreateWallet(userId);
@@ -324,7 +338,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Force daily reset for all users (admin testing endpoint)
   app.post('/api/admin/force-daily-reset', isFirebaseAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (user?.role !== 'admin') {
@@ -360,7 +374,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Simple wallet balance reset for testing (any user can reset their own wallet)
   app.post('/api/wallet/force-reset', isFirebaseAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (!user) {
@@ -403,18 +417,147 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Import organization limits validator and user status inheritance
+  const { validateOrganizationLimits } = await import('./organizationLimitsValidator');
+  const { validateUserOrganizationStatus, getEffectiveTransactionLimits } = await import('./userStatusInheritance');
+
+  // OTP endpoints for cashier assignment
+  app.get('/api/cashiers/verify-otp/:otp', async (req, res) => {
+    try {
+      const { otp } = req.params;
+      
+      // Validate OTP format (xxxx-xxxx)
+      if (!/^\d{4}-\d{4}$/.test(otp)) {
+        return res.status(400).json({ 
+          valid: false, 
+          message: "Invalid OTP format. Should be xxxx-xxxx" 
+        });
+      }
+
+      const validation = await storage.validateOTP(otp);
+      
+      if (validation.valid) {
+        res.json({
+          valid: true,
+          cashierName: validation.cashierName,
+          timeRemaining: 900 // 15 minutes in seconds
+        });
+      } else {
+        res.status(400).json({
+          valid: false,
+          message: "Invalid or expired OTP"
+        });
+      }
+    } catch (error) {
+      console.error("Error validating OTP:", error);
+      res.status(500).json({ 
+        valid: false, 
+        message: "Failed to validate OTP" 
+      });
+    }
+  });
+
+  app.post('/api/cashiers/generate-otp', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.role !== 'cashier') {
+        return res.status(403).json({ message: "Only cashiers can generate OTP" });
+      }
+
+      const otp = await storage.generateCashierOTP(userId);
+      res.json({ 
+        otp,
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString()
+      });
+    } catch (error) {
+      console.error("Error generating OTP:", error);
+      res.status(500).json({ message: "Failed to generate OTP" });
+    }
+  });
+
+  app.get('/api/cashiers/current-otp', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.role !== 'cashier') {
+        return res.status(403).json({ message: "Only cashiers can access OTP" });
+      }
+
+      const otp = await storage.refreshOTPIfNeeded(userId);
+      
+      if (otp) {
+        res.json({ 
+          otp,
+          firstName: user.firstName,
+          expiresAt: user.otpExpiresAt,
+          isActive: !user.otpUsed && user.otpExpiresAt && new Date() < user.otpExpiresAt
+        });
+      } else {
+        res.json({ 
+          otp: null,
+          firstName: user.firstName,
+          message: "Please login to generate new OTP"
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching current OTP:", error);
+      res.status(500).json({ message: "Failed to fetch current OTP" });
+    }
+  });
+
   // Transaction routes
   app.post('/api/transactions', isFirebaseAuthenticated, async (req: any, res) => {
     console.log("POST /api/transactions - Request received");
     console.log("Request body:", JSON.stringify(req.body, null, 2));
     console.log("User:", req.user?.claims?.sub);
     
-    const userId = req.user.claims.sub;
+    const userId = req.user.userId;
     
     try {
-      // Set proper status for QR transactions
+      // Parse amount as decimal for accurate currency handling
+      const parsedAmount = parseFloat(req.body.amount || "0");
+      
+      // ORGANIZATION LIMITS VALIDATION: Check organization limits before processing
+      const orgLimitsValidation = await validateOrganizationLimits(userId, parsedAmount, req.body.type);
+      if (!orgLimitsValidation.isValid) {
+        console.log(`Transaction blocked by organization limits: ${orgLimitsValidation.reason}`);
+        return res.status(400).json({ 
+          message: orgLimitsValidation.reason,
+          organizationUsage: orgLimitsValidation.organizationUsage,
+          code: 'ORGANIZATION_LIMITS_EXCEEDED'
+        });
+      }
+
+      // Handle OTP-based cashier assignment for RTP and QR payments
+      let assignedCashierId = req.body.toUserId;
+      let otpUsed = null;
+      
+      if ((req.body.type === 'rtp' || req.body.type === 'qr_code_payment') && req.body.cashierOtp) {
+        // Validate the OTP and get cashier assignment
+        const otpValidation = await storage.validateOTP(req.body.cashierOtp);
+        
+        if (!otpValidation.valid || !otpValidation.cashierUserId) {
+          return res.status(400).json({ 
+            message: "Invalid or expired cashier OTP",
+            code: 'INVALID_OTP'
+          });
+        }
+        
+        assignedCashierId = otpValidation.cashierUserId;
+        otpUsed = req.body.cashierOtp;
+      } else if (req.body.type === 'rtp' || req.body.type === 'qr_code_payment') {
+        return res.status(400).json({ 
+          message: "Cashier OTP is required for RTP and QR payments",
+          code: 'OTP_REQUIRED'
+        });
+      }
+
+      // Set proper status for QR and RTP transactions
       let finalStatus = req.body.status || 'pending';
-      if (req.body.type === 'qr_code_payment') {
+      if (req.body.type === 'qr_code_payment' || req.body.type === 'rtp') {
         finalStatus = 'pending';
       }
       
@@ -423,15 +566,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? new Date(Date.now() + 120 * 1000) 
         : null;
       
-      // Parse amount as decimal for accurate currency handling
-      const parsedAmount = parseFloat(req.body.amount || "0");
+      // REAL-TIME AML MONITORING: Check transaction against AML thresholds before processing
+      const amlAlerts = await storage.checkTransactionForAmlViolations(
+        req.body.fromUserId || userId, 
+        parsedAmount
+      );
+      
+      // If high-risk alerts are generated, require admin approval
+      const highRiskAlerts = amlAlerts.filter(alert => alert.riskScore >= 70);
+      if (highRiskAlerts.length > 0 && finalStatus === 'completed') {
+        finalStatus = 'pending'; // Force high-risk transactions to pending for review
+        console.log(`Transaction flagged for AML review: ${highRiskAlerts.length} high-risk alerts generated`);
+      }
       
       const transactionData = insertTransactionSchema.parse({
         ...req.body,
         status: finalStatus,
         amount: parsedAmount.toFixed(2),
         fromUserId: req.body.fromUserId || userId,
-        toUserId: req.body.toUserId || "system", // Default to system for QR transactions
+        toUserId: assignedCashierId || "system", // Use assigned cashier or default to system
         expiresAt,
       });
       
@@ -470,6 +623,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const transaction = await storage.createTransaction(transactionData);
       
+      // Mark OTP as used if it was provided for cashier assignment
+      if (otpUsed && transaction.id) {
+        await storage.markOTPAsUsed(otpUsed, transaction.id, req.body.type);
+        console.log(`OTP ${otpUsed} marked as used for transaction ${transaction.id}`);
+      }
+      
       // Update balances only for completed transactions
       if (transactionData.status === 'completed') {
         const fromUser = await storage.getUser(transactionData.fromUserId || userId);
@@ -505,7 +664,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/transactions', isFirebaseAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       console.log(`GET /api/transactions - User: ${userId}, Role: ${user?.role}`);
@@ -537,7 +696,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin endpoint to view all transactions (also accessible by finance users)
   app.get('/api/admin/transactions', isFirebaseAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (user?.role !== 'admin' && user?.role !== 'finance') {
@@ -554,7 +713,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/transactions/pending', isFirebaseAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       // Cashiers see all pending transactions, others see only their own
@@ -575,7 +734,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/transactions/qr-verification', isFirebaseAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       // Only cashiers can access QR verification transactions
@@ -598,7 +757,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const transactionId = parseInt(req.params.id);
       const { priority } = req.body;
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       
       // Check if user is admin
       const user = await storage.getUser(userId);
@@ -627,7 +786,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const transactionId = parseInt(req.params.id);
       const { status, rejectionReason, verifiedAmount, verifiedVmfNumber } = req.body;
-      const cashierId = req.user.claims.sub;
+      const cashierId = req.user.userId;
       
       if (!['pending', 'approved', 'completed', 'rejected'].includes(status)) {
         return res.status(400).json({ message: "Invalid status" });
@@ -702,7 +861,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "No file uploaded" });
       }
 
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       if (!userId) {
         console.error('No user ID found in request');
         return res.status(401).json({ message: "User not authenticated" });
@@ -762,7 +921,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Settlement request routes
   app.post('/api/settlement-requests', isFirebaseAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (user?.role !== 'finance' || !user.organizationId) {
@@ -805,7 +964,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/settlement-requests', isFirebaseAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (user?.role === 'admin') {
@@ -827,7 +986,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch('/api/settlement-requests/:id/status', isFirebaseAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (user?.role !== 'admin') {
@@ -853,7 +1012,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/qr-codes/generate', isFirebaseAuthenticated, async (req: any, res) => {
     try {
       const { transactionId } = req.body;
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       
       if (!transactionId) {
         return res.status(400).json({ message: "Transaction ID is required" });
@@ -919,7 +1078,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/qr-codes/verify', isFirebaseAuthenticated, async (req: any, res) => {
     try {
       const { qrData } = req.body;
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
 
       // Only cashiers can verify QR codes
@@ -1030,7 +1189,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/admin/settlement-requests/:id/approve', isFirebaseAuthenticated, async (req: any, res) => {
     try {
       const settlementId = parseInt(req.params.id);
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (user?.role !== 'admin') {
@@ -1048,7 +1207,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/admin/settlement-requests/:id/release', isFirebaseAuthenticated, async (req: any, res) => {
     try {
       const settlementId = parseInt(req.params.id);
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (user?.role !== 'admin') {
@@ -1067,7 +1226,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const settlementId = parseInt(req.params.id);
       const { holdReason, reasonComment } = req.body;
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (user?.role !== 'admin') {
@@ -1098,7 +1257,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const settlementId = parseInt(req.params.id);
       const { rejectReason, reasonComment } = req.body;
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (user?.role !== 'admin') {
@@ -1128,7 +1287,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Notification routes
   app.get('/api/notifications', isFirebaseAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const notifications = await storage.getNotificationsByUserId(userId);
       res.json(notifications);
     } catch (error) {
@@ -1152,7 +1311,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/documents/:id/view", isFirebaseAuthenticated, async (req: any, res) => {
     try {
       const documentId = parseInt(req.params.id);
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
@@ -1209,7 +1368,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/documents/transaction/:transactionId", isFirebaseAuthenticated, async (req: any, res) => {
     try {
       const transactionId = parseInt(req.params.transactionId);
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       
       // Check if user has permission to view transaction documents
       const transaction = await storage.getTransactionById(transactionId);
@@ -1248,10 +1407,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create HTTP server
   const httpServer = createServer(app);
 
+  // Development endpoint to create test accounts and organization
+  app.post('/api/dev/create-test-accounts', async (req: any, res) => {
+    try {
+      // Create test organization first
+      const testOrg = await storage.createOrganization({
+        name: "Testco Financial Services",
+        type: "financial_institution",
+        description: "Licensed e-money issuer for testing KYC workflows",
+        kycStatus: "approved"
+      });
+
+      // Test user data with Firebase UIDs (these would be created in Firebase first)
+      const testUsers = [
+        {
+          id: "test-admin-uid-12345",
+          email: "admin@testco.com",
+          firstName: "Admin",
+          lastName: "User",
+          role: "admin",
+          organizationId: null // Admins don't belong to specific organizations
+        },
+        {
+          id: "test-finance-uid-12346", 
+          email: "finance@testco.com",
+          firstName: "Finance",
+          lastName: "Officer",
+          role: "finance",
+          organizationId: testOrg.id
+        },
+        {
+          id: "test-merchant-uid-12347",
+          email: "merchant@testco.com", 
+          firstName: "Merchant",
+          lastName: "User",
+          role: "merchant",
+          organizationId: testOrg.id
+        },
+        {
+          id: "test-cashier-uid-12348",
+          email: "cashier@testco.com",
+          firstName: "Cashier", 
+          lastName: "User",
+          role: "cashier",
+          organizationId: testOrg.id
+        }
+      ];
+
+      // Create users in database
+      const createdUsers = [];
+      for (const userData of testUsers) {
+        const user = await storage.upsertUser(userData);
+        createdUsers.push(user);
+        
+        // Create wallets for non-admin users
+        if (userData.role !== 'admin') {
+          await storage.getOrCreateWallet(userData.id);
+        }
+      }
+
+      // Create test branch for the organization
+      await storage.createBranch({
+        organizationId: testOrg.id,
+        name: "Main Branch",
+        location: "Lusaka, Zambia",
+        balance: "1000000" // 1M ZMW starting balance
+      });
+
+      res.json({
+        message: "Test accounts created successfully",
+        organization: testOrg,
+        users: createdUsers.map(u => ({
+          email: u.email,
+          role: u.role,
+          name: `${u.firstName} ${u.lastName}`
+        })),
+        instructions: {
+          note: "Create these accounts in Firebase Console with the following credentials:",
+          accounts: [
+            { email: "admin@testco.com", password: "TestAdmin123!" },
+            { email: "finance@testco.com", password: "TestFinance123!" },
+            { email: "merchant@testco.com", password: "TestMerchant123!" },
+            { email: "cashier@testco.com", password: "TestCashier123!" }
+          ]
+        }
+      });
+    } catch (error) {
+      console.error("Error creating test accounts:", error);
+      res.status(500).json({ message: "Failed to create test accounts", error: (error as Error).message });
+    }
+  });
+
   // Development endpoint to create test settlement requests
   app.post('/api/dev/settlement-requests', isFirebaseAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const testRequests = [
         {
           organizationId: 1,
@@ -1299,7 +1549,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // KYC Document Upload endpoint
   app.post('/api/kyc/upload', isFirebaseAuthenticated, upload.single('file'), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const { organizationId, documentType } = req.body;
       
       if (!req.file) {
@@ -1373,7 +1623,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Complete organization KYC setup
   app.patch('/api/organizations/:id/complete-kyc', isFirebaseAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const organizationId = parseInt(req.params.id);
       
       // Check if user has permission to complete KYC for this organization
@@ -1396,7 +1646,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get KYC documents for organization (admin/finance view)
   app.get('/api/organizations/:id/kyc-documents', isFirebaseAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const organizationId = parseInt(req.params.id);
       
       const user = await storage.getUser(userId);
@@ -1421,7 +1671,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin endpoint to review KYC documents
   app.patch('/api/kyc-documents/:id/review', isFirebaseAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const documentId = parseInt(req.params.id);
       const { status, rejectReason } = req.body;
       
@@ -1451,7 +1701,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all pending KYC documents for admin review
   app.get('/api/admin/kyc-documents/pending', isFirebaseAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       
       const user = await storage.getUser(userId);
       if (!user || user.role !== 'admin') {
@@ -1464,6 +1714,1052 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching pending KYC documents:", error);
       res.status(500).json({ message: "Failed to fetch pending documents" });
+    }
+  });
+
+  // Admin user management endpoints
+  app.get('/api/admin/users', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const users = await storage.getAllUsers();
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  app.post('/api/admin/users/create', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { email, phoneNumber, firstName, lastName, role, organizationId } = req.body;
+
+      // Validation
+      if (!email || !phoneNumber || !firstName || !lastName || !role) {
+        return res.status(400).json({ message: "All fields are required" });
+      }
+
+      // Check for duplicates
+      const existingEmail = await storage.getUserByEmail(email);
+      if (existingEmail) {
+        return res.status(409).json({ message: "Email already exists" });
+      }
+
+      const existingPhone = await storage.getUserByPhone(phoneNumber);
+      if (existingPhone) {
+        return res.status(409).json({ message: "Phone number already exists" });
+      }
+
+      // Generate secure temporary password
+      const tempPassword = Math.random().toString(36).slice(-10) + Math.random().toString(36).slice(-10).toUpperCase() + "!1";
+
+      let firebaseUserId;
+      try {
+        // Create Firebase user account using Firebase Admin SDK
+        const admin = await import('firebase-admin');
+        
+        // Initialize Firebase Admin if not already done
+        if (!admin.apps.length) {
+          const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+          if (serviceAccountKey) {
+            const serviceAccount = JSON.parse(serviceAccountKey);
+            admin.initializeApp({
+              credential: admin.credential.cert(serviceAccount),
+              projectId: process.env.VITE_FIREBASE_PROJECT_ID,
+            });
+          } else {
+            admin.initializeApp({
+              projectId: process.env.VITE_FIREBASE_PROJECT_ID,
+            });
+          }
+        }
+
+        // Create user in Firebase Authentication
+        const firebaseUser = await admin.auth().createUser({
+          email: email,
+          password: tempPassword,
+          displayName: `${firstName} ${lastName}`,
+          emailVerified: false,
+        });
+
+        firebaseUserId = firebaseUser.uid;
+        console.log(`✓ Created Firebase user: ${email} (UID: ${firebaseUserId})`);
+
+      } catch (firebaseError) {
+        console.error("Firebase user creation failed:", firebaseError);
+        
+        // Fallback: Create with placeholder ID and instructions for manual creation
+        firebaseUserId = `manual-${Date.now()}-${Math.random().toString(36).slice(-6)}`;
+        
+        return res.json({
+          message: "User created with manual Firebase setup required",
+          user: {
+            email,
+            firstName,
+            lastName,
+            role,
+          },
+          tempPassword,
+          firebaseSetupRequired: true,
+          instructions: `Please create Firebase user manually:\n1. Go to Firebase Console\n2. Create user with email: ${email}\n3. Set password: ${tempPassword}\n4. Update database with real Firebase UID`
+        });
+      }
+
+      // Create user in database with real Firebase UID
+      const newUser = await storage.createUserByAdmin({
+        id: firebaseUserId,
+        email,
+        phoneNumber,
+        firstName,
+        lastName,
+        role,
+        organizationId: organizationId ? parseInt(organizationId) : undefined,
+        tempPassword,
+        isEmailVerified: false,
+        isActive: true,
+      });
+
+      // Create wallet for non-admin users
+      if (role !== 'admin' && role !== 'super_admin') {
+        await storage.getOrCreateWallet(newUser.id);
+      }
+
+      res.json({
+        message: "User created successfully with Firebase authentication",
+        user: {
+          id: newUser.id,
+          email: newUser.email,
+          firstName: newUser.firstName,
+          lastName: newUser.lastName,
+          role: newUser.role,
+        },
+        tempPassword,
+        firebaseUid: firebaseUserId,
+        instructions: "User can now login immediately with the provided credentials"
+      });
+
+    } catch (error) {
+      console.error("Error creating user:", error);
+      res.status(500).json({ message: "Failed to create user" });
+    }
+  });
+
+  app.patch('/api/admin/users/:id/toggle', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const targetUserId = req.params.id;
+      const { isActive } = req.body;
+
+      await storage.toggleUserStatus(targetUserId, isActive);
+      res.json({ message: "User status updated successfully" });
+
+    } catch (error) {
+      console.error("Error updating user status:", error);
+      res.status(500).json({ message: "Failed to update user status" });
+    }
+  });
+
+  // Admin organization management endpoints
+  app.get('/api/admin/organizations', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const organizations = await storage.getAllOrganizations();
+      res.json(organizations);
+    } catch (error) {
+      console.error("Error fetching organizations:", error);
+      res.status(500).json({ message: "Failed to fetch organizations" });
+    }
+  });
+
+  // Get organization limits usage and validation status
+  app.get('/api/organizations/:id/limits-status', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      const organizationId = parseInt(req.params.id);
+      
+      // Validate access (admin or user from same organization)
+      if (!user || (!['admin', 'super_admin'].includes(user.role) && user.organizationId !== organizationId)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const organization = await storage.getOrganizationById(organizationId);
+      if (!organization) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+
+      // Calculate usage for today and this month
+      const today = new Date();
+      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+      const dailyUsage = await storage.getOrganizationTransactionVolume(organizationId, startOfDay, new Date());
+      const monthlyUsage = await storage.getOrganizationTransactionVolume(organizationId, startOfMonth, new Date());
+
+      const dailyLimit = parseFloat(organization.dailyTransactionLimit || '5000000');
+      const monthlyLimit = parseFloat(organization.monthlyTransactionLimit || '50000000');
+      const singleLimit = parseFloat(organization.singleTransactionLimit || '500000');
+
+      // Get organization users count
+      const orgUsers = await storage.getUsersByOrganization(organizationId);
+
+      res.json({
+        organization: {
+          id: organization.id,
+          name: organization.name,
+          status: organization.status,
+          kycStatus: organization.kycStatus,
+          isActive: organization.isActive
+        },
+        limits: {
+          daily: { used: dailyUsage, limit: dailyLimit, remaining: dailyLimit - dailyUsage },
+          monthly: { used: monthlyUsage, limit: monthlyLimit, remaining: monthlyLimit - monthlyUsage },
+          single: { limit: singleLimit }
+        },
+        usage: {
+          dailyPercentage: Math.round((dailyUsage / dailyLimit) * 100),
+          monthlyPercentage: Math.round((monthlyUsage / monthlyLimit) * 100)
+        },
+        users: {
+          total: orgUsers.length,
+          active: orgUsers.filter(u => u.isActive).length
+        },
+        compliance: {
+          canProcess: organization.status === 'approved' && organization.isActive && organization.kycStatus === 'verified',
+          statusReason: organization.status !== 'approved' ? `Organization status: ${organization.status}` :
+                       !organization.isActive ? 'Organization is inactive' :
+                       organization.kycStatus !== 'verified' ? `KYC status: ${organization.kycStatus}` : null
+        }
+      });
+
+    } catch (error) {
+      console.error("Error fetching organization limits status:", error);
+      res.status(500).json({ message: "Failed to fetch organization limits status" });
+    }
+  });
+
+  // Create organization with enhanced regulatory fields
+  app.post('/api/admin/organizations', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const {
+        name,
+        registrationNumber,
+        address,
+        contactEmail,
+        contactPhone,
+        businessType,
+        pacraNumber,
+        zraTpinNumber,
+        businessLicenseNumber,
+        businessLicenseExpiry,
+        directorName,
+        directorNrc,
+        directorPhone,
+        shareCapitalAmount
+      } = req.body;
+
+      // Validate required fields
+      if (!name?.trim() || !registrationNumber?.trim() || !contactEmail?.trim() || !zraTpinNumber?.trim()) {
+        return res.status(400).json({ 
+          message: "Required fields missing: name, registrationNumber, contactEmail, zraTpinNumber" 
+        });
+      }
+
+      // Validate that either PACRA or Business License is provided
+      if (!pacraNumber?.trim() && !businessLicenseNumber?.trim()) {
+        return res.status(400).json({ 
+          message: "Either PACRA Number or Business License Number is required" 
+        });
+      }
+
+      // Calculate profile completion percentage
+      const totalFields = 13;
+      const completedFields = [
+        name, registrationNumber, contactEmail, zraTpinNumber,
+        pacraNumber || businessLicenseNumber, address, contactPhone,
+        businessType, directorName, directorNrc, directorPhone,
+        shareCapitalAmount, businessLicenseExpiry
+      ].filter(field => field && field.toString().trim()).length;
+      
+      const profileCompletionPercentage = Math.round((completedFields / totalFields) * 100);
+
+      const organizationData = {
+        name: name.trim(),
+        registrationNumber: registrationNumber.trim(),
+        address: address?.trim() || null,
+        contactEmail: contactEmail.trim(),
+        contactPhone: contactPhone?.trim() || null,
+        businessType: businessType || 'retail',
+        pacraNumber: pacraNumber?.trim() || null,
+        zraTpinNumber: zraTpinNumber.trim(),
+        businessLicenseNumber: businessLicenseNumber?.trim() || null,
+        businessLicenseExpiry: businessLicenseExpiry || null,
+        directorName: directorName?.trim() || null,
+        directorNrc: directorNrc?.trim() || null,
+        directorPhone: directorPhone?.trim() || null,
+        shareCapitalAmount: shareCapitalAmount ? shareCapitalAmount.toString() : null,
+        profileCompletionPercentage,
+        status: 'pending',
+        kycStatus: 'pending'
+      };
+
+      const organization = await storage.createOrganization(organizationData);
+      res.json(organization);
+
+    } catch (error) {
+      console.error("Error creating organization:", error);
+      res.status(500).json({ message: "Failed to create organization" });
+    }
+  });
+
+  app.get('/api/admin/organizations/approved', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const approvedOrgs = await storage.getApprovedOrganizations();
+      res.json(approvedOrgs);
+    } catch (error) {
+      console.error("Error fetching approved organizations:", error);
+      res.status(500).json({ message: "Failed to fetch approved organizations" });
+    }
+  });
+
+  app.post('/api/admin/organizations/create', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { name, type, description } = req.body;
+
+      if (!name?.trim()) {
+        return res.status(400).json({ message: "Organization name is required" });
+      }
+
+      const organization = await storage.createOrganization({
+        name: name.trim(),
+        type: type || "financial_institution",
+        description: description || "",
+        kycStatus: "pending"
+      });
+
+      res.json({
+        message: "Organization created successfully",
+        organization
+      });
+
+    } catch (error) {
+      console.error("Error creating organization:", error);
+      res.status(500).json({ message: "Failed to create organization" });
+    }
+  });
+
+  app.patch('/api/admin/organizations/:id/kyc-status', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const organizationId = parseInt(req.params.id);
+      const { status, rejectReason } = req.body;
+
+      if (!['pending', 'in_review', 'approved', 'rejected'].includes(status)) {
+        return res.status(400).json({ message: "Invalid status" });
+      }
+
+      await storage.updateOrganizationKycStatus(organizationId, status, userId, rejectReason);
+      res.json({ message: "KYC status updated successfully" });
+
+    } catch (error) {
+      console.error("Error updating KYC status:", error);
+      res.status(500).json({ message: "Failed to update KYC status" });
+    }
+  });
+
+  app.patch('/api/admin/organizations/:id/toggle', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const organizationId = parseInt(req.params.id);
+      if (isNaN(organizationId)) {
+        return res.status(400).json({ message: "Invalid organization ID" });
+      }
+
+      // Get current organization status
+      const organization = await storage.getOrganizationById(organizationId);
+      if (!organization) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+
+      // Toggle the active status
+      const newStatus = !organization.isActive;
+      await storage.updateOrganization(organizationId, { isActive: newStatus });
+
+      res.json({ 
+        message: `Organization ${newStatus ? 'activated' : 'deactivated'} successfully`,
+        isActive: newStatus
+      });
+
+    } catch (error) {
+      console.error("Error toggling organization status:", error);
+      res.status(500).json({ message: "Failed to toggle organization status" });
+    }
+  });
+
+  app.patch('/api/admin/organizations/:id/kyc', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const organizationId = parseInt(req.params.id);
+      const { kycStatus } = req.body;
+
+      if (!['pending', 'incomplete', 'verified', 'rejected'].includes(kycStatus)) {
+        return res.status(400).json({ message: "Invalid KYC status" });
+      }
+
+      await storage.updateOrganizationKycStatus(organizationId, kycStatus, userId);
+      res.json({ message: "KYC status updated successfully" });
+
+    } catch (error) {
+      console.error("Error updating KYC status:", error);
+      res.status(500).json({ message: "Failed to update KYC status" });
+    }
+  });
+
+  // Individual organization details endpoint
+  app.get('/api/admin/organizations/:id', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const organizationId = parseInt(req.params.id);
+      const organization = await storage.getOrganizationById(organizationId);
+      
+      if (!organization) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+
+      res.json(organization);
+    } catch (error) {
+      console.error("Error fetching organization:", error);
+      res.status(500).json({ message: "Failed to fetch organization" });
+    }
+  });
+
+  // Update organization limits
+  app.patch('/api/admin/organizations/:id/limits', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const organizationId = parseInt(req.params.id);
+      const { dailyTransactionLimit, monthlyTransactionLimit, singleTransactionLimit, amlRiskRating } = req.body;
+
+      // Validation
+      const limits = {
+        dailyTransactionLimit: parseFloat(dailyTransactionLimit),
+        monthlyTransactionLimit: parseFloat(monthlyTransactionLimit),
+        singleTransactionLimit: parseFloat(singleTransactionLimit)
+      };
+
+      if (limits.singleTransactionLimit > limits.dailyTransactionLimit) {
+        return res.status(400).json({ message: "Single transaction limit cannot exceed daily limit" });
+      }
+
+      if (limits.dailyTransactionLimit > limits.monthlyTransactionLimit) {
+        return res.status(400).json({ message: "Daily limit cannot exceed monthly limit" });
+      }
+
+      const updateData = {
+        dailyTransactionLimit: dailyTransactionLimit.toString(),
+        monthlyTransactionLimit: monthlyTransactionLimit.toString(),
+        singleTransactionLimit: singleTransactionLimit.toString(),
+        amlRiskRating: amlRiskRating || 'medium'
+      };
+
+      await storage.updateOrganization(organizationId, updateData);
+
+      res.json({ message: "Organization limits updated successfully" });
+    } catch (error) {
+      console.error("Error updating organization limits:", error);
+      res.status(500).json({ message: "Failed to update organization limits" });
+    }
+  });
+
+  // Organization approval workflow
+  app.patch('/api/admin/organizations/:id/approval', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const organizationId = parseInt(req.params.id);
+      const { action, reason } = req.body;
+
+      if (!['approve', 'suspend', 'reject'].includes(action)) {
+        return res.status(400).json({ message: "Invalid action" });
+      }
+
+      const updateData: any = {
+        status: action === 'approve' ? 'approved' : action === 'suspend' ? 'suspended' : 'rejected',
+        approvedBy: userId,
+        approvedAt: new Date()
+      };
+
+      if (action === 'approve') {
+        updateData.isActive = true;
+        updateData.kycStatus = 'verified';
+      } else {
+        updateData.isActive = false;
+        if (reason) {
+          updateData.kycRejectReason = reason;
+        }
+      }
+
+      await storage.updateOrganization(organizationId, updateData);
+
+      // Create notification for organization users
+      const orgUsers = await storage.getUsersByOrganization(organizationId);
+      for (const orgUser of orgUsers) {
+        await storage.createNotification({
+          userId: orgUser.id,
+          title: `Organization ${action}d`,
+          message: `Your organization has been ${action}d by admin.${reason ? ` Reason: ${reason}` : ''}`,
+          type: action === 'approve' ? 'success' : 'warning'
+        });
+      }
+
+      res.json({ message: `Organization ${action}d successfully` });
+    } catch (error) {
+      console.error("Error updating organization approval:", error);
+      res.status(500).json({ message: "Failed to update organization approval" });
+    }
+  });
+
+  // Organization transaction history
+  app.get('/api/admin/organizations/:id/transactions', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const organizationId = parseInt(req.params.id);
+      const transactions = await storage.getTransactionsByOrganization(organizationId);
+
+      res.json(transactions);
+    } catch (error) {
+      console.error("Error fetching organization transactions:", error);
+      res.status(500).json({ message: "Failed to fetch organization transactions" });
+    }
+  });
+
+  // Bulk organization actions
+  app.post('/api/admin/organizations/bulk-action', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { organizationIds, action, reason } = req.body;
+
+      if (!Array.isArray(organizationIds) || organizationIds.length === 0) {
+        return res.status(400).json({ message: "Organization IDs are required" });
+      }
+
+      if (!['approve', 'suspend', 'activate', 'deactivate'].includes(action)) {
+        return res.status(400).json({ message: "Invalid action" });
+      }
+
+      let successCount = 0;
+      const errors = [];
+
+      for (const orgId of organizationIds) {
+        try {
+          const updateData: any = {};
+          
+          switch (action) {
+            case 'approve':
+              updateData.status = 'approved';
+              updateData.isActive = true;
+              updateData.approvedBy = userId;
+              updateData.approvedAt = new Date();
+              break;
+            case 'suspend':
+              updateData.status = 'suspended';
+              updateData.isActive = false;
+              if (reason) updateData.kycRejectReason = reason;
+              break;
+            case 'activate':
+              updateData.isActive = true;
+              break;
+            case 'deactivate':
+              updateData.isActive = false;
+              break;
+          }
+
+          await storage.updateOrganization(orgId, updateData);
+          successCount++;
+        } catch (error) {
+          errors.push({ organizationId: orgId, error: error.message });
+        }
+      }
+
+      res.json({
+        message: `Bulk action completed`,
+        successCount,
+        totalCount: organizationIds.length,
+        errors
+      });
+    } catch (error) {
+      console.error("Error performing bulk action:", error);
+      res.status(500).json({ message: "Failed to perform bulk action" });
+    }
+  });
+
+  // QR Code Verification Endpoint
+  app.post('/api/qr/verify', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (user?.role !== 'cashier') {
+        return res.status(403).json({ message: "Only cashiers can verify QR codes" });
+      }
+
+      const qrData = JSON.parse(req.body.qrCode);
+      
+      // Validate QR data structure
+      if (!qrData.transactionId || !qrData.amount || !qrData.timestamp || !qrData.expiresAt) {
+        return res.status(400).json({ message: "Invalid QR code format" });
+      }
+
+      // Check QR code expiration
+      const now = Date.now();
+      if (now > qrData.expiresAt) {
+        return res.status(400).json({ message: "QR code has expired" });
+      }
+
+      // Find the transaction
+      const transaction = await storage.getTransactionByTransactionId(qrData.transactionId);
+      if (!transaction) {
+        return res.status(404).json({ message: "Transaction not found" });
+      }
+
+      // Verify transaction is still pending and matches QR data
+      if (transaction.status !== 'pending') {
+        return res.status(400).json({ message: "Transaction is no longer pending" });
+      }
+
+      if (Math.floor(parseFloat(transaction.amount)) !== Math.floor(parseFloat(qrData.amount))) {
+        return res.status(400).json({ message: "Amount mismatch" });
+      }
+
+      if (transaction.type !== 'qr_code_payment') {
+        return res.status(400).json({ message: "Invalid transaction type" });
+      }
+
+      res.json({ 
+        success: true, 
+        transaction: {
+          id: transaction.id,
+          transactionId: transaction.transactionId,
+          amount: transaction.amount,
+          vmfNumber: transaction.vmfNumber,
+          status: transaction.status,
+          type: transaction.type
+        }
+      });
+    } catch (error) {
+      console.error("Error verifying QR code:", error);
+      res.status(500).json({ message: "Failed to verify QR code" });
+    }
+  });
+
+  // AML Configuration Management Routes
+  app.get('/api/aml/configurations', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const configurations = await storage.getAmlConfigurations();
+      res.json(configurations);
+    } catch (error) {
+      console.error("Error fetching AML configurations:", error);
+      res.status(500).json({ message: "Failed to fetch AML configurations" });
+    }
+  });
+
+  app.post('/api/aml/configurations', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { configType, thresholdAmount, description } = req.body;
+
+      if (!configType || !thresholdAmount) {
+        return res.status(400).json({ message: "Config type and threshold amount are required" });
+      }
+
+      const configuration = await storage.createAmlConfiguration({
+        configType,
+        thresholdAmount: thresholdAmount.toString(),
+        description,
+        createdBy: userId,
+      });
+
+      res.json({ message: "AML configuration created", configuration });
+    } catch (error) {
+      console.error("Error creating AML configuration:", error);
+      res.status(500).json({ message: "Failed to create AML configuration" });
+    }
+  });
+
+  app.patch('/api/aml/configurations/:id', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { id } = req.params;
+      const { thresholdAmount, description, isActive } = req.body;
+
+      await storage.updateAmlConfiguration(parseInt(id), {
+        thresholdAmount: thresholdAmount?.toString(),
+        description,
+        isActive,
+        updatedBy: userId,
+      });
+
+      res.json({ message: "AML configuration updated" });
+    } catch (error) {
+      console.error("Error updating AML configuration:", error);
+      res.status(500).json({ message: "Failed to update AML configuration" });
+    }
+  });
+
+  app.delete('/api/aml/configurations/:id', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { id } = req.params;
+      await storage.deleteAmlConfiguration(parseInt(id));
+
+      res.json({ message: "AML configuration deleted" });
+    } catch (error) {
+      console.error("Error deleting AML configuration:", error);
+      res.status(500).json({ message: "Failed to delete AML configuration" });
+    }
+  });
+
+  // AML Alert Management Routes
+  app.get('/api/aml/alerts', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const alerts = await storage.getAmlAlerts();
+      res.json(alerts);
+    } catch (error) {
+      console.error("Error fetching AML alerts:", error);
+      res.status(500).json({ message: "Failed to fetch AML alerts" });
+    }
+  });
+
+  app.get('/api/aml/alerts/pending', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const pendingAlerts = await storage.getPendingAmlAlerts();
+      res.json(pendingAlerts);
+    } catch (error) {
+      console.error("Error fetching pending AML alerts:", error);
+      res.status(500).json({ message: "Failed to fetch pending AML alerts" });
+    }
+  });
+
+  app.patch('/api/aml/alerts/:id/review', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { id } = req.params;
+      const { status, reviewNotes } = req.body;
+
+      if (!['cleared', 'escalated', 'under_review'].includes(status)) {
+        return res.status(400).json({ message: "Invalid status" });
+      }
+
+      await storage.updateAmlAlertStatus(parseInt(id), status, userId, reviewNotes);
+      res.json({ message: "AML alert reviewed" });
+    } catch (error) {
+      console.error("Error reviewing AML alert:", error);
+      res.status(500).json({ message: "Failed to review AML alert" });
+    }
+  });
+
+  // Compliance Report Routes
+  app.get('/api/compliance/reports', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const reports = await storage.getComplianceReports();
+      res.json(reports);
+    } catch (error) {
+      console.error("Error fetching compliance reports:", error);
+      res.status(500).json({ message: "Failed to fetch compliance reports" });
+    }
+  });
+
+  app.post('/api/compliance/reports/generate', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { reportType, period } = req.body;
+
+      if (!reportType || !period) {
+        return res.status(400).json({ message: "Report type and period are required" });
+      }
+
+      let report;
+      if (reportType === 'daily_summary') {
+        const date = new Date(period);
+        report = await storage.generateDailyComplianceReport(date);
+      } else if (reportType === 'weekly_compliance') {
+        const startDate = new Date(period);
+        report = await storage.generateWeeklyComplianceReport(startDate);
+      } else if (reportType === 'monthly_regulatory') {
+        const [year, month] = period.split('-');
+        report = await storage.generateMonthlyRegulatoryReport(parseInt(month), parseInt(year));
+      } else {
+        return res.status(400).json({ message: "Invalid report type" });
+      }
+
+      res.json({ message: "Report generated successfully", report });
+    } catch (error) {
+      console.error("Error generating compliance report:", error);
+      res.status(500).json({ message: "Failed to generate compliance report" });
+    }
+  });
+
+  // AML Transaction Monitoring (called during transaction processing)
+  app.post('/api/aml/check-transaction', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const { userId, amount, transactionId } = req.body;
+
+      if (!userId || !amount) {
+        return res.status(400).json({ message: "User ID and amount are required" });
+      }
+
+      const alerts = await storage.checkTransactionForAmlViolations(userId, parseFloat(amount), transactionId);
+      
+      res.json({ 
+        alertsGenerated: alerts.length,
+        alerts: alerts.map(alert => ({
+          id: alert.id,
+          alertType: alert.alertType,
+          riskScore: alert.riskScore,
+          description: alert.description
+        }))
+      });
+    } catch (error) {
+      console.error("Error checking transaction for AML violations:", error);
+      res.status(500).json({ message: "Failed to check transaction for AML violations" });
+    }
+  });
+
+  // Bank of Zambia Integration Routes
+  app.get('/api/boz/reports', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Bank of Zambia access required" });
+      }
+
+      // Get all compliance reports for BoZ submission
+      const reports = await storage.getComplianceReports();
+      const bozReports = reports.filter(r => r.reportType.startsWith('boz_') || 
+        ['daily_summary', 'weekly_compliance', 'monthly_regulatory'].includes(r.reportType));
+      
+      res.json(bozReports);
+    } catch (error) {
+      console.error("Error fetching BoZ reports:", error);
+      res.status(500).json({ message: "Failed to fetch Bank of Zambia reports" });
+    }
+  });
+
+  app.post('/api/boz/reports/generate', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Bank of Zambia access required" });
+      }
+
+      const { reportType, period } = req.body;
+      const integrationManager = require('./integrationManager').integrationManager;
+      
+      const bozReport = await integrationManager.generateBankOfZambiaReport(reportType, period);
+      
+      res.json({
+        message: "Bank of Zambia report generated successfully",
+        report: bozReport,
+        submissionRequired: bozReport.submissionRequired
+      });
+    } catch (error) {
+      console.error("Error generating BoZ report:", error);
+      res.status(500).json({ message: "Failed to generate Bank of Zambia report" });
+    }
+  });
+
+  // RTGS Settlement Integration
+  app.post('/api/rtgs/generate-instruction', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'finance'].includes(user.role)) {
+        return res.status(403).json({ message: "Finance or admin access required" });
+      }
+
+      const { settlementRequestId } = req.body;
+      const settlementRequest = await storage.getAllSettlementRequests();
+      const request = settlementRequest.find(r => r.id === settlementRequestId);
+      
+      if (!request || request.status !== 'approved') {
+        return res.status(400).json({ message: "Settlement request not found or not approved" });
+      }
+
+      const integrationManager = require('./integrationManager').integrationManager;
+      const rtgsInstruction = await integrationManager.generateRTGSInstruction({
+        amount: request.amount,
+        currency: 'ZMW',
+        beneficiaryBank: request.bankName,
+        beneficiaryAccount: request.accountNumber,
+        beneficiaryName: request.description || 'Merchant Settlement',
+        purpose: 'E-MONEY_SETTLEMENT',
+        settlementRequestId: request.id,
+        organizationId: request.organizationId
+      });
+
+      res.json({
+        message: "RTGS instruction generated for manual processing",
+        instruction: rtgsInstruction,
+        processingNote: "Please process this RTGS instruction through your banking portal"
+      });
+    } catch (error) {
+      console.error("Error generating RTGS instruction:", error);
+      res.status(500).json({ message: "Failed to generate RTGS instruction" });
     }
   });
 
@@ -1492,6 +2788,1174 @@ export async function registerRoutes(app: Express): Promise<Server> {
     ws.on('close', () => {
       console.log('WebSocket client disconnected');
     });
+  });
+
+  // Accounting System API Routes
+  app.get('/api/accounting/financial-statements', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { startDate, endDate } = req.query;
+      const start = startDate ? new Date(startDate as string) : undefined;
+      const end = endDate ? new Date(endDate as string) : undefined;
+
+      const financialStatements = await accountingService.generateFinancialStatements(start, end);
+      res.json(financialStatements);
+    } catch (error) {
+      console.error("Error generating financial statements:", error);
+      res.status(500).json({ message: "Failed to generate financial statements" });
+    }
+  });
+
+  app.get('/api/accounting/revenue-report', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { startDate, endDate } = req.query;
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "Start date and end date are required" });
+      }
+
+      const start = new Date(startDate as string);
+      const end = new Date(endDate as string);
+
+      const revenueReport = await accountingService.getRevenueReport(start, end);
+      res.json(revenueReport);
+    } catch (error) {
+      console.error("Error generating revenue report:", error);
+      res.status(500).json({ message: "Failed to generate revenue report" });
+    }
+  });
+
+  app.get('/api/accounting/chart-of-accounts', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const accounts = await db.select().from(chartOfAccounts).where(eq(chartOfAccounts.isActive, true));
+      res.json(accounts);
+    } catch (error) {
+      console.error("Error fetching chart of accounts:", error);
+      res.status(500).json({ message: "Failed to fetch chart of accounts" });
+    }
+  });
+
+  app.get('/api/accounting/journal-entries', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { limit = 50, offset = 0 } = req.query;
+      
+      const entries = await db.select()
+        .from(journalEntries)
+        .orderBy(desc(journalEntries.entryDate))
+        .limit(parseInt(limit as string))
+        .offset(parseInt(offset as string));
+
+      const entriesWithLines = await Promise.all(
+        entries.map(async (entry) => {
+          const lines = await db.select()
+            .from(journalEntryLines)
+            .where(eq(journalEntryLines.journalEntryId, entry.id));
+          return { ...entry, lines };
+        })
+      );
+
+      res.json(entriesWithLines);
+    } catch (error) {
+      console.error("Error fetching journal entries:", error);
+      res.status(500).json({ message: "Failed to fetch journal entries" });
+    }
+  });
+
+  app.get('/api/accounting/account-balance/:accountCode', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { accountCode } = req.params;
+      const { asOfDate } = req.query;
+      
+      const asOf = asOfDate ? new Date(asOfDate as string) : undefined;
+      const balance = await accountingService.getAccountBalance(accountCode, asOf);
+      
+      res.json({ accountCode, balance, asOfDate: asOf || new Date() });
+    } catch (error) {
+      console.error("Error fetching account balance:", error);
+      res.status(500).json({ message: "Failed to fetch account balance" });
+    }
+  });
+
+  // Export endpoints for reports
+  app.get('/api/accounting/export/pdf', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const statements = await accountingService.generateFinancialStatements();
+      
+      // Generate PDF content
+      const pdfContent = `
+SMILE MONEY FINANCIAL STATEMENTS
+Generated: ${new Date().toISOString()}
+
+BALANCE SHEET
+============
+ASSETS:
+${Object.entries(statements.assets).map(([code, account]) => 
+  `${code} - ${account.name}: ZMW ${account.balance.toLocaleString()}`
+).join('\n')}
+Total Assets: ZMW ${statements.totalAssets.toLocaleString()}
+
+LIABILITIES:
+${Object.entries(statements.liabilities).map(([code, account]) => 
+  `${code} - ${account.name}: ZMW ${account.balance.toLocaleString()}`
+).join('\n')}
+Total Liabilities: ZMW ${statements.totalLiabilities.toLocaleString()}
+
+EQUITY:
+${Object.entries(statements.equity).map(([code, account]) => 
+  `${code} - ${account.name}: ZMW ${account.balance.toLocaleString()}`
+).join('\n')}
+Total Equity: ZMW ${statements.totalEquity.toLocaleString()}
+
+INCOME STATEMENT
+================
+REVENUE:
+${Object.entries(statements.revenue).map(([code, account]) => 
+  `${code} - ${account.name}: ZMW ${account.balance.toLocaleString()}`
+).join('\n')}
+Total Revenue: ZMW ${statements.totalRevenue.toLocaleString()}
+
+EXPENSES:
+${Object.entries(statements.expenses).map(([code, account]) => 
+  `${code} - ${account.name}: ZMW ${account.balance.toLocaleString()}`
+).join('\n')}
+Total Expenses: ZMW ${statements.totalExpenses.toLocaleString()}
+
+Net Income: ZMW ${statements.netIncome.toLocaleString()}
+      `;
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="financial-statements-${new Date().toISOString().split('T')[0]}.pdf"`);
+      res.send(Buffer.from(pdfContent, 'utf8'));
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      res.status(500).json({ message: "Failed to generate PDF" });
+    }
+  });
+
+  app.get('/api/accounting/export/excel', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const [statements, revenueReport, journalEntries] = await Promise.all([
+        accountingService.generateFinancialStatements(),
+        accountingService.getRevenueReport(new Date(new Date().getFullYear(), 0, 1), new Date()),
+        db.select().from(journalEntries).orderBy(desc(journalEntries.entryDate)).limit(100)
+      ]);
+
+      // Generate CSV format for Excel compatibility
+      const csvContent = `Smile Money Financial Export - ${new Date().toISOString()}\n\n` +
+        `FINANCIAL SUMMARY\n` +
+        `Total Assets,${statements.totalAssets}\n` +
+        `Total Liabilities,${statements.totalLiabilities}\n` +
+        `Total Equity,${statements.totalEquity}\n` +
+        `Total Revenue,${statements.totalRevenue}\n` +
+        `Total Expenses,${statements.totalExpenses}\n` +
+        `Net Income,${statements.netIncome}\n\n` +
+        `REVENUE BREAKDOWN\n` +
+        `Transaction Fees,${revenueReport.transactionFees}\n` +
+        `Settlement Fees,${revenueReport.settlementFees}\n` +
+        `Monthly Service Fees,${revenueReport.monthlyServiceFees}\n` +
+        `Total Revenue,${revenueReport.totalRevenue}\n\n` +
+        `RECENT JOURNAL ENTRIES\n` +
+        `Entry Number,Date,Description,Amount,Status\n` +
+        journalEntries.map(entry => 
+          `${entry.entryNumber},${entry.entryDate},${entry.description},${entry.totalAmount},${entry.status}`
+        ).join('\n');
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="financial-export-${new Date().toISOString().split('T')[0]}.csv"`);
+      res.send(csvContent);
+    } catch (error) {
+      console.error("Error generating Excel export:", error);
+      res.status(500).json({ message: "Failed to generate Excel export" });
+    }
+  });
+
+  app.get('/api/accounting/export/csv', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const entries = await db.select()
+        .from(journalEntries)
+        .orderBy(desc(journalEntries.entryDate))
+        .limit(500);
+
+      const entriesWithLines = await Promise.all(
+        entries.map(async (entry) => {
+          const lines = await db.select()
+            .from(journalEntryLines)
+            .where(eq(journalEntryLines.journalEntryId, entry.id));
+          return { ...entry, lines };
+        })
+      );
+
+      let csvContent = `Smile Money Journal Entries Export - ${new Date().toISOString()}\n\n`;
+      csvContent += `Entry Number,Date,Description,Account Code,Account Name,Debit Amount,Credit Amount,Line Description\n`;
+      
+      entriesWithLines.forEach(entry => {
+        entry.lines.forEach(line => {
+          csvContent += `${entry.entryNumber},${entry.entryDate},${entry.description},${line.accountCode},${line.accountName},${line.debitAmount},${line.creditAmount},${line.description}\n`;
+        });
+      });
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="journal-entries-${new Date().toISOString().split('T')[0]}.csv"`);
+      res.send(csvContent);
+    } catch (error) {
+      console.error("Error generating CSV export:", error);
+      res.status(500).json({ message: "Failed to generate CSV export" });
+    }
+  });
+
+  app.get('/api/accounting/export/word', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const statements = await accountingService.generateFinancialStatements();
+      
+      // Generate RTF format for Word compatibility
+      const rtfContent = `{\\rtf1\\ansi\\deff0 {\\fonttbl {\\f0 Times New Roman;}}
+\\f0\\fs24 SMILE MONEY FINANCIAL STATEMENTS\\par
+Generated: ${new Date().toISOString()}\\par\\par
+
+\\b BALANCE SHEET\\b0\\par
+\\line
+\\b ASSETS:\\b0\\par
+${Object.entries(statements.assets).map(([code, account]) => 
+  `${code} - ${account.name}: ZMW ${account.balance.toLocaleString()}\\par`
+).join('')}
+\\b Total Assets: ZMW ${statements.totalAssets.toLocaleString()}\\b0\\par\\par
+
+\\b LIABILITIES:\\b0\\par
+${Object.entries(statements.liabilities).map(([code, account]) => 
+  `${code} - ${account.name}: ZMW ${account.balance.toLocaleString()}\\par`
+).join('')}
+\\b Total Liabilities: ZMW ${statements.totalLiabilities.toLocaleString()}\\b0\\par\\par
+
+\\b INCOME STATEMENT\\b0\\par
+\\line
+\\b Net Income: ZMW ${statements.netIncome.toLocaleString()}\\b0\\par
+}`;
+
+      res.setHeader('Content-Type', 'application/rtf');
+      res.setHeader('Content-Disposition', `attachment; filename="financial-statements-${new Date().toISOString().split('T')[0]}.rtf"`);
+      res.send(rtfContent);
+    } catch (error) {
+      console.error("Error generating Word export:", error);
+      res.status(500).json({ message: "Failed to generate Word export" });
+    }
+  });
+
+  // Report generation endpoints
+  app.post('/api/accounting/generate-report/financial-statements', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const statements = await accountingService.generateFinancialStatements();
+      
+      // Log report generation
+      console.log(`Financial statements report generated by ${user.email} at ${new Date().toISOString()}`);
+      
+      res.json({ 
+        message: "Financial statements report generated successfully",
+        data: statements,
+        downloadUrl: "/api/accounting/export/pdf",
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error generating financial statements report:", error);
+      res.status(500).json({ message: "Failed to generate financial statements report" });
+    }
+  });
+
+  app.post('/api/accounting/generate-report/revenue-analysis', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const startDate = new Date(new Date().getFullYear(), 0, 1);
+      const endDate = new Date();
+      const revenueReport = await accountingService.getRevenueReport(startDate, endDate);
+      
+      console.log(`Revenue analysis report generated by ${user.email} at ${new Date().toISOString()}`);
+      
+      res.json({ 
+        message: "Revenue analysis report generated successfully",
+        data: revenueReport,
+        downloadUrl: "/api/accounting/export/excel",
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error generating revenue analysis report:", error);
+      res.status(500).json({ message: "Failed to generate revenue analysis report" });
+    }
+  });
+
+  app.post('/api/accounting/generate-report/transaction-summary', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const transactions = await db.select().from(transactionHistory).orderBy(desc(transactionHistory.timestamp)).limit(1000);
+      
+      const summary = {
+        totalTransactions: transactions.length,
+        totalAmount: transactions.reduce((sum, txn) => sum + parseFloat(txn.amount), 0),
+        transactionsByType: transactions.reduce((acc, txn) => {
+          acc[txn.type] = (acc[txn.type] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>),
+        transactionsByStatus: transactions.reduce((acc, txn) => {
+          acc[txn.status] = (acc[txn.status] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>)
+      };
+      
+      console.log(`Transaction summary report generated by ${user.email} at ${new Date().toISOString()}`);
+      
+      res.json({ 
+        message: "Transaction summary report generated successfully",
+        data: summary,
+        downloadUrl: "/api/accounting/export/csv",
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error generating transaction summary report:", error);
+      res.status(500).json({ message: "Failed to generate transaction summary report" });
+    }
+  });
+
+  app.post('/api/accounting/generate-report/regulatory', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const startDate = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1);
+      const endDate = new Date();
+      
+      const [transactions, amlAlerts, statements] = await Promise.all([
+        db.select().from(transactionHistory).where(
+          and(
+            gte(transactionHistory.timestamp, startDate),
+            lte(transactionHistory.timestamp, endDate)
+          )
+        ),
+        db.select().from(amlAlerts).where(
+          and(
+            gte(amlAlerts.createdAt, startDate),
+            lte(amlAlerts.createdAt, endDate)
+          )
+        ),
+        accountingService.generateFinancialStatements(startDate, endDate)
+      ]);
+
+      const regulatoryReport = {
+        reportPeriod: { start: startDate, end: endDate },
+        transactionSummary: {
+          totalCount: transactions.length,
+          totalVolume: transactions.reduce((sum, txn) => sum + parseFloat(txn.amount), 0),
+          averageAmount: transactions.length > 0 ? 
+            transactions.reduce((sum, txn) => sum + parseFloat(txn.amount), 0) / transactions.length : 0
+        },
+        amlCompliance: {
+          alertsGenerated: amlAlerts.length,
+          highRiskAlerts: amlAlerts.filter(alert => alert.riskLevel === 'high').length,
+          resolvedAlerts: amlAlerts.filter(alert => alert.status === 'resolved').length
+        },
+        financialPosition: {
+          totalAssets: statements.totalAssets,
+          totalLiabilities: statements.totalLiabilities,
+          netIncome: statements.netIncome
+        }
+      };
+      
+      console.log(`Regulatory compliance report generated by ${user.email} at ${new Date().toISOString()}`);
+      
+      res.json({ 
+        message: "Regulatory compliance report generated successfully",
+        data: regulatoryReport,
+        downloadUrl: "/api/accounting/export/pdf",
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error generating regulatory report:", error);
+      res.status(500).json({ message: "Failed to generate regulatory report" });
+    }
+  });
+
+  // Report scheduling endpoints
+  app.post('/api/accounting/schedule-report', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { reportType, frequency, recipients, format } = req.body;
+      
+      // In a real implementation, this would save to a scheduled_reports table
+      const scheduleConfig = {
+        id: Date.now(),
+        reportType,
+        frequency,
+        recipients: recipients || [],
+        format: format || 'pdf',
+        createdBy: user.email,
+        createdAt: new Date(),
+        isActive: true,
+        nextRun: calculateNextRunTime(frequency)
+      };
+      
+      console.log(`Report scheduled: ${JSON.stringify(scheduleConfig)}`);
+      
+      // Send immediate confirmation email
+      try {
+        const confirmationTemplate = EmailTemplates.reportDelivery(
+          reportType, 
+          `Scheduled for ${frequency} delivery`
+        );
+        
+        await emailService.sendEmail(
+          user.email,
+          {
+            subject: `Report Scheduling Confirmed - ${reportType}`,
+            html: confirmationTemplate.html,
+            text: confirmationTemplate.text
+          }
+        );
+      } catch (emailError) {
+        console.log('Email confirmation failed:', emailError);
+        // Don't fail the scheduling if email fails
+      }
+      
+      res.json({ 
+        message: `${reportType} report scheduled successfully for ${frequency} delivery`,
+        schedule: scheduleConfig
+      });
+    } catch (error) {
+      console.error("Error scheduling report:", error);
+      res.status(500).json({ message: "Failed to schedule report" });
+    }
+  });
+
+  // Email report delivery endpoint
+  app.post('/api/accounting/email-report', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { reportType, recipients, format } = req.body;
+      
+      let reportData: any;
+      let filename: string;
+      let contentType: string;
+      
+      // Generate report based on type
+      switch (reportType) {
+        case 'financial-statements':
+          reportData = await accountingService.generateFinancialStatements();
+          if (format === 'pdf') {
+            const pdfContent = generateFinancialStatementsPDF(reportData);
+            filename = `financial-statements-${new Date().toISOString().split('T')[0]}.pdf`;
+            contentType = 'application/pdf';
+            reportData = Buffer.from(pdfContent, 'utf8');
+          }
+          break;
+          
+        case 'revenue-analysis':
+          const startDate = new Date(new Date().getFullYear(), 0, 1);
+          const endDate = new Date();
+          reportData = await accountingService.getRevenueReport(startDate, endDate);
+          filename = `revenue-analysis-${new Date().toISOString().split('T')[0]}.csv`;
+          contentType = 'text/csv';
+          reportData = Buffer.from(JSON.stringify(reportData, null, 2));
+          break;
+          
+        default:
+          return res.status(400).json({ message: "Unsupported report type" });
+      }
+      
+      // Send email with attachment
+      const emailTemplate = EmailTemplates.reportDelivery(
+        reportType,
+        new Date().toLocaleDateString()
+      );
+      
+      const emailResult = await emailService.sendEmail(
+        recipients,
+        emailTemplate,
+        [{
+          filename,
+          content: reportData,
+          contentType
+        }]
+      );
+      
+      if (emailResult) {
+        res.json({ 
+          message: `${reportType} report sent successfully to ${recipients.length} recipients`,
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        res.status(500).json({ message: "Failed to send email report" });
+      }
+    } catch (error) {
+      console.error("Error sending email report:", error);
+      res.status(500).json({ message: "Failed to send email report" });
+    }
+  });
+
+  function calculateNextRunTime(frequency: string): Date {
+    const now = new Date();
+    switch (frequency) {
+      case 'daily':
+        return new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      case 'weekly':
+        return new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+      case 'monthly':
+        const nextMonth = new Date(now);
+        nextMonth.setMonth(now.getMonth() + 1);
+        nextMonth.setDate(1);
+        return nextMonth;
+      default:
+        return new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    }
+  }
+
+  function generateFinancialStatementsPDF(statements: any): string {
+    return `
+SMILE MONEY FINANCIAL STATEMENTS
+Generated: ${new Date().toISOString()}
+
+BALANCE SHEET
+============
+ASSETS:
+${Object.entries(statements.assets).map(([code, account]: [string, any]) => 
+  `${code} - ${account.name}: ZMW ${account.balance.toLocaleString()}`
+).join('\n')}
+Total Assets: ZMW ${statements.totalAssets.toLocaleString()}
+
+LIABILITIES:
+${Object.entries(statements.liabilities).map(([code, account]: [string, any]) => 
+  `${code} - ${account.name}: ZMW ${account.balance.toLocaleString()}`
+).join('\n')}
+Total Liabilities: ZMW ${statements.totalLiabilities.toLocaleString()}
+
+EQUITY:
+${Object.entries(statements.equity).map(([code, account]: [string, any]) => 
+  `${code} - ${account.name}: ZMW ${account.balance.toLocaleString()}`
+).join('\n')}
+Total Equity: ZMW ${statements.totalEquity.toLocaleString()}
+
+INCOME STATEMENT
+================
+REVENUE:
+${Object.entries(statements.revenue).map(([code, account]: [string, any]) => 
+  `${code} - ${account.name}: ZMW ${account.balance.toLocaleString()}`
+).join('\n')}
+Total Revenue: ZMW ${statements.totalRevenue.toLocaleString()}
+
+EXPENSES:
+${Object.entries(statements.expenses).map(([code, account]: [string, any]) => 
+  `${code} - ${account.name}: ZMW ${account.balance.toLocaleString()}`
+).join('\n')}
+Total Expenses: ZMW ${statements.totalExpenses.toLocaleString()}
+
+Net Income: ZMW ${statements.netIncome.toLocaleString()}
+    `;
+  }
+
+  // Email notification endpoints
+  app.post('/api/notifications/send-welcome', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const { userEmail, userName, organizationName } = req.body;
+      
+      const welcomeTemplate = EmailTemplates.welcomeEmail(userName, organizationName);
+      const success = await emailService.sendEmail(userEmail, welcomeTemplate);
+      
+      if (success) {
+        res.json({ message: "Welcome email sent successfully" });
+      } else {
+        res.status(500).json({ message: "Failed to send welcome email" });
+      }
+    } catch (error) {
+      console.error("Error sending welcome email:", error);
+      res.status(500).json({ message: "Failed to send welcome email" });
+    }
+  });
+
+  app.post('/api/notifications/send-transaction-alert', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const { userEmail, amount, type, transactionId } = req.body;
+      
+      const alertTemplate = EmailTemplates.transactionNotification(amount, type, transactionId);
+      const success = await emailService.sendEmail(userEmail, alertTemplate);
+      
+      if (success) {
+        res.json({ message: "Transaction alert sent successfully" });
+      } else {
+        res.status(500).json({ message: "Failed to send transaction alert" });
+      }
+    } catch (error) {
+      console.error("Error sending transaction alert:", error);
+      res.status(500).json({ message: "Failed to send transaction alert" });
+    }
+  });
+
+  app.post('/api/notifications/send-aml-alert', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { alertType, details, recipients } = req.body;
+      
+      const amlTemplate = EmailTemplates.amlAlert(alertType, details);
+      const defaultRecipients = recipients || ['test@cash.smilemoney.africa'];
+      
+      const result = await emailService.sendBulkEmails(defaultRecipients, amlTemplate);
+      
+      res.json({ 
+        message: `AML alert sent to ${result.sent} recipients`,
+        details: result
+      });
+    } catch (error) {
+      console.error("Error sending AML alert:", error);
+      res.status(500).json({ message: "Failed to send AML alert" });
+    }
+  });
+
+  app.post('/api/notifications/send-kyc-update', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const { userEmail, status, userName, comments } = req.body;
+      
+      const kycTemplate = EmailTemplates.kycStatusUpdate(status, userName, comments);
+      const success = await emailService.sendEmail(userEmail, kycTemplate);
+      
+      if (success) {
+        res.json({ message: "KYC status notification sent successfully" });
+      } else {
+        res.status(500).json({ message: "Failed to send KYC notification" });
+      }
+    } catch (error) {
+      console.error("Error sending KYC notification:", error);
+      res.status(500).json({ message: "Failed to send KYC notification" });
+    }
+  });
+
+  // Email configuration endpoints
+  app.post('/api/admin/email-settings', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { financeEmails, operationsEmails, complianceEmails, adminEmails } = req.body;
+      
+      // Clear existing settings and insert new ones
+      await db.delete(emailSettings);
+      
+      const settingsToInsert = [
+        { settingKey: 'finance_emails', settingValue: financeEmails },
+        { settingKey: 'operations_emails', settingValue: operationsEmails },
+        { settingKey: 'compliance_emails', settingValue: complianceEmails },
+        { settingKey: 'admin_emails', settingValue: adminEmails }
+      ].filter(setting => setting.settingValue);
+
+      if (settingsToInsert.length > 0) {
+        await db.insert(emailSettings).values(settingsToInsert);
+      }
+      
+      res.json({ message: 'Email settings saved successfully' });
+    } catch (error) {
+      console.error('Error saving email settings:', error);
+      res.status(500).json({ message: 'Failed to save email settings' });
+    }
+  });
+
+  app.get('/api/admin/email-settings', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const settings = await db.select().from(emailSettings);
+      
+      const emailConfig = {
+        financeEmails: settings.find(s => s.settingKey === 'finance_emails')?.settingValue || 'test@cash.smilemoney.africa',
+        operationsEmails: settings.find(s => s.settingKey === 'operations_emails')?.settingValue || 'test@cash.smilemoney.africa',
+        complianceEmails: settings.find(s => s.settingKey === 'compliance_emails')?.settingValue || 'test@cash.smilemoney.africa',
+        adminEmails: settings.find(s => s.settingKey === 'admin_emails')?.settingValue || 'test@cash.smilemoney.africa'
+      };
+      
+      res.json(emailConfig);
+    } catch (error) {
+      console.error('Error loading email settings:', error);
+      res.status(500).json({ message: 'Failed to load email settings' });
+    }
+  });
+
+  // Float Reconciliation System
+  app.post('/api/reconciliation/run-check', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      // Calculate total user balances from all wallets
+      const allWallets = await db.select().from(wallets);
+      const totalUserBalances = allWallets.reduce((sum, wallet) => {
+        return sum + parseFloat(wallet.balance || '0');
+      }, 0);
+
+      // Calculate system float from journal entries for Cash Reserves account (1100)
+      const cashReserveEntries = await db.select({
+        debitAmount: journalEntryLines.debitAmount,
+        creditAmount: journalEntryLines.creditAmount
+      })
+      .from(journalEntryLines)
+      .where(eq(journalEntryLines.accountCode, '1100'));
+      
+      const systemFloat = cashReserveEntries.reduce((balance, entry) => {
+        const debit = parseFloat(entry.debitAmount || '0');
+        const credit = parseFloat(entry.creditAmount || '0');
+        return balance + (debit - credit); // Assets: Debits increase, Credits decrease
+      }, 0);
+
+      // Calculate variance
+      const variance = Math.abs(totalUserBalances - systemFloat);
+      
+      // Log reconciliation check in journal entries
+      const entryNumber = `REC-${Date.now()}`;
+      await db.insert(journalEntries).values({
+        entryNumber,
+        entryDate: new Date(),
+        description: `Reconciliation Check - User Balances: ${totalUserBalances}, System Float: ${systemFloat}, Variance: ${variance}`,
+        totalAmount: variance.toString(),
+        createdBy: user.email
+      });
+
+      // Trigger alerts if variance exceeds threshold
+      if (variance > 1000) {
+        console.log(`RECONCILIATION ALERT: Variance of ${variance} detected - exceeds threshold`);
+      }
+
+      res.json({
+        totalUserBalances: parseFloat(totalUserBalances.toFixed(2)),
+        systemFloat: parseFloat(systemFloat.toFixed(2)),
+        variance: parseFloat(variance.toFixed(2)),
+        status: variance === 0 ? 'BALANCED' : 'VARIANCE_DETECTED',
+        timestamp: new Date().toISOString(),
+        thresholdExceeded: variance > 1000
+      });
+
+    } catch (error: any) {
+      console.error("Error running reconciliation check:", error);
+      res.status(500).json({ message: `Reconciliation check failed: ${error.message}` });
+    }
+  });
+
+  app.get('/api/reconciliation/locked-accounts', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      // Find wallets with negative balances or inactive status
+      const allWallets = await db.select().from(wallets);
+      const lockedAccounts = allWallets.filter(wallet => {
+        const balance = parseFloat(wallet.balance || '0');
+        return balance < 0 || !wallet.isActive;
+      }).map(wallet => ({
+        id: wallet.id,
+        userId: wallet.userId,
+        balance: wallet.balance,
+        status: parseFloat(wallet.balance || '0') < 0 ? 'negative_balance' : 'inactive',
+        lockedAt: wallet.updatedAt
+      }));
+
+      res.json(lockedAccounts);
+
+    } catch (error: any) {
+      console.error("Error fetching locked accounts:", error);
+      res.status(500).json({ message: `Failed to fetch locked accounts: ${error.message}` });
+    }
+  });
+
+  // System Float Configuration
+  app.get('/api/reconciliation/system-float', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      // Calculate current system float from journal entries for Cash Reserves (1100)
+      const cashReserveEntries = await db.select({
+        debitAmount: journalEntryLines.debitAmount,
+        creditAmount: journalEntryLines.creditAmount
+      })
+      .from(journalEntryLines)
+      .where(eq(journalEntryLines.accountCode, '1100'));
+      
+      const currentFloat = cashReserveEntries.reduce((balance, entry) => {
+        const debit = parseFloat(entry.debitAmount || '0');
+        const credit = parseFloat(entry.creditAmount || '0');
+        return balance + (debit - credit);
+      }, 0);
+
+      res.json({
+        currentFloat: parseFloat(currentFloat.toFixed(2)),
+        accountCode: '1100',
+        accountName: 'Cash Reserves',
+        lastUpdated: new Date().toISOString()
+      });
+
+    } catch (error: any) {
+      console.error("Error fetching system float:", error);
+      res.status(500).json({ message: `Failed to fetch system float: ${error.message}` });
+    }
+  });
+
+  app.post('/api/reconciliation/adjust-float', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { amount, reason } = req.body;
+      
+      if (!amount || !reason) {
+        return res.status(400).json({ message: "Amount and reason are required" });
+      }
+
+      const adjustmentAmount = parseFloat(amount);
+      const entryNumber = `SF-${Date.now()}`;
+
+      // Create journal entry for float adjustment
+      const journalEntry = await db.insert(journalEntries).values({
+        entryNumber,
+        entryDate: new Date(),
+        description: `System Float Adjustment - ${reason}`,
+        totalAmount: Math.abs(adjustmentAmount).toString(),
+        createdBy: user.email
+      }).returning();
+
+      // Create journal entry lines
+      await db.insert(journalEntryLines).values([
+        {
+          journalEntryId: journalEntry[0].id,
+          accountCode: '1100',
+          accountName: 'Cash Reserves',
+          debitAmount: adjustmentAmount > 0 ? adjustmentAmount.toString() : "0.00",
+          creditAmount: adjustmentAmount < 0 ? Math.abs(adjustmentAmount).toString() : "0.00",
+          description: reason
+        }
+      ]);
+
+      res.json({ 
+        success: true, 
+        adjustmentAmount: adjustmentAmount,
+        message: "System float adjusted successfully"
+      });
+
+    } catch (error: any) {
+      console.error("Error adjusting system float:", error);
+      res.status(500).json({ message: `Failed to adjust system float: ${error.message}` });
+    }
+  });
+
+  app.get('/api/reconciliation/daily-report', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      // Get today's reconciliation checks from journal entries
+      const today = new Date();
+      const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+      const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+
+      const reconciliationChecks = await db.select()
+        .from(journalEntries)
+        .where(and(
+          like(journalEntries.description, '%Reconciliation Check%'),
+          gte(journalEntries.entryDate, startOfDay),
+          lte(journalEntries.entryDate, endOfDay)
+        ));
+
+      const checksRun = reconciliationChecks.length;
+      
+      // Count variances by checking for "Variance:" in description
+      let variancesFound = 0;
+      let largestVariance = 0;
+      
+      reconciliationChecks.forEach((check: any) => {
+        if (check.description?.includes('Variance:')) {
+          const match = check.description.match(/Variance: ([\d.]+)/);
+          if (match) {
+            const variance = parseFloat(match[1]);
+            if (variance > 0) {
+              variancesFound++;
+              if (variance > largestVariance) {
+                largestVariance = variance;
+              }
+            }
+          }
+        }
+      });
+
+      res.json({
+        date: new Date().toISOString().split('T')[0],
+        checksRun,
+        variancesFound,
+        largestVariance,
+        status: variancesFound === 0 ? 'ALL_BALANCED' : 'VARIANCES_DETECTED',
+        lastCheckTime: reconciliationChecks[reconciliationChecks.length - 1]?.entryDate || null
+      });
+
+    } catch (error: any) {
+      console.error("Error generating daily report:", error);
+      res.status(500).json({ message: `Failed to generate daily report: ${error.message}` });
+    }
+  });
+
+  // Test SMS configuration
+  app.post('/api/notifications/test-sms', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      // Check if custom SMS config is provided
+      const { smsConfig } = req.body;
+      
+      if (!smsConfig) {
+        return res.status(400).json({ message: "SMS configuration required" });
+      }
+
+      // Create temporary SMS service with custom config
+      const { SMSService } = await import('./smsService.js');
+      const customConfig = {
+        provider: smsConfig.provider || 'zamtel',
+        apiUrl: smsConfig.apiUrl || 'https://api.zamtel.co.zm/v1/sms/send',
+        username: smsConfig.username,
+        password: smsConfig.password,
+        senderId: smsConfig.senderId || 'SMILE_MONEY',
+        enabled: smsConfig.enabled !== false
+      };
+      
+      const testSMSService = new SMSService(customConfig);
+
+      // Test connection
+      const isConnected = await testSMSService.testConnection();
+      
+      if (isConnected) {
+        res.json({ 
+          message: "SMS configuration test successful",
+          connectionTest: true,
+          provider: customConfig.provider,
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        res.status(500).json({ 
+          message: "SMS connection failed - check API credentials and URL",
+          connectionTest: false
+        });
+      }
+    } catch (error: any) {
+      console.error("Error testing SMS system:", error);
+      res.status(500).json({ 
+        message: `SMS system test failed: ${error.message || 'Unknown error'}`,
+        error: error.code || 'UNKNOWN_ERROR'
+      });
+    }
+  });
+
+  // Test email configuration
+  app.post('/api/notifications/test-email', isFirebaseAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      // Check if custom SMTP config is provided
+      const { smtpConfig } = req.body;
+      let testEmailService = emailService;
+      
+      if (smtpConfig) {
+        // Create temporary email service with custom config
+        const { EmailService } = await import('./emailService.js');
+        const customConfig = {
+          host: smtpConfig.host || 'cash.smilemoney.africa',
+          port: parseInt(smtpConfig.port) || 465,
+          secure: true, // Use SSL for port 465
+          auth: {
+            user: smtpConfig.user || 'test@cash.smilemoney.africa',
+            pass: smtpConfig.pass
+          },
+          from: `Smile Money <${smtpConfig.user || 'test@cash.smilemoney.africa'}>`
+        };
+        testEmailService = new EmailService(customConfig);
+      }
+
+      const isConnected = await testEmailService.testConnection();
+      
+      if (isConnected) {
+        // Send test email
+        const testTemplate = {
+          subject: "Smile Money Email System Test",
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #2563eb;">✅ Email System Test Successful</h2>
+              <p>This is a test email from Smile Money's email system.</p>
+              <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                <strong>Test Details:</strong><br>
+                • Sent at: ${new Date().toISOString()}<br>
+                • SMTP Host: ${smtpConfig?.host || 'cash.smilemoney.africa'}<br>
+                • From: ${smtpConfig?.user || 'test@cash.smilemoney.africa'}<br>
+                • To: ${smtpConfig?.user || user.email}
+              </div>
+              <p><strong>✅ Email system is working correctly!</strong></p>
+              <hr style="margin: 20px 0;">
+              <p style="color: #6b7280; font-size: 12px;">
+                © 2025 Smile Money. Licensed Financial Services Provider - Bank of Zambia
+              </p>
+            </div>
+          `,
+          text: `Email System Test - Sent at ${new Date().toISOString()} - System working correctly!`
+        };
+        
+        const targetEmail = smtpConfig?.user || user.email;
+        const success = await testEmailService.sendEmail(targetEmail, testTemplate);
+        
+        res.json({ 
+          message: `Email system test completed successfully - email sent to ${targetEmail}`,
+          connectionTest: true,
+          emailSent: success,
+          smtpHost: smtpConfig?.host || 'default',
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        res.status(500).json({ 
+          message: "Email system connection failed - check SMTP credentials",
+          connectionTest: false
+        });
+      }
+    } catch (error: any) {
+      console.error("Error testing email system:", error);
+      res.status(500).json({ 
+        message: `Email system test failed: ${error.message || 'Unknown error'}`,
+        error: error.code || 'UNKNOWN_ERROR'
+      });
+    }
   });
 
   return httpServer;

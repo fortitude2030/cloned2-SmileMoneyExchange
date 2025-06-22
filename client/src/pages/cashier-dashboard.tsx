@@ -6,6 +6,7 @@ import { useTransactionNotifications } from "@/hooks/use-transaction-notificatio
 import { useTimer } from "@/contexts/timer-context";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { queryKeys } from "@/lib/queryKeys";
 import MobileHeader from "@/components/mobile-header";
 import MobileNav from "@/components/mobile-nav";
 import SimpleDocumentUpload from "@/components/simple-document-upload";
@@ -115,6 +116,37 @@ export default function CashierDashboard() {
   const [qrVmfNumber, setQrVmfNumber] = useState("");
   const [activeQrTransaction, setActiveQrTransaction] = useState<any>(null);
 
+  // OTP management
+  const { data: otpData, isLoading: otpLoading, refetch: refetchOtp } = useQuery<{
+    otp: string | null;
+    firstName: string;
+    expiresAt: string;
+    isActive: boolean;
+    message?: string;
+  }>({
+    queryKey: ['/api/cashiers/current-otp'],
+    refetchInterval: 30000, // Refresh every 30 seconds
+    retry: false,
+  });
+
+  const generateOtpMutation = useMutation({
+    mutationFn: () => apiRequest('/api/cashiers/generate-otp', 'POST', {}),
+    onSuccess: () => {
+      refetchOtp();
+      toast({
+        title: "OTP Generated",
+        description: "New OTP code has been generated successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to generate OTP",
+        variant: "destructive",
+      });
+    },
+  });
+
 
 
 
@@ -134,7 +166,7 @@ export default function CashierDashboard() {
     }
   }, [isAuthenticated, isLoading, toast]);
 
-  // Fetch pending transactions (only RTP) - high frequency polling for immediate updates
+  // Fetch pending transactions (only RTP) - optimized polling for cashier operations
   const { data: pendingTransactions = [], isLoading: transactionsLoading } = useQuery<Array<{
     id: number;
     transactionId: string;
@@ -145,15 +177,15 @@ export default function CashierDashboard() {
     description?: string;
     type?: string;
   }>>({
-    queryKey: ["/api/transactions/pending"],
+    queryKey: queryKeys.transactions.pending(),
     retry: false,
     enabled: isAuthenticated,
-    refetchInterval: 2000, // Poll every 2 seconds for immediate new requests
+    refetchInterval: 5000, // Reduced from 2s to 5s - still responsive for cashier needs
     refetchOnWindowFocus: true,
     refetchOnMount: true,
   });
 
-  // Fetch QR transactions separately for direct processing - high frequency polling
+  // Fetch QR transactions separately for direct processing - optimized polling
   const { data: qrTransactions = [], isLoading: qrTransactionsLoading } = useQuery<Array<{
     id: number;
     transactionId: string;
@@ -164,15 +196,15 @@ export default function CashierDashboard() {
     description?: string;
     type: string;
   }>>({
-    queryKey: ["/api/transactions/qr-verification"],
+    queryKey: queryKeys.transactions.qrVerification(),
     retry: false,
     enabled: isAuthenticated,
-    refetchInterval: 2000, // Poll every 2 seconds for immediate QR updates
+    refetchInterval: 5000, // Reduced from 2s to 5s - still responsive for QR processing
     refetchOnWindowFocus: true,
     refetchOnMount: true,
   });
 
-  // Fetch all transactions for Recent Transactions section - faster polling for real-time updates
+  // Fetch all transactions for Recent Transactions section - optimized polling
   const { data: transactions = [], isLoading: allTransactionsLoading } = useQuery<Array<{
     id: number;
     transactionId: string;
@@ -183,15 +215,15 @@ export default function CashierDashboard() {
     description?: string;
     rejectionReason?: string;
   }>>({
-    queryKey: ["/api/transactions"],
+    queryKey: queryKeys.transactions.all(),
     retry: false,
     enabled: isAuthenticated,
-    refetchInterval: 3000, // Poll every 3 seconds for faster updates
+    refetchInterval: 15000, // Reduced from 3s to 15s - recent transactions don't need constant updates
     refetchOnWindowFocus: true,
     refetchOnMount: true,
   });
 
-  // Fetch wallet data for real-time balance tracking
+  // Fetch wallet data with optimized caching for cashier operations
   const { data: wallet, isLoading: walletLoading } = useQuery<{
     id: number;
     balance: string;
@@ -200,13 +232,14 @@ export default function CashierDashboard() {
     dailyTransferred: string;
     isActive: boolean;
   }>({
-    queryKey: ["/api/wallet"],
+    queryKey: queryKeys.wallet.current(),
     retry: false,
     enabled: isAuthenticated,
-    refetchInterval: 1000, // Poll every 1 second for real-time balance updates
+    refetchInterval: 3000, // Reduced from 1s to 3s - still responsive for cashier balance tracking
     refetchOnWindowFocus: true,
     refetchOnMount: true,
-    staleTime: 0, // Data is immediately stale
+    staleTime: 2000, // Data is fresh for 2 seconds
+    gcTime: 30000, // Keep in cache for 30 seconds
   });
 
   // Clean up state for completed transactions to prevent UI confusion
@@ -718,6 +751,54 @@ export default function CashierDashboard() {
             <span>{activeSession.location}</span>
           </div>
         </div>
+
+        {/* OTP Display Card */}
+        <Card className="mb-6 border-2 border-primary/20 bg-gradient-to-r from-primary/5 to-accent/5">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
+                  <i className="fas fa-key text-white text-sm"></i>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-800 dark:text-gray-200">
+                    Cashier OTP Code
+                  </h3>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                    Share this code with customers for payments
+                  </p>
+                </div>
+              </div>
+              
+              {otpLoading ? (
+                <div className="animate-pulse bg-gray-200 dark:bg-gray-700 h-8 w-24 rounded"></div>
+              ) : otpData?.otp ? (
+                <div className="text-right">
+                  <div className="text-2xl font-mono font-bold text-primary">
+                    {otpData.otp}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {otpData.isActive ? 'Active' : 'Expired'}
+                  </div>
+                </div>
+              ) : (
+                <Button 
+                  onClick={() => generateOtpMutation.mutate()}
+                  disabled={generateOtpMutation.isPending}
+                  size="sm"
+                  className="bg-primary text-white"
+                >
+                  {generateOtpMutation.isPending ? (
+                    <i className="fas fa-spinner fa-spin mr-2"></i>
+                  ) : (
+                    <i className="fas fa-plus mr-2"></i>
+                  )}
+                  Generate OTP
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Transaction Timer - Only shows when there's an active transaction */}
         {(activeTransaction || activeQrTransaction) && isActive && timeLeft > 0 && (
@@ -1417,7 +1498,11 @@ export default function CashierDashboard() {
           setShowQRScanner(false);
           setCurrentTransaction(null);
         }}
-        expectedAmount={currentTransaction?.amount}
+        transactionData={{
+          transactionId: currentTransaction?.transactionId || "",
+          amount: currentTransaction?.amount || "0",
+          vmfNumber: currentTransaction?.vmfNumber || ""
+        }}
       />
 
       <SimpleDocumentUpload

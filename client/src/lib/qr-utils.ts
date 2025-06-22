@@ -64,7 +64,7 @@ export async function generatePaymentQR(
 ): Promise<string> {
   try {
     const now = Date.now();
-    const expiresAt = now + (2 * 60 * 1000); // 2 minutes expiration
+    const expiresAt = now + (120 * 1000); // 120 seconds - same as transaction timer
     
     const paymentData: PaymentQRData = {
       transactionId,

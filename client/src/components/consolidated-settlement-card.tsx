@@ -18,14 +18,38 @@ interface MonthlySettlementData {
 export function ConsolidatedSettlementCard() {
   const [period, setPeriod] = useState<'weekly' | 'monthly' | 'yearly'>('monthly');
 
-  const { data: settlementData, isLoading } = useQuery<MonthlySettlementData>({
+  const { data: settlementData, isLoading, error } = useQuery<MonthlySettlementData>({
     queryKey: ['/api/monthly-settlement-breakdown', period],
     queryFn: async () => {
-      const response = await fetch(`/api/monthly-settlement-breakdown?period=${period}`);
-      if (!response.ok) throw new Error('Failed to fetch settlement data');
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`/api/monthly-settlement-breakdown?period=${period}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!response.ok) {
+        if (response.status === 401) {
+          // Return default data for unauthorized access
+          return {
+            approved: 0,
+            rejected: 0,
+            pending: 0,
+            approvedCount: 0,
+            rejectedCount: 0,
+            pendingCount: 0,
+            period: period,
+            lastUpdated: new Date().toISOString(),
+          };
+        }
+        throw new Error('Failed to fetch settlement data');
+      }
       return response.json();
     },
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: 60000, // Refresh every 60 seconds to reduce flashing
+    refetchOnWindowFocus: false,
+    staleTime: 45000,
+    retry: false,
   });
 
   const formatCurrency = (amount: number) => {
@@ -85,15 +109,15 @@ export function ConsolidatedSettlementCard() {
   }
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <div className="flex items-center justify-between">
+    <Card className="w-full min-h-[350px] shadow-sm border border-gray-200 dark:border-gray-700">
+      <CardHeader className="pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-lg">
               <Calendar className="h-5 w-5" />
               Settlement Overview
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="mt-1">
               {getPeriodLabel(period)} • Auto-renews {period === 'monthly' ? `on ${getNextRenewalDate()}` : 'daily'}
             </CardDescription>
           </div>
@@ -112,7 +136,7 @@ export function ConsolidatedSettlementCard() {
           </div>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-2">
         {settlementData && (
           <div className="space-y-6">
             {/* Summary Stats */}

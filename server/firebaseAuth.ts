@@ -4,9 +4,29 @@ import { storage } from "./storage";
 
 // Initialize Firebase Admin SDK
 if (!admin.apps.length) {
-  admin.initializeApp({
-    projectId: process.env.VITE_FIREBASE_PROJECT_ID,
-  });
+  try {
+    const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+    if (serviceAccountKey) {
+      const serviceAccount = JSON.parse(serviceAccountKey);
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+        projectId: process.env.VITE_FIREBASE_PROJECT_ID,
+      });
+      console.log('✓ Firebase Admin SDK initialized with service account');
+    } else {
+      // Fallback initialization for development
+      admin.initializeApp({
+        projectId: process.env.VITE_FIREBASE_PROJECT_ID,
+      });
+      console.log('⚠ Firebase Admin SDK initialized without service account (limited functionality)');
+    }
+  } catch (error) {
+    console.error('Firebase Admin SDK initialization error:', error);
+    // Initialize with minimal config as fallback
+    admin.initializeApp({
+      projectId: process.env.VITE_FIREBASE_PROJECT_ID,
+    });
+  }
 }
 
 export async function setupFirebaseAuth(app: Express) {
@@ -78,10 +98,11 @@ export async function setupFirebaseAuth(app: Express) {
       }
 
       const idToken = authHeader.split('Bearer ')[1];
+      let firebaseUid: string;
       
       // Verify the Firebase ID token
       const decodedToken = await admin.auth().verifyIdToken(idToken);
-      const firebaseUid = decodedToken.uid;
+      firebaseUid = decodedToken.uid;
 
       // Get user from our database
       const user = await storage.getUser(firebaseUid);
@@ -113,25 +134,39 @@ export async function setupFirebaseAuth(app: Express) {
 // Firebase authentication middleware
 export const isFirebaseAuthenticated: RequestHandler = async (req: any, res, next) => {
   try {
-    if (!req.session?.user) {
-      return res.status(401).json({ message: "Unauthorized" });
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    const userId = req.session.user.claims.sub;
-    const user = await storage.getUser(userId);
+    const idToken = authHeader.split('Bearer ')[1];
+    let firebaseUid: string;
     
+    // Verify the Firebase ID token
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    firebaseUid = decodedToken.uid;
+
+    // Get user from our system
+    const user = await storage.getUser(firebaseUid);
     if (!user) {
-      return res.status(401).json({ message: "User not found" });
+      return res.status(401).json({ message: 'User not found' });
     }
 
+    // Check if user has been assigned a role
     if (user.role === 'pending') {
-      return res.status(403).json({ message: "Account pending approval" });
+      return res.status(403).json({ message: 'Account pending admin approval' });
     }
 
-    req.user = req.session.user;
+    // Attach user to request
+    req.user = {
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+    };
+
     next();
   } catch (error) {
-    console.error("Authentication error:", error);
-    res.status(500).json({ message: "Authentication error" });
+    console.error('Firebase authentication error:', error);
+    res.status(401).json({ message: 'Unauthorized' });
   }
 };

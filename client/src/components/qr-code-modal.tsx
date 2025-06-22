@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { generateQRCode } from "@/lib/qr-utils";
 import { useTimer } from "@/contexts/timer-context";
+import { auth } from "@/lib/firebase";
 
 interface QRCodeModalProps {
   isOpen: boolean;
@@ -14,8 +15,9 @@ interface QRCodeModalProps {
 
 export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCodeModalProps) {
   const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
-  const [transactionId, setTransactionId] = useState<string>("");
-  const [uniqueId] = useState(() => `QR${Date.now()}${Math.random().toString(36).substr(2, 9)}`);
+  const [transactionId, setTransactionId] = useState<string>("");  
+  const [hasGeneratedQr, setHasGeneratedQr] = useState(false);
+  const [error, setError] = useState<string>("");
   
   // Use global timer system
   const { timeLeft, isActive, startTimer, markInteraction, stopTimer } = useTimer();
@@ -31,12 +33,16 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
     }
   }, [isOpen, amount, vmfNumber]);
 
-  // Expire QR code immediately when timer expires (30s or 120s)
+  // Auto-regenerate QR code when timer expires instead of showing expired message
   useEffect(() => {
-    if (!isActive && timeLeft === 0) {
-      setIsQrExpired(true);
+    if (!isActive && timeLeft === 0 && isOpen) {
+      // Reset QR generation state and create a fresh QR code
+      setHasGeneratedQr(false);
+      setTransactionId("");
+      setError("");
+      handleGenerateQR();
     }
-  }, [isActive, timeLeft]);
+  }, [isActive, timeLeft, isOpen]);
 
   // Reset state when modal is closed
   useEffect(() => {
@@ -44,43 +50,62 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
       setIsQrExpired(true);
       setQrCodeUrl("");
       setTransactionId("");
+      setHasGeneratedQr(false);
+      setError("");
     }
   }, [isOpen]);
 
   const handleGenerateQR = async () => {
     try {
-      // Only create transaction once, store the ID for refreshes
-      if (!transactionId) {
-        const transactionData = {
-          type: 'qr_code_payment',
-          amount: Math.floor(parseFloat(amount)).toString(),
-          vmfNumber: vmfNumber,
-          description: `QR Payment - ${vmfNumber}`,
-          currency: 'ZMW'
-        };
-
-        const transactionResponse = await fetch('/api/transactions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-          body: JSON.stringify(transactionData)
-        });
-
-        if (!transactionResponse.ok) {
-          const errorData = await transactionResponse.json();
-          throw new Error(errorData.message || 'Failed to create transaction');
-        }
-
-        const transaction = await transactionResponse.json();
-        setTransactionId(transaction.transactionId);
+      setError("");
+      
+      // Prevent multiple QR generation
+      if (hasGeneratedQr) {
+        setError("QR already in progress");
+        return;
       }
 
-      // Generate QR code client-side with fresh nonce and timestamp
+      // Create transaction with RTP-style logging
+      const transactionData = {
+        type: 'qr_code_payment',
+        amount: Math.floor(parseFloat(amount)).toString(),
+        vmfNumber: vmfNumber,
+        description: `QR Payment - VMF: ${vmfNumber}`,
+        currency: 'ZMW',
+        status: 'pending'
+      };
+
+      // Get fresh Firebase auth token from current user
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error('User not authenticated');
+      }
+      
+      const token = await currentUser.getIdToken(true); // Force refresh token
+      
+      const transactionResponse = await fetch('/api/transactions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        credentials: 'include',
+        body: JSON.stringify(transactionData)
+      });
+
+      if (!transactionResponse.ok) {
+        const errorData = await transactionResponse.json();
+        throw new Error(errorData.message || 'Failed to create transaction');
+      }
+
+      const transaction = await transactionResponse.json();
+      setTransactionId(transaction.transactionId);
+      setHasGeneratedQr(true);
+
+      // Generate unique QR code with transaction details
       const { generatePaymentQR } = await import('@/lib/qr-utils');
       const qrDataUrl = await generatePaymentQR(
-        transactionId || 'pending',
+        transaction.transactionId,
         Math.floor(parseFloat(amount)).toString(),
         'qr_code_payment'
       );
@@ -89,22 +114,18 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
       
     } catch (error) {
       console.error("Error generating QR code:", error);
+      setError(error instanceof Error ? error.message : "Failed to generate QR code");
       setQrCodeUrl("");
     }
   };
 
-  // Auto-refresh QR code every 2 seconds while modal is open and timer is active
+  // Generate QR code only once when modal opens (no auto-refresh)
   useEffect(() => {
-    if (!isOpen || isQrExpired || !isActive) return;
-
-    const interval = setInterval(() => {
-      if (transactionId) {
-        handleGenerateQR();
-      }
-    }, 2000);
-
-    return () => clearInterval(interval);
-  }, [isOpen, isQrExpired, isActive, transactionId]);
+    if (isOpen && amount && vmfNumber && !hasGeneratedQr) {
+      handleGenerateQR();
+      setIsQrExpired(false);
+    }
+  }, [isOpen, amount, vmfNumber, hasGeneratedQr]);
 
   const formatCurrency = (amount: string | number) => {
     const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
@@ -124,41 +145,16 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
       <DialogContent className="w-full max-w-sm mx-4">
         <DialogHeader>
           <DialogTitle className="text-center">
-            {isExpired ? "QR Code Expired" : "Payment Request QR"}
+            QR Pay - Request {transactionId}
           </DialogTitle>
-          <DialogDescription className="text-center">
-            {isExpired ? "Please generate a new QR code to continue" : "Scan this QR code to complete the payment"}
-          </DialogDescription>
         </DialogHeader>
         
         <div className="text-center space-y-4">
-          {/* Countdown Timer */}
-          <div className={`p-3 rounded-lg border ${
-            timeLeft <= 10 
-              ? 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-700' 
-              : 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-700'
-          }`}>
-            <div className="flex items-center justify-between mb-2">
-              <span className={`text-sm font-medium ${
-                timeLeft <= 10 
-                  ? 'text-red-700 dark:text-red-300' 
-                  : 'text-blue-700 dark:text-blue-300'
-              }`}>
-                {isExpired ? 'Expired' : 'Time Remaining'}
-              </span>
-              <span className={`text-lg font-bold ${
-                timeLeft <= 10 
-                  ? 'text-red-800 dark:text-red-200' 
-                  : 'text-blue-800 dark:text-blue-200'
-              }`}>
-                {isExpired ? '00:00' : `${Math.floor(timeLeft / 60).toString().padStart(2, '0')}:${(timeLeft % 60).toString().padStart(2, '0')}`}
-              </span>
+          {error && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg dark:bg-red-900/20 dark:border-red-700">
+              <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>
             </div>
-            <Progress 
-              value={progressPercentage} 
-              className={`h-2 ${timeLeft <= 10 ? 'bg-red-200' : 'bg-blue-200'}`}
-            />
-          </div>
+          )}
 
           {!qrCodeUrl ? (
             <div className="w-48 h-48 mx-auto bg-gray-100 dark:bg-gray-800 rounded-xl flex items-center justify-center">
@@ -167,20 +163,12 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
                 <p className="text-gray-600 dark:text-gray-400 text-sm">Generating QR Code...</p>
               </div>
             </div>
-          ) : (isExpired || isQrExpired) ? (
-            <div className="w-48 h-48 mx-auto bg-red-50 dark:bg-red-900/20 rounded-xl flex items-center justify-center border border-red-200 dark:border-red-700">
-              <div className="text-center">
-                <i className="fas fa-times-circle text-6xl text-red-500 mb-3"></i>
-                <p className="text-red-600 dark:text-red-400 font-medium">QR Code Expired</p>
-                <p className="text-red-500 dark:text-red-400 text-sm mt-1">Generate a new one</p>
-              </div>
-            </div>
           ) : (
             <div className="qr-code-container w-48 h-48 mx-auto">
               <img 
                 src={qrCodeUrl} 
                 alt="Payment QR Code" 
-                className="w-full h-full object-contain"
+                className="w-full h-full object-contain border-2 border-gray-200 dark:border-gray-700 rounded-lg"
                 key={qrCodeUrl}
               />
             </div>
@@ -188,31 +176,11 @@ export default function QRCodeModal({ isOpen, onClose, amount, vmfNumber }: QRCo
           
 
           
-          {!(isExpired || isQrExpired) ? (
-            <p className="text-gray-600 dark:text-gray-400 text-sm">
-              Show this QR code to the security cashier to complete the transaction
-            </p>
-          ) : (
-            <p className="text-red-600 dark:text-red-400 text-sm font-medium">
-              This QR code has expired. Please generate a new payment request.
-            </p>
-          )}
+          <p className="text-gray-600 dark:text-gray-400 text-sm">
+            Show this QR code to the security cashier to complete the transaction
+          </p>
           
           <div className="flex gap-2">
-            {(isExpired || isQrExpired) && (
-              <Button 
-                onClick={() => {
-                  setIsQrExpired(false);
-                  startTimer();
-                  markInteraction();
-                  handleGenerateQR();
-                }} 
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                <i className="fas fa-redo mr-2"></i>
-                Generate New QR
-              </Button>
-            )}
             <Button 
               onClick={() => {
                 setIsQrExpired(true); // Expire QR immediately when closing

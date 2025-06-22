@@ -1,0 +1,59 @@
+Based on my analysis, I'll implement Phase 1: Data Collection Completeness. Here's what I plan to change:
+
+Proposed Changes for Phase 1
+1. Enhanced Organization Creation Form
+Current: Basic fields (name, registration, address, contact info, business type)
+New: Add regulatory required fields:
+
+PACRA Certificate Number
+ZRA TPIN Number
+Business License Number & Expiry Date
+Banking Details (Primary Bank, Account Number)
+Director/Owner Information (Name, NRC, Phone)
+Share Capital Amount
+Physical Address Verification
+2. Document-Data Cross-Validation System
+Implementation:
+
+Validate PACRA certificate number against uploaded PACRA document
+Cross-check ZRA TPIN number with uploaded certificate
+Verify director information matches uploaded NRC documents
+Implement document OCR/text extraction for automated validation
+3. Complete Organization Profile Workflow
+New Multi-Step Process:
+
+Step 1: Basic Organization Information (enhanced form)
+Step 2: Regulatory Documentation (PACRA, ZRA, Business License)
+Step 3: Director/Owner KYC Documents
+Step 4: Banking and Financial Information
+Step 5: Final Review and Submission
+4. Data Completeness Enforcement
+Business Logic Changes:
+
+Prevent organization activation until all required fields completed
+Block user assignment to incomplete organizations
+Enforce document upload before status changes
+Add validation rules for Zambian regulatory requirements
+5. Database Schema Updates
+New Fields in Organizations Table:
+
+businessLicenseNumber, businessLicenseExpiry
+primaryBankName, primaryAccountNumber
+directorName, directorNrc, directorPhone
+shareCapitalAmount, physicalAddressVerified
+profileCompletionPercentage, requiredFieldsComplete
+6. Enhanced KYC Document Management
+Improvements:
+
+Link documents to specific organization data fields
+Implement document expiry tracking
+Add document quality validation
+Create document replacement workflow
+Do you want me to proceed with implementing these Phase 1 changes? This will involve:
+
+Database schema updates
+Enhanced organization creation forms
+Document validation logic
+Business rule enforcement
+Updated API endpoints
+Please confirm if you'd like me to start implementation or if you'd like me to modify any aspect of this plan.

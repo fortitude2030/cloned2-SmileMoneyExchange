@@ -1,4 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { auth } from "./firebase";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -7,12 +8,28 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+async function getValidToken(): Promise<string | null> {
+  const user = auth.currentUser;
+  if (!user) return null;
+  
+  try {
+    // Force token refresh to ensure it's valid
+    const token = await user.getIdToken(true);
+    localStorage.setItem('firebaseToken', token);
+    return token;
+  } catch (error) {
+    console.error('Error refreshing token:', error);
+    localStorage.removeItem('firebaseToken');
+    return null;
+  }
+}
+
 export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
-): Promise<Response> {
-  const token = localStorage.getItem('authToken');
+): Promise<any> {
+  const token = await getValidToken();
   const headers: Record<string, string> = {};
   
   if (data) {
@@ -29,8 +46,23 @@ export async function apiRequest(
     body: data ? JSON.stringify(data) : undefined,
   });
 
+  // If token expired, try to refresh and retry once
+  if (res.status === 401) {
+    const refreshedToken = await getValidToken();
+    if (refreshedToken && refreshedToken !== token) {
+      headers["Authorization"] = `Bearer ${refreshedToken}`;
+      const retryRes = await fetch(url, {
+        method,
+        headers,
+        body: data ? JSON.stringify(data) : undefined,
+      });
+      await throwIfResNotOk(retryRes);
+      return retryRes.json();
+    }
+  }
+
   await throwIfResNotOk(res);
-  return res;
+  return res.json();
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
@@ -39,7 +71,7 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const token = localStorage.getItem('authToken');
+    const token = await getValidToken();
     const headers: Record<string, string> = {};
     
     if (token) {
@@ -49,6 +81,28 @@ export const getQueryFn: <T>(options: {
     const res = await fetch(queryKey[0] as string, {
       headers,
     });
+
+    // If token expired, try to refresh and retry once
+    if (res.status === 401) {
+      const refreshedToken = await getValidToken();
+      if (refreshedToken && refreshedToken !== token) {
+        headers["Authorization"] = `Bearer ${refreshedToken}`;
+        const retryRes = await fetch(queryKey[0] as string, {
+          headers,
+        });
+        
+        if (unauthorizedBehavior === "returnNull" && retryRes.status === 401) {
+          return null;
+        }
+        
+        await throwIfResNotOk(retryRes);
+        return await retryRes.json();
+      }
+      
+      if (unauthorizedBehavior === "returnNull") {
+        return null;
+      }
+    }
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
       return null;
@@ -64,11 +118,18 @@ export const queryClient = new QueryClient({
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
       refetchOnWindowFocus: false,
-      staleTime: Infinity,
+      staleTime: 30000, // 30 seconds default - data is fresh for 30s
+      gcTime: 300000, // 5 minutes - keep in cache for 5 minutes
       retry: false,
+      // Enable query deduplication - multiple identical requests share same promise
+      networkMode: 'online',
+      // Prevent duplicate requests for same query within short time window
+      structuralSharing: true,
     },
     mutations: {
       retry: false,
+      // Prevent mutation spam
+      networkMode: 'online',
     },
   },
 });

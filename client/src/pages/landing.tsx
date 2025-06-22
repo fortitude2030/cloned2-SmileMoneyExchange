@@ -13,13 +13,14 @@ export default function Landing() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [isLogin, setIsLogin] = useState(true);
+  const [showRegistration] = useState(false); // Disable self-registration
   const [isLoading, setIsLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if ((!email || !password) || (!isLogin && (!firstName || !lastName))) return;
+    if (!email || !password) return;
     
     setIsLoading(true);
     try {
@@ -30,22 +31,18 @@ export default function Landing() {
           description: "You have been successfully logged in.",
         });
       } else {
-        const userCredential = await createUser(email, password);
-        // Update the user profile with first and last name using Firebase auth
-        if (userCredential.user) {
-          await updateProfile(userCredential.user, {
-            displayName: `${firstName} ${lastName}`
-          });
-        }
+        // Block self-registration
         toast({
-          title: "Account created",
-          description: "Your account has been created successfully. Please wait for admin approval.",
+          title: "Registration disabled",
+          description: "Account registration is disabled. Please contact your administrator for account creation.",
+          variant: "destructive",
         });
+        return;
       }
     } catch (error: any) {
       toast({
-        title: isLogin ? "Login failed" : "Registration failed",
-        description: error.message || "An error occurred. Please try again.",
+        title: "Login failed",
+        description: error.message || "Invalid credentials. Please contact your administrator.",
         variant: "destructive",
       });
     } finally {
@@ -129,36 +126,6 @@ export default function Landing() {
             </form>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
-              {!isLogin && (
-                <>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="firstName" className="text-gray-200 font-medium">First Name</Label>
-                      <Input
-                        id="firstName"
-                        type="text"
-                        value={firstName}
-                        onChange={(e) => setFirstName(e.target.value)}
-                        placeholder="John"
-                        className="bg-gray-700 border-gray-600 text-white placeholder:text-gray-400 focus:border-blue-500 focus:ring-blue-500"
-                        required={!isLogin}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="lastName" className="text-gray-200 font-medium">Last Name</Label>
-                      <Input
-                        id="lastName"
-                        type="text"
-                        value={lastName}
-                        onChange={(e) => setLastName(e.target.value)}
-                        placeholder="Doe"
-                        className="bg-gray-700 border-gray-600 text-white placeholder:text-gray-400 focus:border-blue-500 focus:ring-blue-500"
-                        required={!isLogin}
-                      />
-                    </div>
-                  </div>
-                </>
-              )}
 
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-gray-200 font-medium">Email</Label>
@@ -200,22 +167,18 @@ export default function Landing() {
               <Button 
                 type="submit" 
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 transition-colors"
-                disabled={isLoading || !email || !password || (!isLogin && (!firstName || !lastName))}
+                disabled={isLoading || !email || !password}
               >
-                {isLoading ? "Please wait..." : isLogin ? "Sign In" : "Create Account"}
+                {isLoading ? "Signing in..." : "Sign In"}
               </Button>
             </form>
           )}
 
           {!showForgotPassword && (
             <div className="mt-6 text-center">
-              <button
-                type="button"
-                onClick={() => setIsLogin(!isLogin)}
-                className="text-gray-400 hover:text-white text-sm underline transition-colors"
-              >
-                {isLogin ? "Need an account? Register here" : "Already have an account? Sign in"}
-              </button>
+              <p className="text-gray-400 text-sm">
+                Need an account? Contact your administrator
+              </p>
             </div>
           )}
 

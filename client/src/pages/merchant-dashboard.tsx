@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useTransactionNotifications } from "@/hooks/use-transaction-notifications";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { queryKeys } from "@/lib/queryKeys";
 import MobileHeader from "@/components/mobile-header";
 import MobileNav from "@/components/mobile-nav";
 import QRCodeModal from "@/components/qr-code-modal";
@@ -15,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { WalletBalanceSkeleton, TransactionListSkeleton } from "@/components/ui/loading-skeletons";
 
 export default function MerchantDashboard() {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -23,8 +25,14 @@ export default function MerchantDashboard() {
   const [showQRModal, setShowQRModal] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [vmfNumber, setVmfNumber] = useState("");
+  const [cashierOtp, setCashierOtp] = useState("");
   const [showAllTransactions, setShowAllTransactions] = useState(false);
   const [lastQrTransactionId, setLastQrTransactionId] = useState<string | null>(null);
+  const [otpValidation, setOtpValidation] = useState<{
+    valid: boolean;
+    cashierName?: string;
+    timeRemaining?: number;
+  } | null>(null);
 
 
 
@@ -44,7 +52,7 @@ export default function MerchantDashboard() {
     }
   }, [isAuthenticated, isLoading, toast]);
 
-  // Fetch wallet data
+  // Fetch wallet data with smart caching
   const { data: wallet, isLoading: walletLoading } = useQuery<{
     id: number;
     balance: string;
@@ -55,16 +63,17 @@ export default function MerchantDashboard() {
     todayCompleted?: string;
     todayTotal?: string;
   }>({
-    queryKey: ["/api/wallet"],
+    queryKey: queryKeys.wallet.current(),
     retry: false,
     enabled: isAuthenticated,
-    refetchInterval: 1000, // Poll every 1 second for real-time balance updates
-    refetchOnWindowFocus: true,
-    refetchOnMount: true,
-    staleTime: 0, // Data is immediately stale
+    refetchInterval: 60000, // Reduced to 60s - balance updates are not critical for merchant view
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    staleTime: 50000, // Data is fresh for 50 seconds
+    gcTime: 60000, // Keep in cache for 1 minute
   });
 
-  // Fetch transactions with reasonable polling for updates
+  // Fetch transactions with stable caching to prevent UI flickering
   const { data: transactions = [], isLoading: transactionsLoading, refetch } = useQuery<Array<{
     id: number;
     transactionId: string;
@@ -76,62 +85,118 @@ export default function MerchantDashboard() {
     rejectionReason?: string;
     type?: string;
   }>>({
-    queryKey: ["/api/transactions"],
+    queryKey: queryKeys.transactions.all(),
     retry: false,
     enabled: isAuthenticated,
-    refetchInterval: 2000, // Poll every 2 seconds for updates
-    refetchOnWindowFocus: true,
-    refetchOnMount: true,
+    refetchInterval: false, // Disable automatic refresh to prevent flickering
+    refetchOnWindowFocus: false,
+    refetchOnMount: true, // Only fetch on initial mount
+    staleTime: Infinity, // Keep data fresh indefinitely unless manually refetched
+    gcTime: 600000, // Keep in cache for 10 minutes
+    structuralSharing: true, // Prevent unnecessary re-renders when data hasn't changed
   });
 
-  // Monitor QR transactions for auto-closing modal
+  // Monitor QR transactions for auto-closing modal with stable reference
   useEffect(() => {
-    if (!showQRModal || !transactions) return;
+    if (!showQRModal || !Array.isArray(transactions) || !lastQrTransactionId) return;
 
-    // Find the most recent QR transaction for this user
-    const recentQrTransaction = transactions
-      .filter(t => t.type === "qr_code_payment")
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+    // Only check the specific transaction we're tracking
+    const targetTransaction = transactions.find((t: any) => 
+      t.transactionId === lastQrTransactionId && t.type === "qr_code_payment"
+    );
 
-    if (recentQrTransaction && (recentQrTransaction.status === "completed" || recentQrTransaction.status === "rejected")) {
-      // QR transaction completed or rejected - close modal immediately
+    if (targetTransaction && (targetTransaction.status === "completed" || targetTransaction.status === "rejected")) {
       setShowQRModal(false);
       setLastQrTransactionId(null);
       
-      if (recentQrTransaction.status === "completed") {
+      if (targetTransaction.status === "completed") {
         toast({
           title: "QR Payment Completed",
-          description: `Payment of ZMW ${Math.round(parseFloat(recentQrTransaction.amount)).toLocaleString()} has been processed successfully`,
+          description: `Payment of ZMW ${Math.round(parseFloat(targetTransaction.amount)).toLocaleString()} has been processed successfully`,
         });
-      } else if (recentQrTransaction.status === "rejected") {
+      } else if (targetTransaction.status === "rejected") {
         toast({
           title: "QR Payment Rejected",
-          description: recentQrTransaction.rejectionReason || "QR payment was rejected by the cashier",
+          description: targetTransaction.rejectionReason || "QR payment was rejected by the cashier",
           variant: "destructive",
         });
       }
     }
-  }, [transactions, showQRModal, toast]);
+  }, [transactions, showQRModal, lastQrTransactionId, toast]);
+
+  // OTP validation functionality
+  const validateOtp = async (otp: string) => {
+    if (!/^\d{4}-\d{4}$/.test(otp)) {
+      setOtpValidation({ valid: false });
+      toast({
+        title: "Invalid OTP Format",
+        description: "OTP must be in format xxxx-xxxx",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/cashiers/verify-otp/${otp}`);
+      const data = await response.json();
+      
+      if (data.valid) {
+        setOtpValidation({
+          valid: true,
+          cashierName: data.cashierName,
+          timeRemaining: data.timeRemaining
+        });
+        toast({
+          title: "OTP Verified",
+          description: `Valid cashier: ${data.cashierName}`,
+        });
+      } else {
+        setOtpValidation({ valid: false });
+        toast({
+          title: "Invalid OTP",
+          description: data.message || "OTP is invalid or expired",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      setOtpValidation({ valid: false });
+      toast({
+        title: "Validation Error",
+        description: "Failed to validate OTP",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handle OTP input change
+  const handleOtpChange = (value: string) => {
+    setCashierOtp(value);
+    if (value.length === 9 && value.includes('-')) {
+      validateOtp(value);
+    } else {
+      setOtpValidation(null);
+    }
+  };
 
   // Create payment request mutation
   const createPaymentRequest = useMutation({
     mutationFn: async ({ amount, vmfNumber, type = "cash_digitization" }: { amount: string; vmfNumber: string; type?: string }) => {
-      // For QR code payments, we need to route to a cashier
-      let targetUserId = (user as any)?.id || "";
-      
-      if (type === "qr_code_payment") {
-        // QR payments should go to the cashier for processing
-        targetUserId = "test-cashier-user"; // Route QR payments to cashier
+      // Check if OTP is required and valid for RTP and QR payments
+      if ((type === "rtp" || type === "qr_code_payment") && (!cashierOtp || !otpValidation?.valid)) {
+        throw new Error("Valid cashier OTP is required for RTP and QR payments");
       }
       
       await apiRequest("POST", "/api/transactions", {
-        toUserId: targetUserId,
+        toUserId: (user as any)?.id || "",
         amount,
         vmfNumber,
+        cashierOtp: (type === "rtp" || type === "qr_code_payment") ? cashierOtp : undefined,
         type,
         status: "pending",
         description: type === "qr_code_payment" 
           ? `QR code payment request - VMF: ${vmfNumber}`
+          : type === "rtp"
+          ? `RTP payment request - VMF: ${vmfNumber}`
           : `Cash digitization request - VMF: ${vmfNumber}`,
       });
     },
@@ -194,6 +259,15 @@ export default function MerchantDashboard() {
       return;
     }
 
+    if (!cashierOtp || !otpValidation?.valid) {
+      toast({
+        title: "Cashier OTP Required",
+        description: "Please enter a valid cashier OTP code",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const amount = Math.floor(parseFloat(paymentAmount));
     const dailyCollected = Math.floor(parseFloat(wallet?.dailyCollected || "0"));
     const dailyLimit = 1000000; // K1,000,000 collection limit
@@ -208,7 +282,7 @@ export default function MerchantDashboard() {
       return;
     }
 
-    createPaymentRequest.mutate({ amount: paymentAmount, vmfNumber });
+    createPaymentRequest.mutate({ amount: paymentAmount, vmfNumber, type: "rtp" });
   };
 
   const formatCurrency = (amount: string | number) => {
@@ -249,7 +323,7 @@ export default function MerchantDashboard() {
     };
   };
 
-  if (isLoading || walletLoading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
@@ -273,15 +347,19 @@ export default function MerchantDashboard() {
 
       <div className="p-4">
         {/* Transfer Limits - Shows Wallet Balance */}
-        {wallet && <WalletLimitsDisplay wallet={{
-          balance: wallet.balance,
-          dailyLimit: wallet.dailyLimit,
-          dailyCollected: wallet.dailyCollected || '0',
-          dailyTransferred: wallet.dailyTransferred || '0',
-          isActive: wallet.isActive,
-          todayCompleted: wallet.todayCompleted,
-          todayTotal: wallet.todayTotal
-        }} userRole="merchant" />}
+        {walletLoading ? (
+          <WalletBalanceSkeleton />
+        ) : wallet ? (
+          <WalletLimitsDisplay wallet={{
+            balance: wallet.balance,
+            dailyLimit: wallet.dailyLimit,
+            dailyCollected: wallet.dailyCollected || '0',
+            dailyTransferred: wallet.dailyTransferred || '0',
+            isActive: wallet.isActive,
+            todayCompleted: wallet.todayCompleted,
+            todayTotal: wallet.todayTotal
+          }} userRole="merchant" />
+        ) : null}
 
         {/* Payment Request Form */}
         <Card className="shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
@@ -313,6 +391,47 @@ export default function MerchantDashboard() {
                   required
                 />
               </div>
+              <div>
+                <Label htmlFor="cashierOtp">Cashier OTP Code *</Label>
+                <div className="relative">
+                  <Input
+                    id="cashierOtp"
+                    type="text"
+                    value={cashierOtp}
+                    onChange={(e) => {
+                      let value = e.target.value.replace(/[^0-9]/g, '');
+                      if (value.length > 4) {
+                        value = value.slice(0, 4) + '-' + value.slice(4, 8);
+                      }
+                      handleOtpChange(value);
+                    }}
+                    placeholder="xxxx-xxxx"
+                    maxLength={9}
+                    className={`pr-10 ${
+                      otpValidation?.valid ? 'border-green-500' : 
+                      otpValidation === null ? '' : 'border-red-500'
+                    }`}
+                  />
+                  {otpValidation?.valid && (
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                      <i className="fas fa-check text-green-500"></i>
+                    </div>
+                  )}
+                </div>
+                {otpValidation?.valid && (
+                  <p className="text-xs text-green-600 mt-1">
+                    Verified: {otpValidation.cashierName}
+                  </p>
+                )}
+                {otpValidation && !otpValidation.valid && (
+                  <p className="text-xs text-red-600 mt-1">
+                    Invalid or expired OTP
+                  </p>
+                )}
+                <p className="text-xs text-gray-500 mt-1">
+                  Get this code from your assigned cashier
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -321,10 +440,10 @@ export default function MerchantDashboard() {
         <div className="grid grid-cols-2 gap-4 mb-6 mt-6">
           <Button
             onClick={() => {
-              if (!paymentAmount || !vmfNumber.trim()) {
+              if (!paymentAmount || !vmfNumber.trim() || !cashierOtp || !otpValidation?.valid) {
                 toast({
-                  title: "Missing Information",
-                  description: "Please enter both amount and VMF number before generating QR code",
+                  title: "Missing Information", 
+                  description: "Please enter amount, VMF number, and valid cashier OTP before generating QR code",
                   variant: "destructive",
                 });
                 return;
@@ -344,7 +463,7 @@ export default function MerchantDashboard() {
                 return;
               }
 
-              // Show QR modal directly with the entered data
+              // Follow 3-step flow like RTP: validate → show QR modal
               setShowQRModal(true);
             }}
             disabled={createPaymentRequest.isPending}
@@ -381,33 +500,29 @@ export default function MerchantDashboard() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-gray-800 dark:text-gray-200">Recent Transactions</h3>
-              <Button 
-                variant="ghost" 
-                className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-                onClick={() => setShowAllTransactions(!showAllTransactions)}
-              >
-                {showAllTransactions ? 'Show Last 5' : 'Show Last 30'}
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  className="text-gray-600 hover:text-gray-700 text-xs"
+                  onClick={() => refetch()}
+                  disabled={transactionsLoading}
+                >
+                  <i className="fas fa-sync-alt mr-1"></i>
+                  Refresh
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                  onClick={() => setShowAllTransactions(!showAllTransactions)}
+                >
+                  {showAllTransactions ? 'Show Last 5' : 'Show Last 30'}
+                </Button>
+              </div>
             </div>
             
             {transactionsLoading ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg animate-pulse">
-                    <div className="flex items-center">
-                      <div className="w-10 h-10 bg-gray-300 dark:bg-gray-700 rounded-lg mr-3"></div>
-                      <div>
-                        <div className="w-24 h-4 bg-gray-300 dark:bg-gray-700 rounded mb-1"></div>
-                        <div className="w-16 h-3 bg-gray-300 dark:bg-gray-700 rounded"></div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="w-20 h-4 bg-gray-300 dark:bg-gray-700 rounded mb-1"></div>
-                      <div className="w-16 h-3 bg-gray-300 dark:bg-gray-700 rounded"></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <TransactionListSkeleton count={3} />
             ) : !Array.isArray(transactions) || transactions.length === 0 ? (
               <div className="text-center py-8">
                 <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">

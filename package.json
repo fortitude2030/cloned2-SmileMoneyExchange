@@ -45,6 +45,7 @@
     "@types/bcryptjs": "^2.4.6",
     "@types/memoizee": "^0.4.12",
     "@types/multer": "^1.4.12",
+    "@types/nodemailer": "^6.4.17",
     "@types/qrcode": "^1.5.5",
     "bcryptjs": "^3.0.2",
     "canvas": "^3.1.0",
@@ -69,6 +70,7 @@
     "multer": "^2.0.0",
     "nanoid": "^5.1.5",
     "next-themes": "^0.4.6",
+    "nodemailer": "^7.0.3",
     "openid-client": "^6.5.0",
     "passport": "^0.7.0",
     "passport-local": "^1.0.0",
@@ -91,7 +93,7 @@
     "zod-validation-error": "^3.4.0"
   },
   "devDependencies": {
-    "@replit/vite-plugin-cartographer": "^0.2.5",
+    "@replit/vite-plugin-cartographer": "^0.2.7",
     "@replit/vite-plugin-runtime-error-modal": "^0.0.3",
     "@tailwindcss/typography": "^0.5.15",
     "@tailwindcss/vite": "^4.1.3",

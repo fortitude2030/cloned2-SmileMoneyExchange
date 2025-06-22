@@ -7,8 +7,12 @@ import {
   documents,
   settlementRequests,
   qrCodes,
+  cashierOtpHistory,
   notifications,
   kycDocuments,
+  amlConfiguration,
+  amlAlerts,
+  complianceReports,
   type User,
   type UpsertUser,
   type Organization,
@@ -28,10 +32,17 @@ import {
   type InsertNotification,
   type KycDocument,
   type InsertKycDocument,
+  type AmlConfiguration,
+  type InsertAmlConfiguration,
+  type AmlAlert,
+  type InsertAmlAlert,
+  type ComplianceReport,
+  type InsertComplianceReport,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, gte, lt, sql, or, isNull, gt, not, inArray } from "drizzle-orm";
+import { eq, desc, and, gte, lt, lte, sql, or, isNull, gt, not, inArray } from "drizzle-orm";
 import { generateTransactionId } from "./utils";
+import { accountingService } from "./accountingService";
 
 export interface IStorage {
   // User operations (mandatory for Replit Auth)
@@ -42,7 +53,12 @@ export interface IStorage {
   createOrganization(org: InsertOrganization): Promise<Organization>;
   getOrganizationById(id: number): Promise<Organization | undefined>;
   getOrganizationsByUserId(userId: string): Promise<Organization[]>;
+  getAllOrganizations(): Promise<Organization[]>;
+  getApprovedOrganizations(): Promise<Organization[]>;
   updateOrganization(organizationId: number, data: Partial<InsertOrganization>): Promise<Organization>;
+  updateOrganizationKycStatus(organizationId: number, kycStatus: string, reviewedBy?: string, rejectReason?: string): Promise<void>;
+  getUsersByOrganization(organizationId: number): Promise<User[]>;
+  getTransactionsByOrganization(organizationId: number): Promise<Transaction[]>;
   
   // Branch operations
   createBranch(branch: InsertBranch): Promise<Branch>;
@@ -71,6 +87,7 @@ export interface IStorage {
   getAllPendingTransactions(): Promise<Transaction[]>;
   getQRVerificationTransactions(): Promise<Transaction[]>;
   markExpiredTransactions(): Promise<void>;
+  getTransactionByTransactionId(transactionId: string): Promise<Transaction | undefined>;
   
   // Document operations
   createDocument(document: InsertDocument): Promise<Document>;
@@ -102,6 +119,12 @@ export interface IStorage {
   getQrCodeByHash(hash: string): Promise<QrCode | undefined>;
   markQrCodeAsUsed(id: number): Promise<void>;
   expungeExpiredQrCodes(): Promise<void>;
+  
+  // OTP operations for cashier assignment
+  generateCashierOTP(userId: string): Promise<string>;
+  validateOTP(otp: string): Promise<{ valid: boolean; cashierUserId?: string; cashierName?: string }>;
+  markOTPAsUsed(otp: string, transactionId: number, paymentType: string): Promise<void>;
+  refreshOTPIfNeeded(userId: string): Promise<string | null>;
   getActiveQrCodeByTransactionId(transactionId: number): Promise<QrCode | undefined>;
   
   // KYC Document operations
@@ -110,6 +133,42 @@ export interface IStorage {
   updateKycDocumentStatus(id: number, status: string, reviewedBy?: string, rejectReason?: string): Promise<void>;
   getAllPendingKycDocuments(): Promise<(KycDocument & { organization: Organization })[]>;
   updateOrganizationKycStatus(organizationId: number, status: string, reviewedBy?: string, rejectReason?: string): Promise<void>;
+  
+  // AML Configuration operations
+  createAmlConfiguration(config: InsertAmlConfiguration): Promise<AmlConfiguration>;
+  getAmlConfigurations(): Promise<AmlConfiguration[]>;
+  updateAmlConfiguration(id: number, config: Partial<InsertAmlConfiguration>): Promise<void>;
+  deleteAmlConfiguration(id: number): Promise<void>;
+  
+  // AML Alert operations
+  createAmlAlert(alert: InsertAmlAlert): Promise<AmlAlert>;
+  getAmlAlerts(): Promise<AmlAlert[]>;
+  getAmlAlertsByUser(userId: string): Promise<AmlAlert[]>;
+  updateAmlAlertStatus(id: number, status: string, reviewedBy?: string, reviewNotes?: string): Promise<void>;
+  getPendingAmlAlerts(): Promise<AmlAlert[]>;
+  
+  // Compliance Report operations
+  createComplianceReport(report: InsertComplianceReport): Promise<ComplianceReport>;
+  getComplianceReports(): Promise<ComplianceReport[]>;
+  getComplianceReportsByType(reportType: string): Promise<ComplianceReport[]>;
+  updateComplianceReportStatus(id: number, status: string, submittedAt?: Date): Promise<void>;
+  
+  // AML Monitoring operations
+  checkTransactionForAmlViolations(userId: string, amount: number, transactionId?: number): Promise<AmlAlert[]>;
+  getDailyTransactionTotal(userId: string, date: Date): Promise<number>;
+  getWeeklyTransactionTotal(userId: string, startDate: Date): Promise<number>;
+  generateDailyComplianceReport(date: Date): Promise<ComplianceReport>;
+  generateWeeklyComplianceReport(startDate: Date): Promise<ComplianceReport>;
+  generateMonthlyRegulatoryReport(month: number, year: number): Promise<ComplianceReport>;
+  
+  // Admin operations
+  getUserByEmail(email: string): Promise<User | undefined>;
+  getUserByPhone(phoneNumber: string): Promise<User | undefined>;
+  getAllUsers(): Promise<User[]>;
+  getAllOrganizations(): Promise<Organization[]>;
+  getApprovedOrganizations(): Promise<Organization[]>;
+  toggleUserStatus(userId: string, isActive: boolean): Promise<void>;
+  createUserByAdmin(userData: UpsertUser & { phoneNumber?: string; tempPassword?: string }): Promise<User>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -154,7 +213,7 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(organizations)
       .where(eq(organizations.id, id));
-    return org;
+    return org || undefined;
   }
 
   async getOrganizationsByUserId(userId: string): Promise<Organization[]> {
@@ -601,6 +660,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateTransactionStatus(id: number, status: string, rejectionReason?: string): Promise<void> {
+    // Get transaction details before updating for accounting
+    const [transaction] = await db
+      .select()
+      .from(transactions)
+      .where(eq(transactions.id, id));
+
+    if (!transaction) {
+      throw new Error("Transaction not found");
+    }
+
     const updateData: any = { 
       status, 
       updatedAt: new Date() 
@@ -610,10 +679,51 @@ export class DatabaseStorage implements IStorage {
       updateData.rejectionReason = rejectionReason;
     }
     
+    // Update transaction status
     await db
       .update(transactions)
       .set(updateData)
       .where(eq(transactions.id, id));
+
+    // Process accounting entries when transaction is completed
+    if (status === 'completed' && transaction.status !== 'completed') {
+      try {
+        // Get user organization for accounting
+        const user = transaction.fromUserId ? await this.getUser(transaction.fromUserId) : null;
+        const organizationId = user?.organizationId || 1; // Default to organization 1
+
+        // Determine transaction type for accounting
+        let transactionType: 'cash_in' | 'cash_out' | 'p2p_transfer' | 'settlement' = 'cash_in';
+        
+        if (transaction.type === 'qr_code_payment') {
+          transactionType = 'cash_in'; // QR payments are cash digitization
+        } else if (transaction.type === 'settlement') {
+          transactionType = 'settlement'; // Settlement requests
+        } else if (transaction.type === 'transfer') {
+          transactionType = 'p2p_transfer'; // P2P transfers
+        } else {
+          transactionType = 'cash_in'; // Default case
+        }
+
+        // Create accounting transaction
+        const accountingTransaction = {
+          transactionId: transaction.transactionId,
+          amount: parseFloat(transaction.amount),
+          organizationId,
+          description: `${transaction.type || 'Transaction'} - ${transaction.transactionId}`,
+          createdBy: transaction.processedBy || 'system',
+          transactionType
+        };
+
+        // Process the accounting entries
+        await accountingService.processTransaction(accountingTransaction);
+        
+        console.log(`✓ Accounting entries created for transaction ${transaction.transactionId}`);
+      } catch (accountingError) {
+        console.error(`Failed to create accounting entries for transaction ${transaction.transactionId}:`, accountingError);
+        // Don't fail the transaction update if accounting fails
+      }
+    }
   }
 
   async updateTransactionProcessor(id: number, processorId: string): Promise<void> {
@@ -669,6 +779,14 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .orderBy(desc(transactions.createdAt));
+  }
+
+  async getTransactionByTransactionId(transactionId: string): Promise<Transaction | undefined> {
+    const [transaction] = await db
+      .select()
+      .from(transactions)
+      .where(eq(transactions.transactionId, transactionId));
+    return transaction;
   }
 
   // Document operations
@@ -1210,6 +1328,539 @@ export class DatabaseStorage implements IStorage {
       .where(eq(organizations.id, organizationId));
   }
 
+  // Organization transaction volume tracking
+  async getOrganizationTransactionVolume(organizationId: number, startDate: Date, endDate: Date): Promise<number> {
+    try {
+      // Get all users from the organization
+      const orgUsers = await this.getUsersByOrganization(organizationId);
+      const userIds = orgUsers.map(user => user.id);
+
+      if (userIds.length === 0) {
+        return 0;
+      }
+
+      // Sum transactions from all organization users within date range
+      const result = await db
+        .select({
+          total: sql<string>`COALESCE(SUM(CAST(${transactions.amount} AS DECIMAL)), 0)`
+        })
+        .from(transactions)
+        .where(
+          and(
+            or(
+              inArray(transactions.fromUserId, userIds),
+              inArray(transactions.toUserId, userIds)
+            ),
+            eq(transactions.status, 'completed'),
+            gte(transactions.createdAt, startDate),
+            lte(transactions.createdAt, endDate)
+          )
+        );
+
+      return parseFloat(result[0]?.total || '0');
+    } catch (error) {
+      console.error('Error calculating organization transaction volume:', error);
+      return 0;
+    }
+  }
+
+
+
+  // Admin operations
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
+    return user || undefined;
+  }
+
+  async getUserByPhone(phoneNumber: string): Promise<User | undefined> {
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.phoneNumber, phoneNumber))
+      .limit(1);
+    return user || undefined;
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return await db
+      .select()
+      .from(users)
+      .orderBy(desc(users.createdAt));
+  }
+
+  async getAllOrganizations(): Promise<Organization[]> {
+    return await db
+      .select()
+      .from(organizations)
+      .orderBy(desc(organizations.createdAt));
+  }
+
+  async getApprovedOrganizations(): Promise<Organization[]> {
+    return await db
+      .select()
+      .from(organizations)
+      .where(eq(organizations.kycStatus, 'approved'))
+      .orderBy(organizations.name);
+  }
+
+  async getUsersByOrganization(organizationId: number): Promise<User[]> {
+    return await db
+      .select()
+      .from(users)
+      .where(eq(users.organizationId, organizationId))
+      .orderBy(users.firstName, users.lastName);
+  }
+
+  async getTransactionsByOrganization(organizationId: number): Promise<Transaction[]> {
+    // Get all users from the organization first
+    const orgUsers = await this.getUsersByOrganization(organizationId);
+    const userIds = orgUsers.map(user => user.id);
+
+    if (userIds.length === 0) {
+      return [];
+    }
+
+    return await db
+      .select()
+      .from(transactions)
+      .where(or(
+        inArray(transactions.fromUserId, userIds),
+        inArray(transactions.toUserId, userIds)
+      ))
+      .orderBy(desc(transactions.createdAt));
+  }
+
+  async toggleUserStatus(userId: string, isActive: boolean): Promise<void> {
+    await db
+      .update(users)
+      .set({ 
+        isActive,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId));
+  }
+
+  async createUserByAdmin(userData: UpsertUser & { phoneNumber?: string; tempPassword?: string }): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values({
+        ...userData,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+    return user;
+  }
+
+  // AML Configuration operations
+  async createAmlConfiguration(configData: InsertAmlConfiguration): Promise<AmlConfiguration> {
+    const [config] = await db
+      .insert(amlConfiguration)
+      .values(configData)
+      .returning();
+    return config;
+  }
+
+  async getAmlConfigurations(): Promise<AmlConfiguration[]> {
+    return await db
+      .select()
+      .from(amlConfiguration)
+      .where(eq(amlConfiguration.isActive, true))
+      .orderBy(amlConfiguration.configType);
+  }
+
+  async updateAmlConfiguration(id: number, configData: Partial<InsertAmlConfiguration>): Promise<void> {
+    await db
+      .update(amlConfiguration)
+      .set({ ...configData, updatedAt: new Date() })
+      .where(eq(amlConfiguration.id, id));
+  }
+
+  async deleteAmlConfiguration(id: number): Promise<void> {
+    await db
+      .update(amlConfiguration)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(amlConfiguration.id, id));
+  }
+
+  // AML Alert operations
+  async createAmlAlert(alertData: InsertAmlAlert): Promise<AmlAlert> {
+    const [alert] = await db
+      .insert(amlAlerts)
+      .values(alertData)
+      .returning();
+    return alert;
+  }
+
+  async getAmlAlerts(): Promise<AmlAlert[]> {
+    return await db
+      .select()
+      .from(amlAlerts)
+      .orderBy(desc(amlAlerts.flaggedAt))
+      .limit(100);
+  }
+
+  async getAmlAlertsByUser(userId: string): Promise<AmlAlert[]> {
+    return await db
+      .select()
+      .from(amlAlerts)
+      .where(eq(amlAlerts.userId, userId))
+      .orderBy(desc(amlAlerts.flaggedAt));
+  }
+
+  async updateAmlAlertStatus(id: number, status: string, reviewedBy?: string, reviewNotes?: string): Promise<void> {
+    const updateData: any = { status };
+    
+    if (reviewedBy) {
+      updateData.reviewedBy = reviewedBy;
+      updateData.reviewedAt = new Date();
+    }
+    
+    if (reviewNotes) {
+      updateData.reviewNotes = reviewNotes;
+    }
+
+    await db
+      .update(amlAlerts)
+      .set(updateData)
+      .where(eq(amlAlerts.id, id));
+  }
+
+  async getPendingAmlAlerts(): Promise<AmlAlert[]> {
+    return await db
+      .select()
+      .from(amlAlerts)
+      .where(eq(amlAlerts.status, 'pending'))
+      .orderBy(desc(amlAlerts.riskScore), desc(amlAlerts.flaggedAt));
+  }
+
+  // Compliance Report operations
+  async createComplianceReport(reportData: InsertComplianceReport): Promise<ComplianceReport> {
+    const [report] = await db
+      .insert(complianceReports)
+      .values(reportData)
+      .returning();
+    return report;
+  }
+
+  async getComplianceReports(): Promise<ComplianceReport[]> {
+    return await db
+      .select()
+      .from(complianceReports)
+      .orderBy(desc(complianceReports.createdAt));
+  }
+
+  async getComplianceReportsByType(reportType: string): Promise<ComplianceReport[]> {
+    return await db
+      .select()
+      .from(complianceReports)
+      .where(eq(complianceReports.reportType, reportType))
+      .orderBy(desc(complianceReports.createdAt));
+  }
+
+  async updateComplianceReportStatus(id: number, status: string, submittedAt?: Date): Promise<void> {
+    const updateData: any = { status };
+    
+    if (submittedAt) {
+      updateData.submittedAt = submittedAt;
+    }
+
+    await db
+      .update(complianceReports)
+      .set(updateData)
+      .where(eq(complianceReports.id, id));
+  }
+
+  // AML Monitoring operations
+  async checkTransactionForAmlViolations(userId: string, amount: number, transactionId?: number): Promise<AmlAlert[]> {
+    const alerts: AmlAlert[] = [];
+    const configs = await this.getAmlConfigurations();
+    
+    for (const config of configs) {
+      const threshold = parseFloat(config.thresholdAmount);
+      
+      if (config.configType === 'single_transaction' && amount > threshold) {
+        const alert = await this.createAmlAlert({
+          userId,
+          transactionId,
+          alertType: 'threshold_exceeded',
+          riskScore: Math.min(100, Math.floor((amount / threshold) * 50)),
+          triggerAmount: amount.toString(),
+          thresholdAmount: config.thresholdAmount,
+          description: `Single transaction amount (${amount} ZMW) exceeds threshold (${threshold} ZMW)`,
+        });
+        alerts.push(alert);
+      }
+      
+      if (config.configType === 'daily_total') {
+        const today = new Date();
+        const dailyTotal = await this.getDailyTransactionTotal(userId, today);
+        
+        if (dailyTotal + amount > threshold) {
+          const alert = await this.createAmlAlert({
+            userId,
+            transactionId,
+            alertType: 'threshold_exceeded',
+            riskScore: Math.min(100, Math.floor(((dailyTotal + amount) / threshold) * 40)),
+            triggerAmount: (dailyTotal + amount).toString(),
+            thresholdAmount: config.thresholdAmount,
+            description: `Daily transaction total (${dailyTotal + amount} ZMW) exceeds threshold (${threshold} ZMW)`,
+          });
+          alerts.push(alert);
+        }
+      }
+      
+      if (config.configType === 'weekly_volume') {
+        const weekStart = new Date();
+        weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+        const weeklyTotal = await this.getWeeklyTransactionTotal(userId, weekStart);
+        
+        if (weeklyTotal + amount > threshold) {
+          const alert = await this.createAmlAlert({
+            userId,
+            transactionId,
+            alertType: 'threshold_exceeded',
+            riskScore: Math.min(100, Math.floor(((weeklyTotal + amount) / threshold) * 30)),
+            triggerAmount: (weeklyTotal + amount).toString(),
+            thresholdAmount: config.thresholdAmount,
+            description: `Weekly transaction volume (${weeklyTotal + amount} ZMW) exceeds threshold (${threshold} ZMW)`,
+          });
+          alerts.push(alert);
+        }
+      }
+    }
+    
+    return alerts;
+  }
+
+  async getDailyTransactionTotal(userId: string, date: Date): Promise<number> {
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const result = await db
+      .select({
+        total: sql<string>`COALESCE(SUM(CAST(${transactions.amount} AS DECIMAL)), 0)`
+      })
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.fromUserId, userId),
+          eq(transactions.status, 'completed'),
+          gte(transactions.createdAt, startOfDay),
+          lte(transactions.createdAt, endOfDay)
+        )
+      );
+
+    return parseFloat(result[0]?.total || '0');
+  }
+
+  async getWeeklyTransactionTotal(userId: string, startDate: Date): Promise<number> {
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + 7);
+
+    const result = await db
+      .select({
+        total: sql<string>`COALESCE(SUM(CAST(${transactions.amount} AS DECIMAL)), 0)`
+      })
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.fromUserId, userId),
+          eq(transactions.status, 'completed'),
+          gte(transactions.createdAt, startDate),
+          lt(transactions.createdAt, endDate)
+        )
+      );
+
+    return parseFloat(result[0]?.total || '0');
+  }
+
+  async generateDailyComplianceReport(date: Date): Promise<ComplianceReport> {
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Get transaction summary
+    const transactionStats = await db
+      .select({
+        count: sql<string>`COUNT(*)`,
+        total: sql<string>`COALESCE(SUM(CAST(${transactions.amount} AS DECIMAL)), 0)`,
+        avgAmount: sql<string>`COALESCE(AVG(CAST(${transactions.amount} AS DECIMAL)), 0)`
+      })
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.status, 'completed'),
+          gte(transactions.createdAt, startOfDay),
+          lte(transactions.createdAt, endOfDay)
+        )
+      );
+
+    // Get alerts generated today
+    const alertStats = await db
+      .select({
+        count: sql<string>`COUNT(*)`,
+        highRisk: sql<string>`COUNT(CASE WHEN ${amlAlerts.riskScore} >= 70 THEN 1 END)`,
+        mediumRisk: sql<string>`COUNT(CASE WHEN ${amlAlerts.riskScore} BETWEEN 40 AND 69 THEN 1 END)`,
+        lowRisk: sql<string>`COUNT(CASE WHEN ${amlAlerts.riskScore} < 40 THEN 1 END)`
+      })
+      .from(amlAlerts)
+      .where(
+        and(
+          gte(amlAlerts.flaggedAt, startOfDay),
+          lte(amlAlerts.flaggedAt, endOfDay)
+        )
+      );
+
+    const reportData = {
+      date: date.toISOString().split('T')[0],
+      transactions: {
+        count: parseInt(transactionStats[0]?.count || '0'),
+        totalAmount: parseFloat(transactionStats[0]?.total || '0'),
+        averageAmount: parseFloat(transactionStats[0]?.avgAmount || '0')
+      },
+      alerts: {
+        total: parseInt(alertStats[0]?.count || '0'),
+        highRisk: parseInt(alertStats[0]?.highRisk || '0'),
+        mediumRisk: parseInt(alertStats[0]?.mediumRisk || '0'),
+        lowRisk: parseInt(alertStats[0]?.lowRisk || '0')
+      }
+    };
+
+    return await this.createComplianceReport({
+      reportType: 'daily_summary',
+      reportPeriod: date.toISOString().split('T')[0],
+      generatedBy: 'system',
+      reportData
+    });
+  }
+
+  async generateWeeklyComplianceReport(startDate: Date): Promise<ComplianceReport> {
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + 7);
+
+    // Get high-risk alerts for the week
+    const highRiskAlerts = await db
+      .select()
+      .from(amlAlerts)
+      .where(
+        and(
+          gte(amlAlerts.flaggedAt, startDate),
+          lt(amlAlerts.flaggedAt, endDate),
+          gte(amlAlerts.riskScore, 70)
+        )
+      );
+
+    // Get transaction volume by type
+    const transactionTypes = await db
+      .select({
+        type: transactions.type,
+        count: sql<string>`COUNT(*)`,
+        total: sql<string>`COALESCE(SUM(CAST(${transactions.amount} AS DECIMAL)), 0)`
+      })
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.status, 'completed'),
+          gte(transactions.createdAt, startDate),
+          lt(transactions.createdAt, endDate)
+        )
+      )
+      .groupBy(transactions.type);
+
+    const reportData = {
+      weekStart: startDate.toISOString().split('T')[0],
+      weekEnd: endDate.toISOString().split('T')[0],
+      highRiskAlerts: highRiskAlerts.length,
+      transactionBreakdown: transactionTypes.map(t => ({
+        type: t.type,
+        count: parseInt(t.count),
+        totalAmount: parseFloat(t.total)
+      })),
+      suspiciousPatterns: highRiskAlerts.map(alert => ({
+        userId: alert.userId,
+        alertType: alert.alertType,
+        riskScore: alert.riskScore,
+        amount: alert.triggerAmount
+      }))
+    };
+
+    return await this.createComplianceReport({
+      reportType: 'weekly_compliance',
+      reportPeriod: `${startDate.toISOString().split('T')[0]}_to_${endDate.toISOString().split('T')[0]}`,
+      generatedBy: 'system',
+      reportData
+    });
+  }
+
+  async generateMonthlyRegulatoryReport(month: number, year: number): Promise<ComplianceReport> {
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59, 999);
+
+    // Get comprehensive statistics for Bank of Zambia
+    const monthlyStats = await db
+      .select({
+        totalTransactions: sql<string>`COUNT(*)`,
+        totalVolume: sql<string>`COALESCE(SUM(CAST(${transactions.amount} AS DECIMAL)), 0)`,
+        uniqueUsers: sql<string>`COUNT(DISTINCT ${transactions.fromUserId})`
+      })
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.status, 'completed'),
+          gte(transactions.createdAt, startDate),
+          lte(transactions.createdAt, endDate)
+        )
+      );
+
+    // Get all alerts flagged during the month
+    const monthlyAlerts = await db
+      .select({
+        total: sql<string>`COUNT(*)`,
+        resolved: sql<string>`COUNT(CASE WHEN ${amlAlerts.status} = 'cleared' THEN 1 END)`,
+        escalated: sql<string>`COUNT(CASE WHEN ${amlAlerts.status} = 'escalated' THEN 1 END)`
+      })
+      .from(amlAlerts)
+      .where(
+        and(
+          gte(amlAlerts.flaggedAt, startDate),
+          lte(amlAlerts.flaggedAt, endDate)
+        )
+      );
+
+    const reportData = {
+      month,
+      year,
+      periodStart: startDate.toISOString().split('T')[0],
+      periodEnd: endDate.toISOString().split('T')[0],
+      transactionVolume: {
+        count: parseInt(monthlyStats[0]?.totalTransactions || '0'),
+        totalAmount: parseFloat(monthlyStats[0]?.totalVolume || '0'),
+        uniqueUsers: parseInt(monthlyStats[0]?.uniqueUsers || '0')
+      },
+      amlCompliance: {
+        alertsGenerated: parseInt(monthlyAlerts[0]?.total || '0'),
+        alertsResolved: parseInt(monthlyAlerts[0]?.resolved || '0'),
+        alertsEscalated: parseInt(monthlyAlerts[0]?.escalated || '0')
+      },
+      regulatoryStatus: 'compliant'
+    };
+
+    return await this.createComplianceReport({
+      reportType: 'monthly_regulatory',
+      reportPeriod: `${year}-${month.toString().padStart(2, '0')}`,
+      generatedBy: 'system',
+      reportData
+    });
+  }
+
   private getSettlementStatusMessage(status: string, holdReason?: string, rejectReason?: string, reasonComment?: string): string {
     switch (status) {
       case "approved":
@@ -1229,6 +1880,161 @@ export class DatabaseStorage implements IStorage {
   private formatReason(reason?: string): string {
     if (!reason) return "";
     return reason.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase());
+  }
+
+  // OTP operations for cashier assignment
+  async generateCashierOTP(userId: string): Promise<string> {
+    // Get the cashier's fixed ID
+    const cashier = await this.getUser(userId);
+    if (!cashier || cashier.role !== 'cashier') {
+      throw new Error('User is not a cashier');
+    }
+
+    let fixedId = cashier.cashierFixedId;
+    
+    // If no fixed ID exists, generate one
+    if (!fixedId) {
+      // Generate a unique 4-digit fixed ID
+      let attempts = 0;
+      do {
+        fixedId = String(Math.floor(Math.random() * 9000) + 1000);
+        const existing = await db
+          .select()
+          .from(users)
+          .where(eq(users.cashierFixedId, fixedId))
+          .limit(1);
+        
+        if (existing.length === 0) break;
+        attempts++;
+      } while (attempts < 10);
+
+      if (attempts === 10) {
+        throw new Error('Unable to generate unique fixed ID');
+      }
+
+      // Update the cashier with the fixed ID
+      await db
+        .update(users)
+        .set({ cashierFixedId: fixedId })
+        .where(eq(users.id, userId));
+    }
+
+    // Generate random 4-digit suffix
+    const randomPart = String(Math.floor(Math.random() * 9000) + 1000);
+    const fullOtp = `${fixedId}-${randomPart}`;
+    
+    // Set expiry to 15 minutes from now
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+    
+    // Update user with new OTP
+    await db
+      .update(users)
+      .set({
+        currentOtp: fullOtp,
+        otpGeneratedAt: new Date(),
+        otpExpiresAt: expiresAt,
+        otpUsed: false,
+        updatedAt: new Date()
+      })
+      .where(eq(users.id, userId));
+
+    // Store in history
+    await db
+      .insert(cashierOtpHistory)
+      .values({
+        cashierUserId: userId,
+        fixedId: fixedId,
+        fullOtp: fullOtp,
+        generatedAt: new Date(),
+        expiresAt: expiresAt,
+        isActive: true
+      });
+
+    return fullOtp;
+  }
+
+  async validateOTP(otp: string): Promise<{ valid: boolean; cashierUserId?: string; cashierName?: string }> {
+    const cashier = await db
+      .select({
+        id: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        currentOtp: users.currentOtp,
+        otpExpiresAt: users.otpExpiresAt,
+        otpUsed: users.otpUsed
+      })
+      .from(users)
+      .where(
+        and(
+          eq(users.currentOtp, otp),
+          eq(users.role, 'cashier'),
+          eq(users.isActive, true)
+        )
+      )
+      .limit(1);
+
+    if (cashier.length === 0) {
+      return { valid: false };
+    }
+
+    const cashierData = cashier[0];
+    
+    // Check if OTP is expired
+    if (cashierData.otpExpiresAt && new Date() > cashierData.otpExpiresAt) {
+      return { valid: false };
+    }
+
+    // Check if OTP is already used
+    if (cashierData.otpUsed) {
+      return { valid: false };
+    }
+
+    return {
+      valid: true,
+      cashierUserId: cashierData.id,
+      cashierName: `${cashierData.firstName} ${cashierData.lastName}`
+    };
+  }
+
+  async markOTPAsUsed(otp: string, transactionId: number, paymentType: string): Promise<void> {
+    // Mark OTP as used in users table
+    await db
+      .update(users)
+      .set({
+        otpUsed: true,
+        updatedAt: new Date()
+      })
+      .where(eq(users.currentOtp, otp));
+
+    // Update history record
+    await db
+      .update(cashierOtpHistory)
+      .set({
+        usedAt: new Date(),
+        transactionId: transactionId,
+        paymentType: paymentType,
+        isActive: false
+      })
+      .where(eq(cashierOtpHistory.fullOtp, otp));
+  }
+
+  async refreshOTPIfNeeded(userId: string): Promise<string | null> {
+    const cashier = await this.getUser(userId);
+    if (!cashier || cashier.role !== 'cashier') {
+      return null;
+    }
+
+    // Check if current OTP is expired or used
+    const needsRefresh = !cashier.currentOtp || 
+                        !cashier.otpExpiresAt || 
+                        new Date() > cashier.otpExpiresAt || 
+                        cashier.otpUsed;
+
+    if (needsRefresh) {
+      return await this.generateCashierOTP(userId);
+    }
+
+    return cashier.currentOtp;
   }
 }
 
