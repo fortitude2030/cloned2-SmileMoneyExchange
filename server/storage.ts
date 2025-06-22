@@ -7,6 +7,7 @@ import {
   documents,
   settlementRequests,
   qrCodes,
+  cashierOtpHistory,
   notifications,
   kycDocuments,
   amlConfiguration,
@@ -118,6 +119,12 @@ export interface IStorage {
   getQrCodeByHash(hash: string): Promise<QrCode | undefined>;
   markQrCodeAsUsed(id: number): Promise<void>;
   expungeExpiredQrCodes(): Promise<void>;
+  
+  // OTP operations for cashier assignment
+  generateCashierOTP(userId: string): Promise<string>;
+  validateOTP(otp: string): Promise<{ valid: boolean; cashierUserId?: string; cashierName?: string }>;
+  markOTPAsUsed(otp: string, transactionId: number, paymentType: string): Promise<void>;
+  refreshOTPIfNeeded(userId: string): Promise<string | null>;
   getActiveQrCodeByTransactionId(transactionId: number): Promise<QrCode | undefined>;
   
   // KYC Document operations
@@ -1873,6 +1880,161 @@ export class DatabaseStorage implements IStorage {
   private formatReason(reason?: string): string {
     if (!reason) return "";
     return reason.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase());
+  }
+
+  // OTP operations for cashier assignment
+  async generateCashierOTP(userId: string): Promise<string> {
+    // Get the cashier's fixed ID
+    const cashier = await this.getUser(userId);
+    if (!cashier || cashier.role !== 'cashier') {
+      throw new Error('User is not a cashier');
+    }
+
+    let fixedId = cashier.cashierFixedId;
+    
+    // If no fixed ID exists, generate one
+    if (!fixedId) {
+      // Generate a unique 4-digit fixed ID
+      let attempts = 0;
+      do {
+        fixedId = String(Math.floor(Math.random() * 9000) + 1000);
+        const existing = await db
+          .select()
+          .from(users)
+          .where(eq(users.cashierFixedId, fixedId))
+          .limit(1);
+        
+        if (existing.length === 0) break;
+        attempts++;
+      } while (attempts < 10);
+
+      if (attempts === 10) {
+        throw new Error('Unable to generate unique fixed ID');
+      }
+
+      // Update the cashier with the fixed ID
+      await db
+        .update(users)
+        .set({ cashierFixedId: fixedId })
+        .where(eq(users.id, userId));
+    }
+
+    // Generate random 4-digit suffix
+    const randomPart = String(Math.floor(Math.random() * 9000) + 1000);
+    const fullOtp = `${fixedId}-${randomPart}`;
+    
+    // Set expiry to 15 minutes from now
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+    
+    // Update user with new OTP
+    await db
+      .update(users)
+      .set({
+        currentOtp: fullOtp,
+        otpGeneratedAt: new Date(),
+        otpExpiresAt: expiresAt,
+        otpUsed: false,
+        updatedAt: new Date()
+      })
+      .where(eq(users.id, userId));
+
+    // Store in history
+    await db
+      .insert(cashierOtpHistory)
+      .values({
+        cashierUserId: userId,
+        fixedId: fixedId,
+        fullOtp: fullOtp,
+        generatedAt: new Date(),
+        expiresAt: expiresAt,
+        isActive: true
+      });
+
+    return fullOtp;
+  }
+
+  async validateOTP(otp: string): Promise<{ valid: boolean; cashierUserId?: string; cashierName?: string }> {
+    const cashier = await db
+      .select({
+        id: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        currentOtp: users.currentOtp,
+        otpExpiresAt: users.otpExpiresAt,
+        otpUsed: users.otpUsed
+      })
+      .from(users)
+      .where(
+        and(
+          eq(users.currentOtp, otp),
+          eq(users.role, 'cashier'),
+          eq(users.isActive, true)
+        )
+      )
+      .limit(1);
+
+    if (cashier.length === 0) {
+      return { valid: false };
+    }
+
+    const cashierData = cashier[0];
+    
+    // Check if OTP is expired
+    if (cashierData.otpExpiresAt && new Date() > cashierData.otpExpiresAt) {
+      return { valid: false };
+    }
+
+    // Check if OTP is already used
+    if (cashierData.otpUsed) {
+      return { valid: false };
+    }
+
+    return {
+      valid: true,
+      cashierUserId: cashierData.id,
+      cashierName: `${cashierData.firstName} ${cashierData.lastName}`
+    };
+  }
+
+  async markOTPAsUsed(otp: string, transactionId: number, paymentType: string): Promise<void> {
+    // Mark OTP as used in users table
+    await db
+      .update(users)
+      .set({
+        otpUsed: true,
+        updatedAt: new Date()
+      })
+      .where(eq(users.currentOtp, otp));
+
+    // Update history record
+    await db
+      .update(cashierOtpHistory)
+      .set({
+        usedAt: new Date(),
+        transactionId: transactionId,
+        paymentType: paymentType,
+        isActive: false
+      })
+      .where(eq(cashierOtpHistory.fullOtp, otp));
+  }
+
+  async refreshOTPIfNeeded(userId: string): Promise<string | null> {
+    const cashier = await this.getUser(userId);
+    if (!cashier || cashier.role !== 'cashier') {
+      return null;
+    }
+
+    // Check if current OTP is expired or used
+    const needsRefresh = !cashier.currentOtp || 
+                        !cashier.otpExpiresAt || 
+                        new Date() > cashier.otpExpiresAt || 
+                        cashier.otpUsed;
+
+    if (needsRefresh) {
+      return await this.generateCashierOTP(userId);
+    }
+
+    return cashier.currentOtp;
   }
 }
 
