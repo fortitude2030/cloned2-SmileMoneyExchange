@@ -117,14 +117,20 @@ export default function CashierDashboard() {
   const [activeQrTransaction, setActiveQrTransaction] = useState<any>(null);
 
   // OTP management
-  const { data: otpData, isLoading: otpLoading, refetch: refetchOtp } = useQuery({
+  const { data: otpData, isLoading: otpLoading, refetch: refetchOtp } = useQuery<{
+    otp: string | null;
+    firstName: string;
+    expiresAt: string;
+    isActive: boolean;
+    message?: string;
+  }>({
     queryKey: ['/api/cashiers/current-otp'],
     refetchInterval: 30000, // Refresh every 30 seconds
     retry: false,
   });
 
   const generateOtpMutation = useMutation({
-    mutationFn: () => apiRequest('/api/cashiers/generate-otp', 'POST'),
+    mutationFn: () => apiRequest('/api/cashiers/generate-otp', 'POST', {}),
     onSuccess: () => {
       refetchOtp();
       toast({

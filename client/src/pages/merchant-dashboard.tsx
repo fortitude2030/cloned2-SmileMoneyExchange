@@ -25,8 +25,14 @@ export default function MerchantDashboard() {
   const [showQRModal, setShowQRModal] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [vmfNumber, setVmfNumber] = useState("");
+  const [cashierOtp, setCashierOtp] = useState("");
   const [showAllTransactions, setShowAllTransactions] = useState(false);
   const [lastQrTransactionId, setLastQrTransactionId] = useState<string | null>(null);
+  const [otpValidation, setOtpValidation] = useState<{
+    valid: boolean;
+    cashierName?: string;
+    timeRemaining?: number;
+  } | null>(null);
 
 
 
@@ -118,25 +124,79 @@ export default function MerchantDashboard() {
     }
   }, [transactions, showQRModal, lastQrTransactionId, toast]);
 
+  // OTP validation functionality
+  const validateOtp = async (otp: string) => {
+    if (!/^\d{4}-\d{4}$/.test(otp)) {
+      setOtpValidation({ valid: false });
+      toast({
+        title: "Invalid OTP Format",
+        description: "OTP must be in format xxxx-xxxx",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/cashiers/verify-otp/${otp}`);
+      const data = await response.json();
+      
+      if (data.valid) {
+        setOtpValidation({
+          valid: true,
+          cashierName: data.cashierName,
+          timeRemaining: data.timeRemaining
+        });
+        toast({
+          title: "OTP Verified",
+          description: `Valid cashier: ${data.cashierName}`,
+        });
+      } else {
+        setOtpValidation({ valid: false });
+        toast({
+          title: "Invalid OTP",
+          description: data.message || "OTP is invalid or expired",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      setOtpValidation({ valid: false });
+      toast({
+        title: "Validation Error",
+        description: "Failed to validate OTP",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handle OTP input change
+  const handleOtpChange = (value: string) => {
+    setCashierOtp(value);
+    if (value.length === 9 && value.includes('-')) {
+      validateOtp(value);
+    } else {
+      setOtpValidation(null);
+    }
+  };
+
   // Create payment request mutation
   const createPaymentRequest = useMutation({
     mutationFn: async ({ amount, vmfNumber, type = "cash_digitization" }: { amount: string; vmfNumber: string; type?: string }) => {
-      // For QR code payments, we need to route to a cashier
-      let targetUserId = (user as any)?.id || "";
-      
-      if (type === "qr_code_payment") {
-        // QR payments should go to the cashier for processing
-        targetUserId = "test-cashier-user"; // Route QR payments to cashier
+      // Check if OTP is required and valid for RTP and QR payments
+      if ((type === "rtp" || type === "qr_code_payment") && (!cashierOtp || !otpValidation?.valid)) {
+        throw new Error("Valid cashier OTP is required for RTP and QR payments");
       }
       
       await apiRequest("POST", "/api/transactions", {
-        toUserId: targetUserId,
+        toUserId: (user as any)?.id || "",
         amount,
         vmfNumber,
+        cashierOtp: (type === "rtp" || type === "qr_code_payment") ? cashierOtp : undefined,
         type,
         status: "pending",
         description: type === "qr_code_payment" 
           ? `QR code payment request - VMF: ${vmfNumber}`
+          : type === "rtp"
+          ? `RTP payment request - VMF: ${vmfNumber}`
           : `Cash digitization request - VMF: ${vmfNumber}`,
       });
     },
@@ -321,6 +381,47 @@ export default function MerchantDashboard() {
                   placeholder="Enter Voucher Movement Form number"
                   required
                 />
+              </div>
+              <div>
+                <Label htmlFor="cashierOtp">Cashier OTP Code *</Label>
+                <div className="relative">
+                  <Input
+                    id="cashierOtp"
+                    type="text"
+                    value={cashierOtp}
+                    onChange={(e) => {
+                      let value = e.target.value.replace(/[^0-9]/g, '');
+                      if (value.length > 4) {
+                        value = value.slice(0, 4) + '-' + value.slice(4, 8);
+                      }
+                      handleOtpChange(value);
+                    }}
+                    placeholder="xxxx-xxxx"
+                    maxLength={9}
+                    className={`pr-10 ${
+                      otpValidation?.valid ? 'border-green-500' : 
+                      otpValidation === null ? '' : 'border-red-500'
+                    }`}
+                  />
+                  {otpValidation?.valid && (
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                      <i className="fas fa-check text-green-500"></i>
+                    </div>
+                  )}
+                </div>
+                {otpValidation?.valid && (
+                  <p className="text-xs text-green-600 mt-1">
+                    Verified: {otpValidation.cashierName}
+                  </p>
+                )}
+                {otpValidation && !otpValidation.valid && (
+                  <p className="text-xs text-red-600 mt-1">
+                    Invalid or expired OTP
+                  </p>
+                )}
+                <p className="text-xs text-gray-500 mt-1">
+                  Get this code from your assigned cashier
+                </p>
               </div>
             </div>
           </CardContent>
