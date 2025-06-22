@@ -40,6 +40,12 @@ export const users = pgTable("users", {
   isEmailVerified: boolean("is_email_verified").default(false),
   tempPassword: varchar("temp_password"), // For first-time login
   lastLoginAt: timestamp("last_login_at"),
+  // OTP fields for cashier assignment
+  cashierFixedId: varchar("cashier_fixed_id", { length: 4 }).unique(),
+  currentOtp: varchar("current_otp", { length: 9 }),
+  otpGeneratedAt: timestamp("otp_generated_at"),
+  otpExpiresAt: timestamp("otp_expires_at"),
+  otpUsed: boolean("otp_used").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -141,7 +147,7 @@ export const transactions = pgTable("transactions", {
   fromUserId: varchar("from_user_id"),
   toUserId: varchar("to_user_id").notNull(),
   amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
-  type: varchar("type").notNull(), // cash_digitization, settlement, transfer
+  type: varchar("type").notNull(), // cash_digitization, settlement, transfer, rtp, qr_code_payment
   status: varchar("status").notNull(), // pending, approved, completed, rejected
   priority: varchar("priority").default("medium"), // low, medium, high - set by admin
   description: text("description"),
@@ -150,6 +156,8 @@ export const transactions = pgTable("transactions", {
   rejectionReason: varchar("rejection_reason"), // reason for rejection
   qrCode: text("qr_code"),
   processedBy: varchar("processed_by"), // cashier who processed the transaction
+  assignedCashierId: varchar("assigned_cashier_id"), // OTP-assigned cashier
+  otpUsed: varchar("otp_used"), // OTP that was used for this transaction
   expiresAt: timestamp("expires_at"), // Transaction expiration timestamp
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -194,6 +202,20 @@ export const qrCodes = pgTable("qr_codes", {
   isUsed: boolean("is_used").notNull().default(false),
   usedAt: timestamp("used_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const cashierOtpHistory = pgTable("cashier_otp_history", {
+  id: serial("id").primaryKey(),
+  cashierUserId: varchar("cashier_user_id").notNull(),
+  fixedId: varchar("fixed_id", { length: 4 }).notNull(),
+  fullOtp: varchar("full_otp", { length: 9 }).notNull(),
+  generatedAt: timestamp("generated_at").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  transactionId: integer("transaction_id"),
+  paymentType: varchar("payment_type"), // 'rtp' or 'qr'
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const notifications = pgTable("notifications", {
