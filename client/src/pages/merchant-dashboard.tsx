@@ -259,6 +259,15 @@ export default function MerchantDashboard() {
       return;
     }
 
+    if (!cashierOtp || !otpValidation?.valid) {
+      toast({
+        title: "Cashier OTP Required",
+        description: "Please enter a valid cashier OTP code",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const amount = Math.floor(parseFloat(paymentAmount));
     const dailyCollected = Math.floor(parseFloat(wallet?.dailyCollected || "0"));
     const dailyLimit = 1000000; // K1,000,000 collection limit
@@ -273,7 +282,7 @@ export default function MerchantDashboard() {
       return;
     }
 
-    createPaymentRequest.mutate({ amount: paymentAmount, vmfNumber });
+    createPaymentRequest.mutate({ amount: paymentAmount, vmfNumber, type: "rtp" });
   };
 
   const formatCurrency = (amount: string | number) => {
@@ -431,10 +440,10 @@ export default function MerchantDashboard() {
         <div className="grid grid-cols-2 gap-4 mb-6 mt-6">
           <Button
             onClick={() => {
-              if (!paymentAmount || !vmfNumber.trim()) {
+              if (!paymentAmount || !vmfNumber.trim() || !cashierOtp || !otpValidation?.valid) {
                 toast({
                   title: "Missing Information", 
-                  description: "Please enter both amount and VMF number before generating QR code",
+                  description: "Please enter amount, VMF number, and valid cashier OTP before generating QR code",
                   variant: "destructive",
                 });
                 return;
